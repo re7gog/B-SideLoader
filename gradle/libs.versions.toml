@@ -6,8 +6,8 @@ junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.4"
-kotlin = "2.0.21"
-composeBom = "2025.07.00"
+kotlin = "2.3.10"
+composeBom = "2026.02.00"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
