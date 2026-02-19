@@ -1,4 +1,4 @@
-package dev.re7gog.b_sideloader.data
+package dev.re7gog.b_sideloader.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -7,9 +7,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import dev.re7gog.b_sideloader.data.entities.AppEntity
-import dev.re7gog.b_sideloader.data.entities.AppWithDetails
-import dev.re7gog.b_sideloader.data.entities.GithubDetailsEntity
+import dev.re7gog.b_sideloader.data.local.entities.AppEntity
+import dev.re7gog.b_sideloader.data.local.entities.GithubDetailsEntity
+import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -20,12 +20,12 @@ interface AppsDao {
 
     @Transaction
     @Query("SELECT * from apps WHERE id = :id")
-    fun getApp(id: Int): Flow<AppWithDetails>
+    fun getApp(id: Long): Flow<AppWithDetails>
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertApp(app: AppEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertApp(app: AppEntity): Long
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGithubDetails(details: GithubDetailsEntity)
 
     @Update

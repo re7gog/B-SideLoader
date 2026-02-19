@@ -4,24 +4,31 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import dagger.hilt.android.AndroidEntryPoint
+import dev.re7gog.b_sideloader.ui.features.add_app.AddAppScreen
+import dev.re7gog.b_sideloader.ui.features.apps_list.AppsListScreen
+import dev.re7gog.b_sideloader.ui.features.settings.SettingsScreen
+import dev.re7gog.b_sideloader.ui.navigation.AddAppRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
+import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
+import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,55 +44,64 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun BSideLoaderApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.APPS) }
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            topLevelDestinations.forEach {
                 item(
+                    selected = currentDestination?.hasRoute(it.route::class) == true,
+                    onClick = {
+                        navController.navigate(it.route) {
+                            // Clear navigation stack but save state
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true // Do not create copies of same screen
+                            restoreState = true
+                        }
+                    },
                     icon = {
                         Icon(
                             painter = painterResource(it.icon),
-                            contentDescription = it.label
+                            contentDescription = stringResource(it.label)
                         )
                     },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    label = { Text(stringResource(it.label)) }
                 )
             }
         }
     ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+        NavHost(
+            navController = navController,
+            startDestination = AppsListRoute
+        ) {
+            composable<AppsListRoute> {
+                AppsListScreen(
+                    //onAppClick = { id ->
+                    //navController.navigate(AppDetailsRoute(appId = id))
+                    //}
+                )
+            }
+
+            composable<AddAppRoute> {
+                AddAppScreen(onSuccess = {
+                    navController.navigate(AppsListRoute) {
+                        popUpTo<AppsListRoute> { inclusive = true /* Remove screen from stack */ }
+                    }
+                })
+            }
+
+            composable<SettingsRoute> {
+                SettingsScreen()
+            }
+
+            //composable<AppDetailsRoute> { backStackEntry ->
+            //    val args: AppDetailsRoute = backStackEntry.toRoute()
+            //    AppsDetailsScreen(appId = args.appId)
+            //}
         }
-    }
-}
-
-enum class AppDestinations(
-    val label: String,
-    @param:DrawableRes val icon: Int,
-) {
-    APPS("Apps", R.drawable.apps_24px),
-    ADD("Add", R.drawable.add_24px),
-    SETTINGS("Settings", R.drawable.settings_24px),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    BSideLoaderTheme {
-        Greeting("Android")
     }
 }

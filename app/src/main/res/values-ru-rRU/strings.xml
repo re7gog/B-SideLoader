@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">B-SideLoader</string>
+    <string name="apps">Приложения</string>
+    <string name="add">Добавить</string>
+    <string name="settings">Настройки</string>
+</resources>

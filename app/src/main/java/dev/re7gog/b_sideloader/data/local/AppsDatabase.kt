@@ -1,11 +1,10 @@
-package dev.re7gog.b_sideloader.data
+package dev.re7gog.b_sideloader.data.local
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
-import dev.re7gog.b_sideloader.data.entities.AppEntity
-import dev.re7gog.b_sideloader.data.entities.GithubDetailsEntity
+import dev.re7gog.b_sideloader.data.local.dao.AppsDao
+import dev.re7gog.b_sideloader.data.local.entities.AppEntity
+import dev.re7gog.b_sideloader.data.local.entities.GithubDetailsEntity
 
 // TODO: Export schema for migration support
 @Database(
@@ -19,6 +18,8 @@ import dev.re7gog.b_sideloader.data.entities.GithubDetailsEntity
 abstract class AppsDatabase : RoomDatabase() {
     abstract fun appsDao(): AppsDao
 
+    // Not needed with Hilt
+    /*
     companion object {
         @Volatile
         private var Instance: AppsDatabase? = null
@@ -27,10 +28,11 @@ abstract class AppsDatabase : RoomDatabase() {
             // if the Instance is not null, return it, otherwise create a new database instance.
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(context, AppsDatabase::class.java, "apps_database")
-                    .fallbackToDestructiveMigration(true)  // TODO: Support migration
+                    .fallbackToDestructiveMigration(true)
                     .build()
                     .also { Instance = it }
             }
         }
     }
+    */
 }
