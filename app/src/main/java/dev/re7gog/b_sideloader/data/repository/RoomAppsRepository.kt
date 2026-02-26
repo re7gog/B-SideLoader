@@ -35,7 +35,8 @@ class RoomAppsRepository @Inject constructor(
             when (app) {
                 is AppType.GithubApp -> {
                     appsDao.updateApp(app.app)
-                    appsDao.updateGithubDetails(app.details)                }
+                    appsDao.updateGithubDetails(app.details)
+                }
             }
         }
     }

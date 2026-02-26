@@ -8,8 +8,10 @@ import retrofit2.http.Query
 interface GithubApi {
     @GET("search/repositories")
     suspend fun searchRepositories(
+        @Header("User-Agent") userAgent: String = "B-SideLoader",
+        @Header("Accept") accept: String = "application/vnd.github+json",
+        @Header("X-GitHub-Api-Version") apiVersion: String = "2022-11-28",
         @Query("q") query: String,
-        @Query("sort") sort: String = "stars",
-        @Header("User-Agent") userAgent: String = "B-SideLoader"
+        @Query("page") page: Int = 1
     ): GithubSearchResponse
 }

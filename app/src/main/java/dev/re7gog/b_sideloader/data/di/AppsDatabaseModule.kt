@@ -28,7 +28,7 @@ object AppsDatabaseModule {
 
     @Provides
     @Singleton
-    fun provideAppsRepository(db: AppsDatabase): AppsRepository {
-        return RoomAppsRepository(db, db.appsDao())
+    fun provideAppsRepository(db: AppsDatabase, dao: AppsDao): AppsRepository {
+        return RoomAppsRepository(db, dao)
     }
 }

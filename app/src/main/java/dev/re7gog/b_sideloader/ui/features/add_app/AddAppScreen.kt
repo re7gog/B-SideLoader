@@ -1,16 +1,23 @@
 package dev.re7gog.b_sideloader.ui.features.add_app
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -70,23 +77,58 @@ fun AddAppSearchBar(
                 onSearch = { viewModel.isSearchExpanded = false },
                 expanded = viewModel.isSearchExpanded,
                 onExpandedChange = { viewModel.isSearchExpanded = it },
-                placeholder = { Text(stringResource(R.string.add)) },
+                placeholder = { Text(stringResource(R.string.search)) },
                 leadingIcon = {
                     Icon(
                         painterResource(R.drawable.search_24px),
                         contentDescription = null
                     )
+                },
+                trailingIcon = {
+                    if (viewModel.isSearchExpanded) {
+                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                            Icon(
+                                painterResource(R.drawable.close_24px),
+                                contentDescription = null
+                            )
+                        }
+                    }
                 }
             )
         },
         expanded = viewModel.isSearchExpanded,
         onExpandedChange = { viewModel.isSearchExpanded = it }
     ) {
-        if (viewModel.isLoading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
+            Text(
+                text = "Enter repo name",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+        if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        SearchResults(viewModel = viewModel, modifier = Modifier.fillMaxWidth())
+    }
+}
 
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+@Composable
+fun SearchResults(
+    viewModel: AddAppViewModel,
+    modifier: Modifier = Modifier
+) {
+    if (viewModel.isLoading) {
+        repeat(5) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+    } else {
+        LazyColumn(modifier = modifier) {
             items(viewModel.searchResult) { repo ->
                 ListItem(
                     headlineContent = { Text(repo.fullName) },
@@ -107,6 +149,5 @@ fun AddAppSearchBar(
                 )
             }
         }
-
     }
 }

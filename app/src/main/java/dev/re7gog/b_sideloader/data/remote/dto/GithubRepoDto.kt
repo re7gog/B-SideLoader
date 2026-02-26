@@ -14,7 +14,6 @@ data class GithubRepoDto(
     @SerialName("full_name") val fullName: String,
     @SerialName("description") val description: String?,
     @SerialName("html_url") val htmlUrl: String,
-    @SerialName("stargazers_count") val stars: Int,
     val owner: GithubOwnerDto
 )
 

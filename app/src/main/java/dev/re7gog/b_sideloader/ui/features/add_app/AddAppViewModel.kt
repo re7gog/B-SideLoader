@@ -45,7 +45,7 @@ class AddAppViewModel @Inject constructor(
     private suspend fun performSearch(query: String) {
         isLoading = true
         try {
-            val response = githubApi.searchRepositories(query)
+            val response = githubApi.searchRepositories(query = query)
             searchResult = response.items
         } catch (e: Exception) {
             // TODO: Handle exceptions
