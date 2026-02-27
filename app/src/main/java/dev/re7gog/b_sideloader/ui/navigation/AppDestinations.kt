@@ -13,7 +13,17 @@ object AddAppRoute
 object SettingsRoute
 
 @Serializable
-data class AppDetailsRoute(val appId: Int)
+data class AppDetailsFromDbRoute(val appId: Long)
+
+@Serializable
+data class AppDetailsFromSearchRoute(
+    val name: String,
+    val description: String?,
+    val fullName: String,
+    val stars: Int,
+    val owner: String,
+    val iconUrl: String?,
+)
 
 data class NavMenuItem<T : Any>(
     val route: T,

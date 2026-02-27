@@ -10,14 +10,15 @@ data class GithubSearchResponse(
 
 @Serializable
 data class GithubRepoDto(
-    val id: Long,
+    val name: String,
+    val description: String?,
     @SerialName("full_name") val fullName: String,
-    @SerialName("description") val description: String?,
-    @SerialName("html_url") val htmlUrl: String,
+    @SerialName("stargazers_count") val stars: Int,
     val owner: GithubOwnerDto
 )
 
 @Serializable
 data class GithubOwnerDto(
+    val login: String,
     @SerialName("avatar_url") val avatarUrl: String
 )

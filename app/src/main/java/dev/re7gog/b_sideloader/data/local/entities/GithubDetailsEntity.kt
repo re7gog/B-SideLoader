@@ -19,6 +19,6 @@ import androidx.room.PrimaryKey
 )
 data class GithubDetailsEntity(
     @PrimaryKey val id: Long,
-    val url: String,
+    val fullName: String,
     val usePrereleases: Boolean
 )

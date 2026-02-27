@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.features.add_app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -31,10 +32,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 
 @Composable
 fun AddAppScreen(
     onSuccess: () -> Unit,
+    onSearchResClick: (repo: GithubRepoDto) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddAppViewModel = hiltViewModel()
 ) {
@@ -44,7 +47,11 @@ fun AddAppScreen(
         Column(
             modifier = Modifier.padding(paddingValues)
         ) {
-            AddAppSearchBar(viewModel, modifier = Modifier.fillMaxWidth())
+            AddAppSearchBar(
+                viewModel = viewModel,
+                onSearchResClick = onSearchResClick,
+                modifier = Modifier.fillMaxWidth()
+            )
             /*
             OutlinedTextField(
                 value = viewModel.name,
@@ -65,6 +72,7 @@ fun AddAppScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAppSearchBar(
+    onSearchResClick: (repo: GithubRepoDto) -> Unit,
     viewModel: AddAppViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -108,12 +116,17 @@ fun AddAppSearchBar(
             )
         }
         if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        SearchResults(viewModel = viewModel, modifier = Modifier.fillMaxWidth())
+        SearchResults(
+            viewModel = viewModel,
+            onSearchResClick = onSearchResClick,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
 @Composable
 fun SearchResults(
+    onSearchResClick: (repo: GithubRepoDto) -> Unit,
     viewModel: AddAppViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -145,7 +158,7 @@ fun SearchResults(
                             Icon(Icons.Default.Add, contentDescription = "Add")
                         }
                     },*/
-                    //modifier = Modifier.clickable {  }
+                    modifier = Modifier.clickable { onSearchResClick(repo) }
                 )
             }
         }

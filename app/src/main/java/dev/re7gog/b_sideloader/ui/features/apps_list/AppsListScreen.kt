@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.ui.features.apps_list
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 
 @Composable
 fun AppsListScreen(
+    onAppClick: (id: Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AppsListViewModel = hiltViewModel()
 ) {
@@ -36,7 +38,10 @@ fun AppsListScreen(
                 items = appsState,
                 key = { it.app.id }
             ) { appItem ->
-                AppItemCard(appItem = appItem)
+                AppItemCard(
+                    appItem = appItem,
+                    modifier = Modifier.clickable { onAppClick(appItem.app.id) }
+                )
             }
         }
     }

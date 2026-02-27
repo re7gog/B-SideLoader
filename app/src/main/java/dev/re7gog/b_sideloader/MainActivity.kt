@@ -19,9 +19,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import dev.re7gog.b_sideloader.ui.features.add_app.AddAppScreen
+import dev.re7gog.b_sideloader.ui.features.app_details.AppDetailsScreen
 import dev.re7gog.b_sideloader.ui.features.apps_list.AppsListScreen
 import dev.re7gog.b_sideloader.ui.features.settings.SettingsScreen
 import dev.re7gog.b_sideloader.ui.navigation.AddAppRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromDbRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
 import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
@@ -78,28 +81,35 @@ fun BSideLoaderApp() {
         ) {
             composable<AppsListRoute> {
                 AppsListScreen(
-                    //onAppClick = { id ->
-                    //navController.navigate(AppDetailsRoute(appId = id))
-                    //}
+                    onAppClick = { id ->
+                        navController.navigate(AppDetailsFromDbRoute(appId = id))
+                    }
                 )
             }
-
             composable<AddAppRoute> {
-                AddAppScreen(onSuccess = {
-                    navController.navigate(AppsListRoute) {
-                        popUpTo<AppsListRoute> { inclusive = true /* Remove screen from stack */ }
+                AddAppScreen(
+                    onSuccess = {
+                        navController.navigate(AppsListRoute) {
+                            popUpTo<AppsListRoute> { inclusive = true /* Remove screen from stack */ }
+                        }
+                    },
+                    onSearchResClick = { repo ->
+                        navController.navigate(
+                            AppDetailsFromSearchRoute(
+                                name = repo.name,
+                                description = repo.description,
+                                fullName = repo.fullName,
+                                stars = repo.stars,
+                                owner = repo.owner.login,
+                                iconUrl = repo.owner.avatarUrl
+                            )
+                        )
                     }
-                })
+                )
             }
-
-            composable<SettingsRoute> {
-                SettingsScreen()
-            }
-
-            //composable<AppDetailsRoute> { backStackEntry ->
-            //    val args: AppDetailsRoute = backStackEntry.toRoute()
-            //    AppsDetailsScreen(appId = args.appId)
-            //}
+            composable<SettingsRoute> { SettingsScreen() }
+            composable<AppDetailsFromDbRoute> { AppDetailsScreen() }
+            composable<AppDetailsFromSearchRoute> { AppDetailsScreen() }
         }
     }
 }
