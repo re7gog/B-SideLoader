@@ -20,10 +20,10 @@ interface AppsDao {
 
     @Transaction
     @Query("SELECT * from apps WHERE id = :id")
-    fun getApp(id: Long): Flow<AppWithDetails>
+    fun getApp(id: Long): Flow<AppWithDetails?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertApp(app: AppEntity): Long
+    suspend fun insertApp(app: AppEntity): Long  // Returns id
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGithubDetails(details: GithubDetailsEntity)

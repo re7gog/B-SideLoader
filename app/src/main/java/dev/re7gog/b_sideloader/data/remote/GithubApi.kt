@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.data.remote
 
+import dev.re7gog.b_sideloader.data.remote.dto.GithubReleaseDto
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import dev.re7gog.b_sideloader.data.remote.dto.GithubSearchResponse
 import retrofit2.http.GET
@@ -29,4 +30,14 @@ interface GithubApi {
         @Path("owner") owner: String,
         @Path("repo") repo: String
     ): GithubRepoDto
+
+    @GET("repos/{owner}/{repo}/releases")
+    suspend fun getReleases(
+        @Header("User-Agent") userAgent: String = USER_AGENT,
+        @Header("Accept") accept: String = ACCEPT,
+        @Header("X-GitHub-Api-Version") apiVersion: String = API_VERSION,
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("page") page: Int = 1
+    ): List<GithubReleaseDto>
 }

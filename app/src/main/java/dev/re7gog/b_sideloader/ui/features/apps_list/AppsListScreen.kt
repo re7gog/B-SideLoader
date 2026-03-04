@@ -1,12 +1,17 @@
 package dev.re7gog.b_sideloader.ui.features.apps_list
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -14,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.re7gog.b_sideloader.R
@@ -32,7 +38,9 @@ fun AppsListScreen(
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(
                 items = appsState,
@@ -40,7 +48,9 @@ fun AppsListScreen(
             ) { appItem ->
                 AppItemCard(
                     appItem = appItem,
-                    modifier = Modifier.clickable { onAppClick(appItem.app.id) }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAppClick(appItem.app.id) }
                 )
             }
         }
@@ -53,10 +63,12 @@ fun AppItemCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row {
-            Text(text = appItem.app.name)
+        Row(modifier = Modifier.padding(16.dp)) {
+            // TODO: App icon
+            Text(text = appItem.app.name, style = MaterialTheme.typography.titleMedium)
         }
     }
 }

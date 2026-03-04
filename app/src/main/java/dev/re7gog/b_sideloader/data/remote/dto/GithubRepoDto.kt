@@ -10,9 +10,9 @@ data class GithubSearchResponse(
 
 @Serializable
 data class GithubRepoDto(
+    @SerialName("full_name") val fullName: String,
     val name: String,
     val description: String?,
-    @SerialName("full_name") val fullName: String,
     @SerialName("stargazers_count") val stars: Int,
     val owner: GithubOwnerDto
 )
@@ -21,4 +21,18 @@ data class GithubRepoDto(
 data class GithubOwnerDto(
     val login: String,
     @SerialName("avatar_url") val avatarUrl: String
+)
+
+@Serializable
+data class GithubReleaseDto(
+    val name: String,
+    val body: String,  // Description
+    val prerelease: Boolean,
+    val assets: List<GithubReleaseAssetDto>
+)
+
+@Serializable
+data class GithubReleaseAssetDto(
+    val name: String,
+    @SerialName("browser_download_url") val browserDownloadUrl: String
 )

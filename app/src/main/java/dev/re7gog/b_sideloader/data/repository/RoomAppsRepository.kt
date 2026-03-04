@@ -15,7 +15,6 @@ class RoomAppsRepository @Inject constructor(
     private val appsDao: AppsDao
 ) : AppsRepository {
     override fun getAllAppsStream(): Flow<List<AppWithDetails>> = appsDao.getAllApps()
-
     override fun getAppStream(id: Long): Flow<AppWithDetails?> = appsDao.getApp(id)
 
     override suspend fun addApp(app: AppType) {

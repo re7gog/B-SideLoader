@@ -7,7 +7,7 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.4"
 kotlin = "2.3.10"
-composeBom = "2026.02.00"
+composeBom = "2026.02.01"
 ksp = "2.3.5"
 room = "2.8.4"
 hilt = "2.59.2"
@@ -16,6 +16,7 @@ kotlinxSerializationJson = "1.10.0"
 androidxNavigationCompose = "2.9.7"
 retrofit = "3.0.0"
 coil = "3.4.0"
+okhttpBom = "5.3.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -45,6 +46,9 @@ retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = 
 retrofit-converter-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+okhttp-bom = { group = "com.squareup.okhttp3", name = "okhttp-bom", version.ref = "okhttpBom" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp"}
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

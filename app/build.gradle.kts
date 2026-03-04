@@ -74,11 +74,16 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.navigation.compose)
 
-    //Retrofit
+    // Retrofit
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.serialization)
 
-    //Coil
+    // Coil
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
+
+    // OkHttp
+    implementation(platform(libs.okhttp.bom))
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
 }

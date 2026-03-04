@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:ignore="RequestInstallPackagesPolicy" />
     <application
         android:name=".BSideApplication"
         android:allowBackup="true"
@@ -15,12 +17,18 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.BSideLoader">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver
+            android:name=".data.logic.installers.InstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="dev.re7gog.b_sideloader.INSTALL_COMPLETE" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

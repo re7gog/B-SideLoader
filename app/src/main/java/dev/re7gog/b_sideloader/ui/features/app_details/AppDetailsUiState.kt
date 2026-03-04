@@ -10,7 +10,9 @@ data class AppDetailsUiState(
     val fullName: String,
     val stars: Int,
     val owner: String,
-    val iconUrl: String
+    val iconUrl: String,
+    val installProgress: Float? = null,
+    val isInstalling: Boolean = false
 )
 
 // From DB to UI
