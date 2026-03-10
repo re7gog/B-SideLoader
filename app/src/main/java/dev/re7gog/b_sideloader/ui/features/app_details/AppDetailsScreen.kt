@@ -96,13 +96,13 @@ fun InstallButton(state: AppDetailsUiState, onInstallClick: () -> Unit) {
     if (state.isInstalling) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             LinearProgressIndicator(
-                progress = { state.installProgress ?: 0f },
+                progress = { (state.installProgress ?: 0) / 100f },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
             Text(
-                text = "Load: ${( (state.installProgress ?: 0f) * 100).toInt()}%",
+                text = "Load: ${state.installProgress ?: 0}%",
                 style = MaterialTheme.typography.labelSmall
             )
         }

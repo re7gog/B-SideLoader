@@ -5,10 +5,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import kotlinx.coroutines.flow.FlowCollector
 import okhttp3.ResponseBody
+import kotlin.math.round
 
 class SessionInstaller(private val context: Context) : ApkInstaller {
-    override fun installApkFromDownload(download: ResponseBody, onProgress: (Float) -> Unit) {
+    override suspend fun installApkFromDownload(download: ResponseBody, progressCollector: FlowCollector<Int>) {
         val packageInstaller = context.packageManager.packageInstaller
         var sessionId = -1
         try {
@@ -29,7 +31,9 @@ class SessionInstaller(private val context: Context) : ApkInstaller {
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     outputStream.write(buffer, 0, bytesRead)
                     totalBytesRead += bytesRead
-                    onProgress(totalBytesRead.toFloat() / totalBytes)
+                    progressCollector.emit(
+                        round(totalBytesRead.toFloat() / totalBytes * 100).toInt()
+                    )
                 }
                 session.fsync(outputStream)
             }

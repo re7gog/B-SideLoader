@@ -68,6 +68,8 @@ dependencies {
     // Hilt
     implementation(libs.dagger.hilt)
     ksp(libs.dagger.hilt.compiler)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.work)
     implementation(libs.hilt.navigation.compose)
 
     // Navigation
@@ -86,4 +88,8 @@ dependencies {
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+
+    // Work
+    implementation(libs.work.runtime)
+    androidTestImplementation(libs.work.testing)
 }

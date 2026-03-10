@@ -1,7 +1,46 @@
 package dev.re7gog.b_sideloader
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import dagger.hilt.android.HiltAndroidApp
+import dev.re7gog.b_sideloader.data.logic.NotificationHelper
+import dev.re7gog.b_sideloader.data.logic.UpdateCheckWorker
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 @HiltAndroidApp
-class BSideApplication : Application()
+class BSideApplication: Application(), Configuration.Provider {
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
+
+    override fun onCreate() {
+        super.onCreate()
+        NotificationHelper.init(this)
+        schedulePeriodicUpdateCheck()
+    }
+
+    private fun schedulePeriodicUpdateCheck() {
+        val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(1, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.UNMETERED)
+                .setRequiresBatteryNotLow(true)
+                .build()
+            ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "check_updates",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+}
