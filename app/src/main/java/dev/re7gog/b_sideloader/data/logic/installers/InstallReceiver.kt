@@ -25,14 +25,14 @@ class InstallReceiver : BroadcastReceiver() {
             }
 
             PackageInstaller.STATUS_SUCCESS -> {
-                Log.d("InstallReceiver", "Install successful")
+                Log.i("B-SideLoader", "Install successful")
             }
 
             PackageInstaller.STATUS_FAILURE,
             PackageInstaller.STATUS_FAILURE_ABORTED,
             PackageInstaller.STATUS_FAILURE_STORAGE -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                Log.e("InstallReceiver", "Install failed ($status): $message")
+                Log.e("B-SideLoader", "Install failed ($status): $message")
             }
         }
     }

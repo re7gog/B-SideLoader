@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.data.logic
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.data.logic.installers.SessionInstaller
+import dev.re7gog.b_sideloader.data.logic.installers.ShizukuInstaller
 import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,14 @@ class InstallManager @Inject constructor(
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()
         if (!response.isSuccessful) throw Exception("Download failed: ${response.code}")
-        response.use { SessionInstaller(context).installApkFromDownload(it.body, this@flow) }
+        // TODO: Add install mode switch
+        //response.use { SessionInstaller(context).installApkFromDownload(it.body, this@flow) }
+        response.use {
+            val shizukuInstaller = ShizukuInstaller(context)
+            shizukuInstaller.init()
+            //shizukuInstaller.checkPermission()
+            shizukuInstaller.installApkFromDownload(it.body, this@flow)
+            shizukuInstaller.exit()
+        }
     }.flowOn(Dispatchers.IO)
 }

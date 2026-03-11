@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.devtools.ksp)
     alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.refine)
 }
 
 android {
@@ -26,11 +27,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            //signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -39,6 +42,10 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    dependenciesInfo {  // Bypass... something
+        includeInApk = false
+        includeInBundle = false
     }
 }
 
@@ -92,4 +99,15 @@ dependencies {
     // Work
     implementation(libs.work.runtime)
     androidTestImplementation(libs.work.testing)
+
+    // Shizuku and Dhizuku
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
+    implementation(libs.dhizuku.api)
+    implementation(libs.hidden.api.bypass)
+
+    ksp(libs.refine.annotation.processor)
+    compileOnly(libs.refine.annotation)
+    implementation(libs.refine.runtime)
+    compileOnly(libs.hidden.stub)
 }
