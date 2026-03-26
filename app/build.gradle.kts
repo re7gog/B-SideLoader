@@ -110,4 +110,6 @@ dependencies {
     compileOnly(libs.refine.annotation)
     implementation(libs.refine.runtime)
     compileOnly(libs.hidden.stub)
+
+    implementation(project(":tdlib"))
 }

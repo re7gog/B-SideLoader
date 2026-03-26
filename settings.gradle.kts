@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "B-SideLoader"
 include(":app")
+include(":tdlib")

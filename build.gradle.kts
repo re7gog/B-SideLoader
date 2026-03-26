@@ -6,4 +6,5 @@ plugins {
     alias(libs.plugins.dagger.hilt) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.refine) apply false
+    alias(libs.plugins.android.library) apply false
 }
