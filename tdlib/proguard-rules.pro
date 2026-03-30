@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keep class org.drinkless.td.libcore.telegram.TdApi { *; }
+-keep class org.drinkless.td.libcore.telegram.TdApi$* { *; }
+-keep class org.drinkless.td.libcore.telegram.NativeClient
+-keepclassmembers class org.drinkless.td.libcore.telegram.NativeClient { *; }
+-keep class org.drinkless.tdlib.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
