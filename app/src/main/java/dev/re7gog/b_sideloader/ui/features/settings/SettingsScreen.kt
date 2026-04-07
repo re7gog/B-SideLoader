@@ -1,6 +1,8 @@
 package dev.re7gog.b_sideloader.ui.features.settings
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -12,6 +14,7 @@ import dev.re7gog.b_sideloader.R
 
 @Composable
 fun SettingsScreen(
+    onTgLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
     //viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -21,10 +24,12 @@ fun SettingsScreen(
         topBar = { SettingsTopBar() },
         modifier = modifier
     ) { paddingValues ->
-        Text(
-            text = "Settings",
-            modifier = Modifier.padding(paddingValues)
-        )
+        Button(
+            onClick = onTgLoginClick,
+            modifier = Modifier.padding(paddingValues).fillMaxWidth()
+        ) {
+            Text("Login Telegram")
+        }
     }
 }
 

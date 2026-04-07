@@ -14,22 +14,24 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var inputFieldValue by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.step) {
@@ -51,12 +53,12 @@ fun AuthScreen(
         }
 
         when (val step = uiState.step) {
-            is AuthStep.Loading -> Text("Инициализация Telegram...")
+            is AuthStep.Loading -> Text("Initializing Telegram...")
 
             is AuthStep.PhoneInput -> {
                 AuthInputSection(
-                    title = "Ваш номер телефона",
-                    label = "+7 999 000 00 00",
+                    title = "Your phone number",
+                    label = "+79990000000",
                     value = inputFieldValue,
                     onValueChange = { inputFieldValue = it },
                     onConfirm = { viewModel.sendPhoneNumber(inputFieldValue); inputFieldValue = "" }
@@ -65,7 +67,7 @@ fun AuthScreen(
 
             is AuthStep.CodeInput -> {
                 AuthInputSection(
-                    title = "Код подтверждения",
+                    title = "Confirmation code",
                     label = "12345",
                     value = inputFieldValue,
                     onValueChange = { inputFieldValue = it },
@@ -73,10 +75,21 @@ fun AuthScreen(
                 )
             }
 
+            is AuthStep.PasswordInput -> {
+                AuthInputSection(
+                    title = "Cloud password (2FA)",
+                    label = "Enter your password",
+                    value = inputFieldValue,
+                    onValueChange = { inputFieldValue = it },
+                    onConfirm = { viewModel.sendPassword(inputFieldValue); inputFieldValue = "" },
+                    isPassword = true // Добавь этот параметр в AuthInputSection для защиты текста
+                )
+            }
+
             is AuthStep.Error -> {
-                Text("Ошибка: ${step.message}", color = MaterialTheme.colorScheme.error)
-                Button(onClick = { /* Можно добавить сброс состояния */ }) {
-                    Text("Попробовать снова")
+                Text("Error: ${step.message}", color = MaterialTheme.colorScheme.error)
+                Button(onClick = { /* TODO: State reset */ }) {
+                    Text("Try again")
                 }
             }
             else -> {}
@@ -90,7 +103,8 @@ fun AuthInputSection(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    isPassword: Boolean = false
 ) {
     Text(text = title, style = MaterialTheme.typography.headlineSmall)
     Spacer(modifier = Modifier.height(16.dp))
@@ -99,7 +113,8 @@ fun AuthInputSection(
         onValueChange = onValueChange,
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
-        singleLine = true
+        singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None
     )
     Spacer(modifier = Modifier.height(16.dp))
     Button(
@@ -107,6 +122,6 @@ fun AuthInputSection(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium
     ) {
-        Text("Продолжить")
+        Text("Continue")
     }
 }

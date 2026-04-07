@@ -47,4 +47,9 @@ class AuthViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true)
         telegramManager.checkCode(code)
     }
+
+    fun sendPassword(password: String) {
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        telegramManager.checkPassword(password)
+    }
 }

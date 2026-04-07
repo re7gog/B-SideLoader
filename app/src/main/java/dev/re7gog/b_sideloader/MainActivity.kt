@@ -22,11 +22,13 @@ import dev.re7gog.b_sideloader.ui.features.add_app.AddAppScreen
 import dev.re7gog.b_sideloader.ui.features.app_details.AppDetailsScreen
 import dev.re7gog.b_sideloader.ui.features.apps_list.AppsListScreen
 import dev.re7gog.b_sideloader.ui.features.settings.SettingsScreen
+import dev.re7gog.b_sideloader.ui.features.telegram.AuthScreen
 import dev.re7gog.b_sideloader.ui.navigation.AddAppRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromDbRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
 import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
+import dev.re7gog.b_sideloader.ui.navigation.TgLoginRoute
 import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 
@@ -107,9 +109,24 @@ fun BSideLoaderApp() {
                     }
                 )
             }
-            composable<SettingsRoute> { SettingsScreen() }
+            composable<SettingsRoute> {
+                SettingsScreen(
+                    onTgLoginClick = {
+                        navController.navigate(TgLoginRoute)
+                    }
+                )
+            }
             composable<AppDetailsFromDbRoute> { AppDetailsScreen() }
             composable<AppDetailsFromSearchRoute> { AppDetailsScreen() }
+            composable<TgLoginRoute> {
+                AuthScreen(
+                    onAuthSuccess = {
+                        navController.navigate(SettingsRoute) {
+                            popUpTo<SettingsRoute> { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }

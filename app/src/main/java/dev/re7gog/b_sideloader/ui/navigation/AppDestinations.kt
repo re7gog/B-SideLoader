@@ -25,6 +25,9 @@ data class AppDetailsFromSearchRoute(
     val iconUrl: String?,
 )
 
+@Serializable
+object TgLoginRoute
+
 data class NavMenuItem<T : Any>(
     val route: T,
     @param:StringRes val label: Int,

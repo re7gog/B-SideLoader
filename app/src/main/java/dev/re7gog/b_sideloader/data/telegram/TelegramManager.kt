@@ -68,4 +68,13 @@ class TelegramManager @Inject constructor(
             }
         }
     }
+
+    fun checkPassword(password: String) {
+        send(TdApi.CheckAuthenticationPassword(password)) { result ->
+            if (result is TdApi.Error) {
+                Log.e("TDLib", "2FA error: ${result.message}")
+                // TODO: show error in UI
+            }
+        }
+    }
 }
