@@ -1,8 +1,16 @@
 package dev.re7gog.b_sideloader.data.telegram
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -17,14 +25,38 @@ class TelegramManager @Inject constructor(
     private val _authState = MutableStateFlow<TdApi.AuthorizationState?>(null)
     val authState = _authState.asStateFlow()
 
+    private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    private val _chats = MutableStateFlow<Map<Long, TdApi.Chat>>(emptyMap())
+    val chatsFlow: StateFlow<List<TdApi.Chat>> = _chats
+        .map { map ->
+            map.values.sortedByDescending { chat ->
+                chat.positions.firstOrNull{ it.list is TdApi.ChatListMain }?.order ?: 0L
+            }
+        }
+        .stateIn(
+            managerScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+
     init {
         System.loadLibrary("tdjni")
 
         client = Client.create(
             { update -> // UpdateHandler
-                if (update is TdApi.UpdateAuthorizationState) {
-                    _authState.value = update.authorizationState
-                    handleAuthUpdate(update.authorizationState)
+                when (update) {
+                    is TdApi.UpdateAuthorizationState -> {
+                        _authState.value = update.authorizationState
+                        handleAuthUpdate(update.authorizationState)
+                    }
+                    is TdApi.UpdateNewChat -> {
+                        Log.d("TDLib", "New chat received: ${update.chat.title}")
+                        _chats.update { it + (update.chat.id to update.chat) }
+                    }
+                    is TdApi.UpdateChatPosition -> {
+                        handleChatPositionUpdate(update)
+                    }
                 }
             },
             { error -> // UpdateExceptionHandler
@@ -44,6 +76,24 @@ class TelegramManager @Inject constructor(
             else -> {
                 Log.d("TDLib", "New state: ${state.javaClass.simpleName}")
             }
+        }
+    }
+
+    private fun handleChatPositionUpdate(update: TdApi.UpdateChatPosition) {
+        _chats.update { current ->
+            val chat = current[update.chatId]
+            if (chat != null) {
+                val oldPositions = chat.positions
+                val mainIndex = oldPositions.indexOfFirst { it.list is TdApi.ChatListMain }
+                if (mainIndex != -1) {
+                    val newPositions = oldPositions.copyOf()
+                    newPositions[mainIndex] = update.position
+                    chat.positions = newPositions
+                } else {
+                    chat.positions = oldPositions + update.position
+                }
+                current + (update.chatId to chat)
+            } else current
         }
     }
 
@@ -74,6 +124,16 @@ class TelegramManager @Inject constructor(
             if (result is TdApi.Error) {
                 Log.e("TDLib", "2FA error: ${result.message}")
                 // TODO: show error in UI
+            }
+        }
+    }
+
+    fun loadChats() {
+        send(TdApi.LoadChats(null, 50)) { result ->
+            if (result is TdApi.Ok) {
+                Log.e("TDLib", "Loading chats")
+            } else if (result is TdApi.Error) {
+                Log.e("TDLib", "Error loading chats: ${result.message}")
             }
         }
     }

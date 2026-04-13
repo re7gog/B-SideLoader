@@ -1,10 +1,12 @@
 package dev.re7gog.b_sideloader.ui.features.add_app
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,7 +15,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -21,17 +26,26 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
+import org.drinkless.tdlib.TdApi
 
 @Composable
 fun AddAppScreen(
@@ -43,26 +57,11 @@ fun AddAppScreen(
     Box(
         modifier = modifier
     ) {
-        Column {
-            AddAppSearchBar(
-                viewModel = viewModel,
-                onSearchResClick = onSearchResClick,
-                modifier = Modifier.fillMaxWidth()
-            )
-            /*
-            OutlinedTextField(
-                value = viewModel.name,
-                onValueChange = { viewModel.name = it },
-                label = { Text("App name") }
-            )
-            Button(
-                onClick = { viewModel.addApp(onSuccess) },
-                enabled = viewModel.canAdd
-            ) {
-                Text("Add app")
-            }
-            */
-        }
+        AddAppSearchBar(
+            viewModel = viewModel,
+            onSearchResClick = onSearchResClick,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -73,20 +72,24 @@ fun AddAppSearchBar(
     viewModel: AddAppViewModel,
     modifier: Modifier = Modifier
 ) {
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchSource by viewModel.searchSource.collectAsState()
+    val tgResults by viewModel.telegramSearchResults.collectAsState()
+
     SearchBar(
         modifier = modifier,
         inputField = {
             SearchBarDefaults.InputField(
-                query = viewModel.searchQuery,
+                query = searchQuery,
                 onQueryChange = { viewModel.onQueryChange(it) },
                 onSearch = { viewModel.isSearchExpanded = false },
                 expanded = viewModel.isSearchExpanded,
                 onExpandedChange = { viewModel.isSearchExpanded = it },
                 placeholder = { Text(stringResource(R.string.search)) },
                 leadingIcon = {
-                    Icon(
-                        painterResource(R.drawable.search_24px),
-                        contentDescription = null
+                    SearchSourceSelector(
+                        currentSource = searchSource,
+                        onSourceSelected = { viewModel.onSourceSelected(it) }
                     )
                 },
                 trailingIcon = {
@@ -104,20 +107,42 @@ fun AddAppSearchBar(
         expanded = viewModel.isSearchExpanded,
         onExpandedChange = { viewModel.isSearchExpanded = it }
     ) {
-        if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
-            Text(
-                text = "Enter repo name",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        when (searchSource) {
+            SearchSource.GitHub -> {
+                if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
+                    Text(
+                        text = "Enter repo name",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                SearchResults(
+                    viewModel = viewModel,
+                    onSearchResClick = onSearchResClick,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            SearchSource.Telegram -> {
+                if (tgResults.isEmpty()) {
+                    EmptyResultsPlaceholder(searchQuery.isEmpty())
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(tgResults, key = { it.id }) { chat ->
+                            TelegramChatRow(chat = chat) {
+
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
-        if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        SearchResults(
-            viewModel = viewModel,
-            onSearchResClick = onSearchResClick,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
@@ -158,6 +183,122 @@ fun SearchResults(
                     modifier = Modifier.clickable { onSearchResClick(repo) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun TelegramChatRow(
+    chat: TdApi.Chat,
+    onClick: () -> Unit
+) {
+    ListItem(
+        modifier = Modifier.clickable { onClick() },
+        headlineContent = {
+            Text(
+                text = chat.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        },
+        supportingContent = {
+            Text("Channel", style = MaterialTheme.typography.bodySmall)
+        },
+        leadingContent = {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = chat.title.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        },
+        trailingContent = {
+            Icon(
+                painter = painterResource(R.drawable.chevron_right_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline
+            )
+        }
+    )
+}
+
+@Composable
+fun EmptyResultsPlaceholder(isInitial: Boolean) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = if (isInitial) "Try to search channel" else "Nothing found",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline
+        )
+    }
+}
+
+@Composable
+fun SearchSourceSelector(
+    currentSource: SearchSource,
+    onSourceSelected: (SearchSource) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val isDark = isSystemInDarkTheme()
+    val githubIcon = if (isDark) R.drawable.github_invertocat_white else R.drawable.github_invertocat_black
+    val telegramIcon = R.drawable.telegram
+
+    Box {
+        IconButton(onClick = { expanded = !expanded }) {
+            Image(
+                painter = painterResource(
+                    id = when (currentSource) {
+                        SearchSource.GitHub -> githubIcon
+                        SearchSource.Telegram -> telegramIcon
+                    }
+                ),
+                contentDescription = "Search source",
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            DropdownMenuItem(
+                text = { Text("GitHub") },
+                onClick = {
+                    onSourceSelected(SearchSource.GitHub)
+                    expanded = false
+                },
+                leadingIcon = {
+                    Image(
+                        painter = painterResource(id = githubIcon),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Telegram") },
+                onClick = {
+                    onSourceSelected(SearchSource.Telegram)
+                    expanded = false
+                },
+                leadingIcon = {
+                    Image(
+                        painter = painterResource(id = telegramIcon),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
         }
     }
 }
