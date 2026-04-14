@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,7 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import org.drinkless.tdlib.TdApi
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAppScreen(
     onSuccess: () -> Unit,
@@ -54,14 +57,44 @@ fun AddAppScreen(
     modifier: Modifier = Modifier,
     viewModel: AddAppViewModel = hiltViewModel()
 ) {
+    val searchSource by viewModel.searchSource.collectAsState()
+    val selectionState by viewModel.selectionState.collectAsState()
     Box(
         modifier = modifier
     ) {
-        AddAppSearchBar(
-            viewModel = viewModel,
-            onSearchResClick = onSearchResClick,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (searchSource == SearchSource.GitHub ||
+            searchSource == SearchSource.Telegram && selectionState == SelectionState.ChatList) {
+            AddAppSearchBar(
+                viewModel = viewModel,
+                onSearchResClick = onSearchResClick,
+                searchSource = searchSource,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else if (selectionState is SelectionState.TopicList) {
+            val topics by viewModel.topics.collectAsState()
+            val state = selectionState as SelectionState.TopicList
+            Column {
+                TopAppBar(
+                    title = { Text(state.chatTitle) },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.onBackToChats() }) {
+                            Icon(
+                                painterResource(R.drawable.arrow_back_24px),
+                                "Back"
+                            )
+                        }
+                    }
+                )
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(topics, key = { it.info.forumTopicId }) { topic ->
+                        TelegramTopicRow(topic = topic) {
+                            // TODO
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -70,10 +103,10 @@ fun AddAppScreen(
 fun AddAppSearchBar(
     onSearchResClick: (repo: GithubRepoDto) -> Unit,
     viewModel: AddAppViewModel,
+    searchSource: SearchSource,
     modifier: Modifier = Modifier
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchSource by viewModel.searchSource.collectAsState()
     val tgResults by viewModel.telegramSearchResults.collectAsState()
 
     SearchBar(
@@ -107,38 +140,35 @@ fun AddAppSearchBar(
         expanded = viewModel.isSearchExpanded,
         onExpandedChange = { viewModel.isSearchExpanded = it }
     ) {
-        when (searchSource) {
-            SearchSource.GitHub -> {
-                if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
-                    Text(
-                        text = "Enter repo name",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                SearchResults(
-                    viewModel = viewModel,
-                    onSearchResClick = onSearchResClick,
-                    modifier = Modifier.fillMaxWidth()
+        if (searchSource == SearchSource.GitHub) {
+            if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
+                Text(
+                    text = "Enter repo name",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            SearchSource.Telegram -> {
-                if (tgResults.isEmpty()) {
-                    EmptyResultsPlaceholder(searchQuery.isEmpty())
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(tgResults, key = { it.id }) { chat ->
-                            TelegramChatRow(chat = chat) {
-
-                            }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
+            if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            SearchResults(
+                viewModel = viewModel,
+                onSearchResClick = onSearchResClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            if (tgResults.isEmpty()) {
+                EmptyResultsPlaceholder(searchQuery.isEmpty())
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(tgResults, key = { it.id }) { chat ->
+                        TelegramChatRow(chat = chat) {
+                            viewModel.onChatSelected(chat)
                         }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
                     }
                 }
             }
@@ -226,6 +256,27 @@ fun TelegramChatRow(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.outline
             )
+        }
+    )
+}
+
+@Composable
+fun TelegramTopicRow(
+    topic: TdApi.ForumTopic,
+    onClick: () -> Unit
+) {
+    ListItem(
+        modifier = Modifier.clickable { onClick() },
+        headlineContent = { Text(topic.info.name) },
+        leadingContent = {
+            Icon(
+                painter = painterResource(R.drawable.forum_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary
+            )
+        },
+        trailingContent = {
+            Icon(painterResource(R.drawable.chevron_right_24px), null)
         }
     )
 }

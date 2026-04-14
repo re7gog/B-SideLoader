@@ -29,6 +29,12 @@ enum class SearchSource {
     GitHub, Telegram
 }
 
+sealed class SelectionState {
+    object ChatList : SelectionState()
+    data class TopicList(val chatId: Long, val chatTitle: String) : SelectionState()
+    data class ApkList(val chatId: Long, val threadId: Long?) : SelectionState()
+}
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class AddAppViewModel @Inject constructor(
@@ -61,6 +67,12 @@ class AddAppViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5000),
         emptyList()
     )
+
+    private val _selectionState = MutableStateFlow<SelectionState>(SelectionState.ChatList)
+    val selectionState = _selectionState.asStateFlow()
+
+    private val _topics = MutableStateFlow<List<TdApi.ForumTopic>>(emptyList())
+    val topics = _topics.asStateFlow()
 
     /*
     val availableChats = telegramManager.chatsFlow.stateIn(
@@ -102,5 +114,34 @@ class AddAppViewModel @Inject constructor(
 
     fun onSourceSelected(source: SearchSource) {
         _searchSource.value = source
+    }
+
+    fun onChatSelected(chat: TdApi.Chat) {
+        viewModelScope.launch {
+            val isChatForum = telegramManager.isForum(chat.id)
+
+            if (isChatForum) {
+                _selectionState.value = SelectionState.TopicList(chat.id, chat.title)
+                loadTopics(chat.id)
+            } else {
+                onTopicSelected(chat.id, 0L)
+            }
+        }
+    }
+
+    private fun loadTopics(chatId: Long) {
+        viewModelScope.launch {
+            val result = telegramManager.getForumTopics(chatId)
+            _topics.value = result?.topics?.toList() ?: emptyList()
+        }
+    }
+
+    fun onTopicSelected(chatId: Long, threadId: Long) {
+        _selectionState.value = SelectionState.ApkList(chatId, if (threadId == 0L) null else threadId)
+    }
+
+    fun onBackToChats() {
+        _topics.value = emptyList()
+        _selectionState.value = SelectionState.ChatList
     }
 }

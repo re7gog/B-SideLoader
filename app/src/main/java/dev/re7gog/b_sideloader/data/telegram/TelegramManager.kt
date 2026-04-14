@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 @Singleton
 class TelegramManager @Inject constructor(
@@ -134,6 +136,54 @@ class TelegramManager @Inject constructor(
                 Log.e("TDLib", "Loading chats")
             } else if (result is TdApi.Error) {
                 Log.e("TDLib", "Error loading chats: ${result.message}")
+            }
+        }
+    }
+
+    suspend fun isForum(chatId: Long): Boolean = suspendCancellableCoroutine { continuation ->
+        send(TdApi.GetChat(chatId)) { chatResult ->
+            if (!continuation.isActive) return@send
+
+            if (chatResult is TdApi.Chat) {
+                val type = chatResult.type
+                if (type is TdApi.ChatTypeSupergroup) {
+                    send(TdApi.GetSupergroup(type.supergroupId)) { supergroupResult ->
+                        if (!continuation.isActive) return@send
+
+                        if (supergroupResult is TdApi.Supergroup) {
+                            continuation.resume(supergroupResult.isForum)
+                        } else {
+                            continuation.resume(false)
+                        }
+                    }
+                } else {
+                    continuation.resume(false)
+                }
+            } else {
+                continuation.resume(false)
+            }
+        }
+    }
+
+    suspend fun getForumTopics(
+        chatId: Long,
+        query: String = "",
+        offsetDate: Int = 0,
+        offsetMessageId: Long = 0,
+        offsetForumTopicId: Int = 0,
+        limit: Int = 50
+    ): TdApi.ForumTopics? = suspendCancellableCoroutine { continuation ->
+        send(
+            TdApi.GetForumTopics(
+                chatId, query, offsetDate, offsetMessageId, offsetForumTopicId, limit
+            )
+        ) { result ->
+            if (!continuation.isActive) return@send
+
+            if (result is TdApi.ForumTopics) {
+                continuation.resume(result)
+            } else {
+                continuation.resume(null)
             }
         }
     }
