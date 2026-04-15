@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.ui.features.app_details
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchTgRoute
 
 data class AppDetailsUiState(
     val name: String,
@@ -13,6 +14,11 @@ data class AppDetailsUiState(
     val iconUrl: String,
     val installProgress: Int? = null,
     val isInstalling: Boolean = false
+)
+
+data class AppDetailsTgUiState(
+    val chatId: Long,
+    val topicId: Int? = null
 )
 
 // From DB to UI
@@ -39,5 +45,12 @@ fun AppDetailsFromSearchRoute.toUiState(): AppDetailsUiState {
         stars = this.stars,
         owner = this.owner,
         iconUrl = this.iconUrl ?: ""
+    )
+}
+
+fun AppDetailsFromSearchTgRoute.toTgUiState(): AppDetailsTgUiState {
+    return AppDetailsTgUiState(
+        chatId = this.chatId,
+        topicId = this.topicId
     )
 }

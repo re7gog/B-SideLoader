@@ -9,7 +9,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
-import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,13 +31,12 @@ enum class SearchSource {
 sealed class SelectionState {
     object ChatList : SelectionState()
     data class TopicList(val chatId: Long, val chatTitle: String) : SelectionState()
-    data class ApkList(val chatId: Long, val threadId: Long?) : SelectionState()
+    data class MessageList(val chatId: Long, val topicId: Int?) : SelectionState()
 }
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class AddAppViewModel @Inject constructor(
-    private val appsRepository: AppsRepository,
     private val githubApi: GithubApi,
     private val telegramManager: TelegramManager
 ) : ViewModel() {
@@ -124,7 +122,7 @@ class AddAppViewModel @Inject constructor(
                 _selectionState.value = SelectionState.TopicList(chat.id, chat.title)
                 loadTopics(chat.id)
             } else {
-                onTopicSelected(chat.id, 0L)
+                onTopicSelected(chat.id, 0)
             }
         }
     }
@@ -136,8 +134,8 @@ class AddAppViewModel @Inject constructor(
         }
     }
 
-    fun onTopicSelected(chatId: Long, threadId: Long) {
-        _selectionState.value = SelectionState.ApkList(chatId, if (threadId == 0L) null else threadId)
+    fun onTopicSelected(chatId: Long, topicId: Int) {
+        _selectionState.value = SelectionState.MessageList(chatId, if (topicId == 0) null else topicId)
     }
 
     fun onBackToChats() {

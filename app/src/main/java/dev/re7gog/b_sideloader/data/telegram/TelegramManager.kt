@@ -187,4 +187,31 @@ class TelegramManager @Inject constructor(
             }
         }
     }
+
+    suspend fun searchApkMessages(
+        chatId: Long,
+        topicId: Int = 0,
+        limit: Int = 40
+    ): TdApi.FoundChatMessages? = suspendCancellableCoroutine { continuation ->
+        val topic: TdApi.MessageTopic? = if (topicId != 0) {
+            TdApi.MessageTopicForum(topicId)
+        } else null
+
+        send(
+            TdApi.SearchChatMessages(
+                chatId,
+                topic,
+                "",
+                null,
+                0,
+                0,
+                limit,
+                TdApi.SearchMessagesFilterDocument()
+            )
+        ) { result ->
+            if (!continuation.isActive) return@send
+            if (result is TdApi.FoundChatMessages) continuation.resume(result)
+            else continuation.resume(null)
+        }
+    }
 }

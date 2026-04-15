@@ -52,21 +52,23 @@ import org.drinkless.tdlib.TdApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAppScreen(
-    onSuccess: () -> Unit,
-    onSearchResClick: (repo: GithubRepoDto) -> Unit,
+    onSearchResClick: (repo: GithubRepoDto?, messageList: SelectionState.MessageList?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddAppViewModel = hiltViewModel()
 ) {
     val searchSource by viewModel.searchSource.collectAsState()
     val selectionState by viewModel.selectionState.collectAsState()
+    if (selectionState is SelectionState.MessageList) {
+        onSearchResClick(null, selectionState as SelectionState.MessageList)
+    }
     Box(
         modifier = modifier
     ) {
         if (searchSource == SearchSource.GitHub ||
-            searchSource == SearchSource.Telegram && selectionState == SelectionState.ChatList) {
+            searchSource == SearchSource.Telegram && selectionState is SelectionState.ChatList) {
             AddAppSearchBar(
                 viewModel = viewModel,
-                onSearchResClick = onSearchResClick,
+                onSearchResClick = { onSearchResClick(it, null) },
                 searchSource = searchSource,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -88,7 +90,7 @@ fun AddAppScreen(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(topics, key = { it.info.forumTopicId }) { topic ->
                         TelegramTopicRow(topic = topic) {
-                            // TODO
+                            viewModel.onTopicSelected(topic.info.chatId, topic.info.forumTopicId)
                         }
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     }

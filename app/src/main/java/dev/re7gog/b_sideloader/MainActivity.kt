@@ -26,6 +26,7 @@ import dev.re7gog.b_sideloader.ui.features.telegram.AuthScreen
 import dev.re7gog.b_sideloader.ui.navigation.AddAppRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromDbRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchTgRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
 import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.TgLoginRoute
@@ -90,21 +91,23 @@ fun BSideLoaderApp() {
             }
             composable<AddAppRoute> {
                 AddAppScreen(
-                    onSuccess = {
-                        navController.navigate(AppsListRoute) {
-                            popUpTo<AppsListRoute> { inclusive = true /* Remove screen from stack */ }
-                        }
-                    },
-                    onSearchResClick = { repo ->
+                    onSearchResClick = { repo, messageList ->
                         navController.navigate(
-                            AppDetailsFromSearchRoute(
-                                name = repo.name,
-                                description = repo.description,
-                                fullName = repo.fullName,
-                                stars = repo.stars,
-                                owner = repo.owner.login,
-                                iconUrl = repo.owner.avatarUrl
-                            )
+                            if (messageList != null) {
+                                AppDetailsFromSearchTgRoute(
+                                    chatId = messageList.chatId,
+                                    topicId = messageList.topicId
+                                )
+                            } else {
+                                AppDetailsFromSearchRoute(
+                                    name = repo!!.name,
+                                    description = repo.description,
+                                    fullName = repo.fullName,
+                                    stars = repo.stars,
+                                    owner = repo.owner.login,
+                                    iconUrl = repo.owner.avatarUrl
+                                )
+                            }
                         )
                     }
                 )
@@ -118,6 +121,7 @@ fun BSideLoaderApp() {
             }
             composable<AppDetailsFromDbRoute> { AppDetailsScreen() }
             composable<AppDetailsFromSearchRoute> { AppDetailsScreen() }
+            composable<AppDetailsFromSearchTgRoute> { AppDetailsScreen() }
             composable<TgLoginRoute> {
                 AuthScreen(
                     onAuthSuccess = {

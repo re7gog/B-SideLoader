@@ -26,6 +26,12 @@ data class AppDetailsFromSearchRoute(
 )
 
 @Serializable
+data class AppDetailsFromSearchTgRoute(
+    val chatId: Long,
+    val topicId: Int?,
+)
+
+@Serializable
 object TgLoginRoute
 
 data class NavMenuItem<T : Any>(
