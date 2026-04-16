@@ -3,14 +3,14 @@ package dev.re7gog.b_sideloader.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import dev.re7gog.b_sideloader.data.local.dao.AppsDao
-import dev.re7gog.b_sideloader.data.local.entities.AppEntity
-import dev.re7gog.b_sideloader.data.local.entities.GithubDetailsEntity
+import dev.re7gog.b_sideloader.data.local.entities.*
 
 // TODO: Export schema for migration support
 @Database(
     entities = [
         AppEntity::class,
-        GithubDetailsEntity::class
+        GithubDetailsEntity::class,
+        TelegramDetailsEntity::class
     ],
     version = 1,
     exportSchema = false

@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "github_details",
+    tableName = "telegram_details",
     foreignKeys = [
         ForeignKey(
             entity = AppEntity::class,
@@ -17,10 +17,8 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("id")]
 )
-data class GithubDetailsEntity(
+data class TelegramDetailsEntity(
     @PrimaryKey val id: Long,
-    val fullName: String,
-    val usePrereleases: Boolean,
-    val releasesInclude: String,
-    val releasesExclude: String
+    val channelId: Long,
+    val topicId: Int
 )

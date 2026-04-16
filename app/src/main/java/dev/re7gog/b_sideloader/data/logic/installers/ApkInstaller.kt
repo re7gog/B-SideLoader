@@ -1,8 +1,8 @@
 package dev.re7gog.b_sideloader.data.logic.installers
 
 import kotlinx.coroutines.flow.FlowCollector
-import okhttp3.ResponseBody
+import java.io.InputStream
 
 interface ApkInstaller {
-    suspend fun installApkFromDownload(download: ResponseBody, progressCollector: FlowCollector<Int>)
+    suspend fun installApk(stream: InputStream, lengthBytes: Long, progressCollector: FlowCollector<Float>)
 }

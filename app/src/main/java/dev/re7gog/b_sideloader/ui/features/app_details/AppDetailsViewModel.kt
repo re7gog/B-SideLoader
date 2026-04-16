@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,6 +17,7 @@ import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromDbRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchTgRoute
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -81,6 +84,9 @@ class AppDetailsViewModel @Inject constructor(
             null
         )
 
+    private val _isInstalling = MutableStateFlow(false)
+    //val isInstalling = _isInstalling.asStateFlow()
+
     init {
         val fromDb = runCatching { savedStateHandle.toRoute<AppDetailsFromDbRoute>() }.getOrNull()
         val fromSearch = runCatching { savedStateHandle.toRoute<AppDetailsFromSearchRoute>() }.getOrNull()
@@ -102,15 +108,22 @@ class AppDetailsViewModel @Inject constructor(
     }
 
     fun saveToDb() {
+        // TODO: new DB fields
         viewModelScope.launch {
             val app = AppEntity(
-                sourceType = "github",
-                name = _uiState.value?.name ?: ""
+                sourceType = 0,
+                name = _uiState.value?.name ?: "",
+                version = "TODO",
+                autoupdate = true,
+                filterInclude = "TODO",
+                filterExclude = "TODO"
             )
             val details = GithubDetailsEntity(
                 id = 0,
                 fullName = _uiState.value?.fullName ?: "",
-                usePrereleases = false
+                usePrereleases = false,
+                releasesInclude = "TODO",
+                releasesExclude = "TODO"
             )
             val appWithDetails = AppType.GithubApp(app, details)
             repository.addApp(appWithDetails)
@@ -124,7 +137,7 @@ class AppDetailsViewModel @Inject constructor(
             )[0].assets
             val url = findCurrentAbiApk(assets) ?: return@launch
             try {
-                _uiState.update { it?.copy(isInstalling = true, installProgress = 0) }
+                _uiState.update { it?.copy(isInstalling = true, installProgress = 0f) }
                 installManager.downloadAndInstall(url).collect { progress ->
                     _uiState.update { it?.copy(installProgress = progress) }
                 }
@@ -142,6 +155,38 @@ class AppDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = telegramManager.searchApkMessages(chatId, topicId ?: 0)
             if (result != null) _apkMessages.value = result.messages.toList()
+        }
+    }
+
+    fun startInstall(message: TdApi.Message) {
+        val doc = (message.content as? TdApi.MessageDocument)?.document ?: return
+        val fileId = doc.document.id
+
+        viewModelScope.launch(Dispatchers.IO) {
+            var localFile: File? = null
+            try {
+                _isInstalling.value = true
+
+                val localPath = telegramManager.downloadFile(fileId)
+                localFile = File(localPath)
+
+                // TODO: Show installation progress
+                installManager.installFromFile(localFile, doc.document.size)
+            } catch (e: Exception) {
+                Log.e("Install", "Installation error: ${e.message}")
+            } finally {
+                _isInstalling.value = false
+
+                cleanupFile(fileId, localFile)
+            }
+        }
+    }
+
+    private fun cleanupFile(fileId: Int, file: File?) {
+        telegramManager.deleteFile(fileId)
+        if (file != null && file.exists()) {
+            val deleted = file.delete()
+            Log.d("Cleanup", "Physical file removed: $deleted")
         }
     }
 }

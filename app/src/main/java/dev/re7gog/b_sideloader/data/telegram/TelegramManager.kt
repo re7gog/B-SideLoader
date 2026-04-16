@@ -4,19 +4,25 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @Singleton
 class TelegramManager @Inject constructor(
@@ -42,6 +48,8 @@ class TelegramManager @Inject constructor(
             emptyList()
         )
 
+    private val _fileUpdates = MutableSharedFlow<TdApi.UpdateFile>(extraBufferCapacity = 100)
+
     init {
         System.loadLibrary("tdjni")
 
@@ -58,6 +66,9 @@ class TelegramManager @Inject constructor(
                     }
                     is TdApi.UpdateChatPosition -> {
                         handleChatPositionUpdate(update)
+                    }
+                    is TdApi.UpdateFile -> {
+                        _fileUpdates.tryEmit(update)
                     }
                 }
             },
@@ -212,6 +223,52 @@ class TelegramManager @Inject constructor(
             if (!continuation.isActive) return@send
             if (result is TdApi.FoundChatMessages) continuation.resume(result)
             else continuation.resume(null)
+        }
+    }
+
+    suspend fun downloadFile(fileId: Int): String = suspendCancellableCoroutine { continuation ->
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+        send(TdApi.GetFile(fileId)) { result ->
+            if (result is TdApi.File) {
+                if (result.local.isDownloadingCompleted) {
+                    if (continuation.isActive) continuation.resume(result.local.path)
+                    return@send
+                }
+
+                send(TdApi.DownloadFile(fileId, 32, 0, 0, true)) { dlResult ->
+                    if (dlResult is TdApi.Error && continuation.isActive) {
+                        continuation.resumeWithException(Exception(dlResult.message))
+                    }
+                }
+
+                scope.launch {
+                    _fileUpdates
+                        .filter { it.file.id == fileId && it.file.local.isDownloadingCompleted }
+                        .first()
+                        .also { update ->
+                            if (continuation.isActive) {
+                                continuation.resume(update.file.local.path)
+                                scope.cancel()
+                            }
+                        }
+                }
+            } else if (result is TdApi.Error && continuation.isActive) {
+                continuation.resumeWithException(Exception(result.message))
+            }
+        }
+
+        continuation.invokeOnCancellation {
+            scope.cancel()
+            TdApi.CancelDownloadFile(fileId, false)
+        }
+    }
+
+    fun deleteFile(fileId: Int) {
+        send(TdApi.DeleteFile(fileId)) { result ->
+            if (result is TdApi.Ok) {
+                Log.d("Cleanup", "File status has been reset")
+            }
         }
     }
 }

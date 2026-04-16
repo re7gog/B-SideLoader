@@ -9,6 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import dev.re7gog.b_sideloader.data.local.entities.AppEntity
 import dev.re7gog.b_sideloader.data.local.entities.GithubDetailsEntity
+import dev.re7gog.b_sideloader.data.local.entities.TelegramDetailsEntity
 import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import kotlinx.coroutines.flow.Flow
 
@@ -28,11 +29,17 @@ interface AppsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGithubDetails(details: GithubDetailsEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTelegramDetails(details: TelegramDetailsEntity)
+
     @Update
     suspend fun updateApp(app: AppEntity)
 
     @Update
     suspend fun updateGithubDetails(details: GithubDetailsEntity)
+
+    @Update
+    suspend fun updateTelegramDetails(details: TelegramDetailsEntity)
 
     @Delete
     suspend fun deleteApp(app: AppEntity)

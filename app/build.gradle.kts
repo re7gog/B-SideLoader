@@ -10,15 +10,15 @@ plugins {
 android {
     namespace = "dev.re7gog.b_sideloader"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
+        version = release(37) {
+            //minorApiLevel = 1
         }
     }
 
     defaultConfig {
         applicationId = "dev.re7gog.b_sideloader"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 

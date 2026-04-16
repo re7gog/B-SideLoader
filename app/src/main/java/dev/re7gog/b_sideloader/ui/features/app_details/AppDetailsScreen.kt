@@ -147,7 +147,7 @@ fun AppDetailsTgContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { /* TODO: viewModel.install(targetApk) */ },
+                onClick = { viewModel.startInstall(targetApk ?: return@Button) },
                 enabled = targetApk != null,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp)
@@ -194,7 +194,7 @@ fun InstallButton(state: AppDetailsUiState, onInstallClick: () -> Unit) {
     if (state.isInstalling) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             LinearProgressIndicator(
-                progress = { (state.installProgress ?: 0) / 100f },
+                progress = { state.installProgress ?: 0f },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,

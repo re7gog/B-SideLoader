@@ -6,6 +6,10 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "apps")
 data class AppEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sourceType: String,
-    val name: String
+    val sourceType: Int,
+    val name: String,
+    val version: String,
+    val autoupdate: Boolean,
+    val filterInclude: String,
+    val filterExclude: String
 )

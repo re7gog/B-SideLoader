@@ -21,7 +21,7 @@ class DownloadWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val url = inputData.getString("URL") ?: return Result.failure()
 
-        setForeground(createForegroundInfo(0))
+        setForeground(createForegroundInfo(0f))
 
         return try {
             installManager.downloadAndInstall(url)
@@ -35,9 +35,9 @@ class DownloadWorker @AssistedInject constructor(
         }
     }
 
-    private fun createForegroundInfo(progress: Int): ForegroundInfo {
+    private fun createForegroundInfo(progress: Float): ForegroundInfo {
         val notification = NotificationHelper.getInstallNotificationBuilder(applicationContext, "B-SideLoader")
-            .setProgress(100, progress, false)
+            .setProgress(100, (progress * 100).toInt(), false)
             .build()
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

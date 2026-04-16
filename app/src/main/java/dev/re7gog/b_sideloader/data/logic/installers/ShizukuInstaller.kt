@@ -27,14 +27,13 @@ import dev.rikka.tools.refine.Refine
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
-import okhttp3.ResponseBody
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 import java.io.IOException
+import java.io.InputStream
 import kotlin.coroutines.resume
-import kotlin.math.round
 
 enum class ShizukuPermission {
     GRANTED_ADB,
@@ -83,8 +82,6 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             HiddenApiBypass.addHiddenApiExemptions("Landroid/content", "Landroid/os")
         dInitSucceeded = Dhizuku.init(context)
-        // TODO: Temp for testing
-        dInitSucceeded = false
         if (!dInitSucceeded) {
             /*
             val isSui = Sui.init(context.packageName)
@@ -156,8 +153,6 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
         isRoot = Shizuku.getUid() == 0
         return !isRoot and (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1)
     }
-
-    // Thanks to https://github.com/LSPosed/LSPatch and https://gitlab.com/AuroraOSS/AuroraStore
 
     private fun IBinder.wrap() = ShizukuBinderWrapper(this)
     private fun IInterface.asShizukuBinder() = this.asBinder().wrap()
@@ -243,28 +238,24 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
         else createPackageInstallerSession()
     }
 
-    override suspend fun installApkFromDownload(
-        download: ResponseBody,
-        progressCollector: FlowCollector<Int>
+    override suspend fun installApk(
+        stream: InputStream, lengthBytes: Long, progressCollector: FlowCollector<Float>
     ) {
-        val totalBytes = download.contentLength()
-        if (totalBytes == 0L) throw Exception("Download size is zero")
-
+        if (lengthBytes == 0L) throw Exception("Download size is zero")
         runCatching {
             createPackageInstallerSessionUniversal().use { session ->
                 session.openWrite(
-                    "privileged_b_side_install", 0, totalBytes
+                    "privileged_b_side_install", 0, lengthBytes
                 ).use { outputStream ->
                     val buffer = ByteArray(8192)
                     var bytesRead = 0
                     var totalBytesRead = 0L
 
-                    download.byteStream().use { input ->
+                    stream.use { input ->
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             outputStream.write(buffer, 0, bytesRead)
                             totalBytesRead += bytesRead
-                            val progress = round(totalBytesRead.toFloat() / totalBytes * 100).toInt()
-                            progressCollector.emit(progress)
+                            progressCollector.emit(totalBytesRead.toFloat() / lengthBytes)
                         }
                     }
                 }

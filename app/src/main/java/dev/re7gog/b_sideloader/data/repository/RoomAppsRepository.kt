@@ -25,6 +25,11 @@ class RoomAppsRepository @Inject constructor(
                     val details = app.details.copy(id = id)
                     appsDao.insertGithubDetails(details)
                 }
+                is AppType.TelegramApp -> {
+                    val id = appsDao.insertApp(app.app)
+                    val details = app.details.copy(id = id)
+                    appsDao.insertTelegramDetails(details)
+                }
             }
         }
     }
@@ -35,6 +40,10 @@ class RoomAppsRepository @Inject constructor(
                 is AppType.GithubApp -> {
                     appsDao.updateApp(app.app)
                     appsDao.updateGithubDetails(app.details)
+                }
+                is AppType.TelegramApp -> {
+                    appsDao.updateApp(app.app)
+                    appsDao.updateTelegramDetails(app.details)
                 }
             }
         }

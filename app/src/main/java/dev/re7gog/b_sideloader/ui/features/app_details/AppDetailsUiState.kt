@@ -12,7 +12,7 @@ data class AppDetailsUiState(
     val stars: Int,
     val owner: String,
     val iconUrl: String,
-    val installProgress: Int? = null,
+    val installProgress: Float? = null,
     val isInstalling: Boolean = false
 )
 

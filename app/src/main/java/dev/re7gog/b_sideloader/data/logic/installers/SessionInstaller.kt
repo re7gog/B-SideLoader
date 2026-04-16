@@ -6,36 +6,33 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import kotlinx.coroutines.flow.FlowCollector
-import okhttp3.ResponseBody
-import kotlin.math.round
+import java.io.InputStream
 
 class SessionInstaller(private val context: Context) : ApkInstaller {
-    override suspend fun installApkFromDownload(
-        download: ResponseBody, progressCollector: FlowCollector<Int>
+    override suspend fun installApk(
+        stream: InputStream, lengthBytes: Long, progressCollector: FlowCollector<Float>
     ) {
         val packageInstaller = context.packageManager.packageInstaller
         var sessionId = -1
         try {
-            val totalBytes = download.contentLength()
-            if (totalBytes == 0L) throw Exception("Download size is zero")
+            if (lengthBytes == 0L) throw Exception("Download size is zero")
             val sessionParams = PackageInstaller.SessionParams(
                 PackageInstaller.SessionParams.MODE_FULL_INSTALL
             )
             sessionId = packageInstaller.createSession(sessionParams)
             packageInstaller.openSession(sessionId).use { session ->
                 session.openWrite(
-                    "b_side_install", 0, totalBytes
+                    "b_side_reg_install", 0, lengthBytes
                 ).use { outputStream ->
                     val buffer = ByteArray(8192)
                     var bytesRead = 0
                     var totalBytesRead = 0L
 
-                    download.byteStream().use { input ->
+                    stream.use { input ->
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             outputStream.write(buffer, 0, bytesRead)
                             totalBytesRead += bytesRead
-                            val progress = round(totalBytesRead.toFloat() / totalBytes * 100).toInt()
-                            progressCollector.emit(progress)
+                            progressCollector.emit(totalBytesRead.toFloat() / lengthBytes)
                         }
                     }
                 }
