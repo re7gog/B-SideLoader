@@ -26,6 +26,7 @@ appcompat = "1.7.1"
 material = "1.13.0"
 androidxAnnotation = "1.10.0"
 runtime = "1.10.6"
+datastorePref = "1.2.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -75,6 +76,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotation" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
+datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePref" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

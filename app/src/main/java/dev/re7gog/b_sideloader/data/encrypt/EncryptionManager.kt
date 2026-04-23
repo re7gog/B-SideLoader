@@ -1,4 +1,4 @@
-package dev.re7gog.b_sideloader.data.telegram
+package dev.re7gog.b_sideloader.data.encrypt
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -11,7 +11,7 @@ import javax.crypto.spec.GCMParameterSpec
 object EncryptionManager {
     // AES-256 GCM
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-    private const val MASTER_KEY_ALIAS = "bside_tdlib_master_key"
+    private const val MASTER_KEY_ALIAS = "bside_master_key"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val KEY_SIZE = 256
     private const val AUTH_TAG_SIZE = 128

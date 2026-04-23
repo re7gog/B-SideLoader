@@ -113,4 +113,7 @@ dependencies {
     compileOnly(libs.hidden.stub)
 
     implementation(project(":tdlib"))
+
+    // Settings
+    implementation(libs.datastore.preferences)
 }

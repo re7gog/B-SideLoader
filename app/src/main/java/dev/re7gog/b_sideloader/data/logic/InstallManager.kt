@@ -6,10 +6,14 @@ import dev.re7gog.b_sideloader.data.logic.installers.SessionInstaller
 import dev.re7gog.b_sideloader.data.logic.installers.ShizukuInstaller
 import dev.re7gog.b_sideloader.data.logic.installers.ShizukuPermission
 import dev.re7gog.b_sideloader.domain.logic.IInstallManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -17,10 +21,16 @@ import javax.inject.Inject
 
 class InstallManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    settingsManager: SettingsManager
 ) : IInstallManager {
+    private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    val useShizuku = settingsManager.useShizuku.stateIn(
+        managerScope, SharingStarted.Eagerly, false
+    )
+
     override suspend fun downloadAndInstall(
-        url: String, privileged: Boolean
+        url: String
     ): Flow<Float> = flow {
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()
@@ -29,7 +39,7 @@ class InstallManager @Inject constructor(
             val stream = it.body.byteStream()
             val lengthBytes = it.body.contentLength()
 
-            if (privileged) {
+            if (useShizuku.value) {
                 val shizukuInstaller = ShizukuInstaller(context)
                 shizukuInstaller.init()
                 shizukuInstaller.installApk(stream, lengthBytes, this@flow)
@@ -41,11 +51,11 @@ class InstallManager @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     override suspend fun installFromFile(
-        file: File, lengthBytes: Long, privileged: Boolean
+        file: File, lengthBytes: Long
     ): Flow<Float> = flow {
         if (!file.exists()) throw Exception("File does not exist")
         file.inputStream().use {
-            if (privileged) {
+            if (useShizuku.value) {
                 val shizukuInstaller = ShizukuInstaller(context)
                 shizukuInstaller.init()
                 shizukuInstaller.installApk(it, lengthBytes, this@flow)

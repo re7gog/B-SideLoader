@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 interface IInstallManager {
-    suspend fun downloadAndInstall(url: String, privileged: Boolean = false): Flow<Float>
-    suspend fun installFromFile(file: File, lengthBytes: Long, privileged: Boolean = false): Flow<Float>
+    suspend fun downloadAndInstall(url: String): Flow<Float>
+    suspend fun installFromFile(file: File, lengthBytes: Long): Flow<Float>
     suspend fun checkPrivilegedPermission(): ShizukuPermission
 }

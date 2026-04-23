@@ -8,7 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import dev.re7gog.b_sideloader.data.telegram.DatabaseKeyStorage
+import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import org.drinkless.tdlib.Secrets
 import org.drinkless.tdlib.TdApi
 import javax.inject.Singleton
@@ -20,7 +20,7 @@ object TelegramModule {
     @Singleton
     fun provideTdlibParameters(@ApplicationContext context: Context): TdApi.SetTdlibParameters {
         val baseDir = context.filesDir.absolutePath
-        val encryptionKey = DatabaseKeyStorage(context).getOrGenerateKey()
+        val encryptionKey = SecureStorage(context).getOrGenerateDbKey()
         val apiId = Secrets.getApiId()
         val apiHash = Secrets.getApiHash()
         val locale = ConfigurationCompat.getLocales(Resources.getSystem().configuration)[0]
