@@ -27,7 +27,7 @@ object NetworkModule {
             })
             .followRedirects(true)
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.MINUTES)
+            .readTimeout(30, TimeUnit.MINUTES)
             .build()
     }
 

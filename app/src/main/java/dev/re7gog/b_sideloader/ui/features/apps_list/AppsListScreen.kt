@@ -27,7 +27,8 @@ import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 
 @Composable
 fun AppsListScreen(
-    onAppClick: (id: Long) -> Unit,
+    onGhAppClick: (id: Long) -> Unit,
+    onTgAppClick: (id: Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AppsListViewModel = hiltViewModel()
 ) {
@@ -50,7 +51,13 @@ fun AppsListScreen(
                     appItem = appItem,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAppClick(appItem.app.id) }
+                        .clickable {
+                            if (appItem.githubDetails != null) {
+                                onGhAppClick(appItem.app.id)
+                            } else if (appItem.telegramDetails != null) {
+                                onTgAppClick(appItem.app.id)
+                            }
+                        }
                 )
             }
         }

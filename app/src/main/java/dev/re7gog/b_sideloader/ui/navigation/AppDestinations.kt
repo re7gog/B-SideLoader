@@ -7,28 +7,34 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 object AppsListRoute
+
 @Serializable
-object AddAppRoute
+object SearchAppRoute
+
 @Serializable
 object SettingsRoute
 
 @Serializable
-data class AppDetailsFromDbRoute(val appId: Long)
+data class AppGhDetailsFromDbRoute(val appId: Long)
 
 @Serializable
-data class AppDetailsFromSearchRoute(
+data class AppTgDetailsFromDbRoute(val appId: Long)
+
+@Serializable
+data class AppGhDetailsFromSearchRoute(
     val name: String,
-    val description: String?,
-    val fullName: String,
-    val stars: Int,
     val owner: String,
-    val iconUrl: String?,
+    val repo: String,
+    val description: String?,
+    val stars: Int,
+    val iconUrl: String?
 )
 
 @Serializable
-data class AppDetailsFromSearchTgRoute(
+data class AppTgDetailsFromSearchRoute(
+    val name: String,
     val chatId: Long,
-    val topicId: Int?,
+    val topicId: Int?
 )
 
 @Serializable
@@ -42,6 +48,6 @@ data class NavMenuItem<T : Any>(
 
 val topLevelDestinations = listOf(
     NavMenuItem(AppsListRoute, R.string.apps, R.drawable.apps_24px),
-    NavMenuItem(AddAppRoute, R.string.add, R.drawable.add_24px),
+    NavMenuItem(SearchAppRoute, R.string.search, R.drawable.search_24px),
     NavMenuItem(SettingsRoute, R.string.settings, R.drawable.settings_24px)
 )

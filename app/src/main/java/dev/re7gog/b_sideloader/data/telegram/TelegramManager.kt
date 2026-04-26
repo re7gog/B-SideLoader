@@ -144,7 +144,7 @@ class TelegramManager @Inject constructor(
     fun loadChats() {
         send(TdApi.LoadChats(null, 50)) { result ->
             if (result is TdApi.Ok) {
-                Log.e("TDLib", "Loading chats")
+                Log.d("TDLib", "Loading chats")
             } else if (result is TdApi.Error) {
                 Log.e("TDLib", "Error loading chats: ${result.message}")
             }
@@ -190,7 +190,6 @@ class TelegramManager @Inject constructor(
             )
         ) { result ->
             if (!continuation.isActive) return@send
-
             if (result is TdApi.ForumTopics) {
                 continuation.resume(result)
             } else {

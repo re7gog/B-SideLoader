@@ -46,7 +46,7 @@ object TelegramModule {
             systemLanguageCode,
             deviceModel,
             android.os.Build.VERSION.RELEASE,
-            "1.0.0"
+            "0.1.0"  // TODO: Auto sync version with build
         )
     }
 }

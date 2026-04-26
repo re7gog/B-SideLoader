@@ -10,7 +10,6 @@ data class GithubSearchResponse(
 
 @Serializable
 data class GithubRepoDto(
-    @SerialName("full_name") val fullName: String,
     val name: String,
     val description: String?,
     @SerialName("stargazers_count") val stars: Int,

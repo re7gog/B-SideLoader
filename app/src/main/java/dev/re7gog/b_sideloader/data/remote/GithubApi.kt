@@ -10,7 +10,7 @@ import retrofit2.http.Query
 
 const val USER_AGENT = "B-SideLoader"
 const val ACCEPT = "application/vnd.github+json"
-const val API_VERSION = "2022-11-28"
+const val API_VERSION = "2026-03-10"
 
 interface GithubApi {
     @GET("search/repositories")
@@ -18,8 +18,9 @@ interface GithubApi {
         @Header("User-Agent") userAgent: String = USER_AGENT,
         @Header("Accept") accept: String = ACCEPT,
         @Header("X-GitHub-Api-Version") apiVersion: String = API_VERSION,
+        @Header("Authorization") token: String? = null,
         @Query("q") query: String,
-        @Query("page") page: Int = 1
+        @Query("page") page: Int? = null
     ): GithubSearchResponse
 
     @GET("repos/{owner}/{repo}")
@@ -27,6 +28,7 @@ interface GithubApi {
         @Header("User-Agent") userAgent: String = USER_AGENT,
         @Header("Accept") accept: String = ACCEPT,
         @Header("X-GitHub-Api-Version") apiVersion: String = API_VERSION,
+        @Header("Authorization") token: String? = null,
         @Path("owner") owner: String,
         @Path("repo") repo: String
     ): GithubRepoDto
@@ -36,8 +38,9 @@ interface GithubApi {
         @Header("User-Agent") userAgent: String = USER_AGENT,
         @Header("Accept") accept: String = ACCEPT,
         @Header("X-GitHub-Api-Version") apiVersion: String = API_VERSION,
+        @Header("Authorization") token: String? = null,
         @Path("owner") owner: String,
         @Path("repo") repo: String,
-        @Query("page") page: Int = 1
+        @Query("page") page: Int? = null
     ): List<GithubReleaseDto>
 }

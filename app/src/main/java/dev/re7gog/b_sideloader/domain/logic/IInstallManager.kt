@@ -1,6 +1,6 @@
 package dev.re7gog.b_sideloader.domain.logic
 
-import dev.re7gog.b_sideloader.data.logic.installers.ShizukuPermission
+import dev.re7gog.b_sideloader.data.installer.ShizukuPermission
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 

@@ -18,16 +18,18 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
-import dev.re7gog.b_sideloader.ui.features.add_app.AddAppScreen
-import dev.re7gog.b_sideloader.ui.features.app_details.AppDetailsScreen
+import dev.re7gog.b_sideloader.ui.features.app_details.AppGhDetailsScreen
+import dev.re7gog.b_sideloader.ui.features.app_details.AppTgDetailsScreen
 import dev.re7gog.b_sideloader.ui.features.apps_list.AppsListScreen
+import dev.re7gog.b_sideloader.ui.features.search_app.SearchAppScreen
 import dev.re7gog.b_sideloader.ui.features.settings.SettingsScreen
-import dev.re7gog.b_sideloader.ui.features.telegram.AuthScreen
-import dev.re7gog.b_sideloader.ui.navigation.AddAppRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromDbRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppDetailsFromSearchTgRoute
+import dev.re7gog.b_sideloader.ui.features.telegram_login.AuthScreen
+import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromDbRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromSearchRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromDbRoute
+import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromSearchRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
+import dev.re7gog.b_sideloader.ui.navigation.SearchAppRoute
 import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.TgLoginRoute
 import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
@@ -84,44 +86,65 @@ fun BSideLoaderApp() {
         ) {
             composable<AppsListRoute> {
                 AppsListScreen(
-                    onAppClick = { id ->
-                        navController.navigate(AppDetailsFromDbRoute(appId = id))
+                    onGhAppClick = { id ->
+                        navController.navigate(AppGhDetailsFromDbRoute(appId = id))
+                    },
+                    onTgAppClick = { id ->
+                        navController.navigate(AppTgDetailsFromDbRoute(appId = id))
                     }
                 )
             }
-            composable<AddAppRoute> {
-                AddAppScreen(
-                    onSearchResClick = { repo, messageList ->
+            composable<SearchAppRoute> {
+                SearchAppScreen(
+                    onGhSearchResClick = { repo ->
                         navController.navigate(
-                            if (messageList != null) {
-                                AppDetailsFromSearchTgRoute(
-                                    chatId = messageList.chatId,
-                                    topicId = messageList.topicId
-                                )
-                            } else {
-                                AppDetailsFromSearchRoute(
-                                    name = repo!!.name,
-                                    description = repo.description,
-                                    fullName = repo.fullName,
-                                    stars = repo.stars,
-                                    owner = repo.owner.login,
-                                    iconUrl = repo.owner.avatarUrl
-                                )
-                            }
+                            AppGhDetailsFromSearchRoute(
+                                name = repo.name,
+                                owner = repo.owner.login,
+                                repo = repo.name,
+                                description = repo.description,
+                                stars = repo.stars,
+                                iconUrl = repo.owner.avatarUrl
+                            )
+
+                        )
+                    },
+                    onTgSearchResClick = { messageList ->
+                        navController.navigate(
+                            AppTgDetailsFromSearchRoute(
+                                name = messageList.name,
+                                chatId = messageList.chatId,
+                                topicId = messageList.topicId
+                            )
                         )
                     }
                 )
             }
             composable<SettingsRoute> {
                 SettingsScreen(
-                    onTgLoginClick = {
-                        navController.navigate(TgLoginRoute)
-                    }
+                    onTgLoginClick = { navController.navigate(TgLoginRoute) }
                 )
             }
-            composable<AppDetailsFromDbRoute> { AppDetailsScreen() }
-            composable<AppDetailsFromSearchRoute> { AppDetailsScreen() }
-            composable<AppDetailsFromSearchTgRoute> { AppDetailsScreen() }
+            composable<AppGhDetailsFromDbRoute> {
+                AppGhDetailsScreen(
+                    onBackClick = { navController.navigate(AppsListRoute) }
+                )
+            }
+            composable<AppGhDetailsFromSearchRoute> {
+                AppGhDetailsScreen(
+                    onBackClick = { navController.navigate(SearchAppRoute) }
+                )
+            }
+            composable<AppTgDetailsFromDbRoute> {
+                AppTgDetailsScreen(
+                    onBackClick = { navController.navigate(AppsListRoute) }
+                )
+            }
+            composable<AppTgDetailsFromSearchRoute> {
+                AppTgDetailsScreen(
+                    onBackClick = { navController.navigate(SearchAppRoute) }
+                )
+            }
             composable<TgLoginRoute> {
                 AuthScreen(
                     onAuthSuccess = {

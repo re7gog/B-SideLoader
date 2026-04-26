@@ -6,9 +6,6 @@
         tools:ignore="RequestInstallPackagesPolicy" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
-        tools:ignore="ForegroundServicesPolicy" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <application
         android:name=".BSideApplication"
         android:allowBackup="true"
@@ -29,19 +26,12 @@
             </intent-filter>
         </activity>
         <receiver
-            android:name=".data.logic.installers.InstallReceiver"
+            android:name=".data.installer.InstallReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="dev.re7gog.b_sideloader.INSTALL_COMPLETE" />
             </intent-filter>
         </receiver>
-        <receiver
-            android:name=".data.logic.DownloadReceiver"
-            android:exported="false" />
-        <service
-            android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync"
-            tools:node="merge" />
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

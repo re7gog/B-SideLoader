@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
-import dev.re7gog.b_sideloader.data.logic.SettingsManager
-import dev.re7gog.b_sideloader.data.logic.installers.ShizukuPermission
+import dev.re7gog.b_sideloader.data.settings.SettingsManager
+import dev.re7gog.b_sideloader.data.installer.ShizukuPermission
 import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

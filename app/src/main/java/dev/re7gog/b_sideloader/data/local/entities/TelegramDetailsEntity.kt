@@ -19,6 +19,6 @@ import androidx.room.PrimaryKey
 )
 data class TelegramDetailsEntity(
     @PrimaryKey val id: Long,
-    val channelId: Long,
+    val chatId: Long,
     val topicId: Int
 )
