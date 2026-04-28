@@ -14,6 +14,7 @@ Download, install and autoupdate your apps by grabbing APKs from the Internet! B
 - Retrofit 3.0 and OkHTTP for GitHub REST API
 - AndroidX Work Manager for background jobs
 - Datastore Preferences for storing app settings
+- TDlib stripped from [TelegramX](https://github.com/TGX-Android/tdlib)
 - And shizuku, dhizuku, refine and hiddenapibypass for getting special privileges
 ### Currently in WIP state, because there are pending breaking changes in database.
 If you want to compile by yourself, you must get your telegram api id and hash at https://my.telegram.org/apps. It's made to prevent abuse of dev's credentials.
