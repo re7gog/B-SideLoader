@@ -1,5 +1,6 @@
 # B-SideLoader
 Download, install and autoupdate your apps by grabbing APKs from the Internet! Basically [Obtainium](https://github.com/ImranR98/Obtainium), but made using Android Compose.
+Compatible with Android 17-8.0.
 ## Features
 - It has support for downloading and automatic updating APKs from GitHub repos and _Telegram channels_.
 - It has integrated search for all sources.

@@ -43,9 +43,18 @@ android {
     buildFeatures {
         compose = true
     }
-    dependenciesInfo {  // Bypass... something
+    dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isUniversalApk = true
+        }
     }
 }
 

@@ -40,7 +40,7 @@ class BSideApplication: Application(), Configuration.Provider {
         if (!(settingsManager.useMobileData.firstOrNull() ?: true)) {
             constrains.setRequiredNetworkType(NetworkType.UNMETERED)
         }
-        val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(1, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(6, TimeUnit.HOURS)
             .setConstraints(constrains.build()).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
