@@ -12,8 +12,10 @@ import dagger.hilt.android.HiltAndroidApp
 import dev.re7gog.b_sideloader.data.background.NotificationHelper
 import dev.re7gog.b_sideloader.data.background.UpdateCheckWorker
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -31,7 +33,7 @@ class BSideApplication: Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.init(this)
-        runBlocking { schedulePeriodicUpdateCheck() }
+        CoroutineScope(Dispatchers.Default).launch { schedulePeriodicUpdateCheck() }
     }
 
     private suspend fun schedulePeriodicUpdateCheck() {
