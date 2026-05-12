@@ -1,14 +1,16 @@
+#define JM_XORSTR_DISABLE_AVX_INTRINSICS
+
 #include <jni.h>
 #include <string>
+#include "xorstr.hpp"
 
 extern "C" JNIEXPORT jint JNICALL
 Java_org_drinkless_tdlib_Secrets_getApiId(JNIEnv* env, jobject thiz) {
-    // YOUR APP ID
-    return 123456;
+    volatile int API_ID = ID_SECRET ^ MASK_SECRET;
+    return API_ID ^ MASK_SECRET;
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_org_drinkless_tdlib_Secrets_getApiHash(JNIEnv* env, jobject thiz) {
-    std::string hash = "YOUR_HASH";
-    return env->NewStringUTF(hash.c_str());
+    return env->NewStringUTF(xorstr(HASH_SECRET).crypt_get());
 }

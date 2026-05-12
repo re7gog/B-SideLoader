@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
 }
@@ -15,6 +17,17 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        @Suppress("UnstableApiUsage")
+        externalNativeBuild {
+            cmake {
+                val maskSecret = getSecret("MASK_SECRET", "0")
+                val idSecret = getSecret("ID_SECRET", "0")
+                val hashSecret = getSecret("HASH_SECRET", "INSERT_YOURSELF!")
+
+                cppFlags("-DMASK_SECRET=$maskSecret", "-DID_SECRET=$idSecret", "-DHASH_SECRET=\"\\\"$hashSecret\\\"\"")
+            }
+        }
     }
 
     buildTypes {
@@ -54,4 +67,21 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(libs.androidx.annotation)
+}
+
+fun getSecret(name: String, defaultValue: String): String {
+    // GitHub Actions
+    val envValue = System.getenv(name)
+    if (!envValue.isNullOrEmpty()) return envValue
+
+    // Local build
+    val localProps = File(project.rootDir, "local.properties")
+    if (localProps.exists()) {
+        val properties = Properties().apply {
+            localProps.inputStream().use { load(it) }
+        }
+        val propValue = properties.getProperty(name)
+        if (!propValue.isNullOrEmpty()) return propValue
+    }
+    return defaultValue
 }
