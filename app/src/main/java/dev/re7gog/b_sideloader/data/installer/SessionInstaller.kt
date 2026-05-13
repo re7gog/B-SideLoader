@@ -55,4 +55,19 @@ class SessionInstaller(private val context: Context) : ApkInstaller {
             throw e
         }
     }
+
+    override suspend fun uninstallPackage(packageName: String) {
+        val packageInstaller = context.packageManager.packageInstaller
+
+        val intent = Intent(context, UninstallReceiver::class.java).apply {
+            action = "dev.re7gog.b_sideloader.UNINSTALL_COMPLETE"
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        packageInstaller.uninstall(packageName, pendingIntent.intentSender)
+    }
 }

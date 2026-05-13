@@ -25,14 +25,37 @@ class InstallReceiver : BroadcastReceiver() {
             }
 
             PackageInstaller.STATUS_SUCCESS -> {
-                Log.i("B-SideLoader", "Install successful")
+                Log.d("B-SideLoader", "Install successful")
+
+                val packageName = intent.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME)
+                InstallEventManager.emitInstalledPackage(succeeded = true, packageName = packageName)
             }
 
             PackageInstaller.STATUS_FAILURE,
             PackageInstaller.STATUS_FAILURE_ABORTED,
             PackageInstaller.STATUS_FAILURE_STORAGE -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                Log.e("B-SideLoader", "Install failed ($status): $message")
+                Log.e("B-SideLoader", "Install failed ($status): ${message ?: "no message"}")
+                InstallEventManager.emitInstalledPackage(succeeded = false, errorMessage = message)
+            }
+        }
+    }
+}
+
+class UninstallReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        when (status) {
+            PackageInstaller.STATUS_SUCCESS -> {
+                Log.d("B-SideLoader", "Uninstall successful")
+                InstallEventManager.emitUninstalledPackage(succeeded = true)
+            }
+
+            PackageInstaller.STATUS_FAILURE,
+            PackageInstaller.STATUS_FAILURE_ABORTED -> {
+                val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                Log.e("B-SideLoader", "Uninstall failed ($status): ${message ?: "no message"}")
+                InstallEventManager.emitUninstalledPackage(succeeded = false, errorMessage = message)
             }
         }
     }

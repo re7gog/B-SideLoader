@@ -277,6 +277,9 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
                     when (status) {
                         PackageInstaller.STATUS_SUCCESS -> {
                             Log.i("B-SideLoader", "Privileged install successful")
+
+                            val packageName = it.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME)
+                            InstallEventManager.emitInstalledPackage(succeeded = true, packageName = packageName)
                         }
                         PackageInstaller.STATUS_FAILURE,
                         PackageInstaller.STATUS_FAILURE_ABORTED,
@@ -285,6 +288,7 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
                                 PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "No message"
                             Log.e("B-SideLoader",
                                 "Privileged install failed ($status): $message")
+                            InstallEventManager.emitInstalledPackage(succeeded = false, errorMessage = message)
                         }
                     }
                 } ?: throw IOException("Intent is null")
@@ -292,10 +296,11 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
         }.onFailure {
             val message = it.message + "\n" + it.stackTraceToString()
             Log.e("B-SideLoader", "Installing error: $message")
+            InstallEventManager.emitInstalledPackage(succeeded = false, errorMessage = message)
         }
     }
 
-    suspend fun uninstallPackage(packageName: String) {
+    override suspend fun uninstallPackage(packageName: String) {
         runCatching {
             var result: Intent? = null
             suspendCancellableCoroutine { cont ->
@@ -317,20 +322,22 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
                 when (status) {
                     PackageInstaller.STATUS_SUCCESS -> {
                         Log.i("B-SideLoader", "Privileged uninstall successful")
+                        InstallEventManager.emitUninstalledPackage(succeeded = true)
                     }
                     PackageInstaller.STATUS_FAILURE,
-                    PackageInstaller.STATUS_FAILURE_ABORTED,
-                    PackageInstaller.STATUS_FAILURE_STORAGE -> {
+                    PackageInstaller.STATUS_FAILURE_ABORTED -> {
                         val message = it.getStringExtra(
-                            PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "No message"
+                            PackageInstaller.EXTRA_STATUS_MESSAGE)
                         Log.e("B-SideLoader",
-                            "Privileged uninstall failed ($status): $message")
+                            "Privileged uninstall failed ($status): ${message ?: "no message"}")
+                        InstallEventManager.emitUninstalledPackage(succeeded = false, errorMessage = message)
                     }
                 }
             } ?: throw IOException("Intent is null")
         }.onFailure {
             val message = it.message + "\n" + it.stackTraceToString()
             Log.e("B-SideLoader", "Uninstalling error: $message")
+            InstallEventManager.emitUninstalledPackage(succeeded = false, errorMessage = message)
         }
     }
 }

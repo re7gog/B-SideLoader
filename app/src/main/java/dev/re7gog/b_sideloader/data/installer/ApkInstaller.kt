@@ -5,4 +5,5 @@ import java.io.InputStream
 
 interface ApkInstaller {
     suspend fun installApk(stream: InputStream, lengthBytes: Long, progressCollector: FlowCollector<Float>)
+    suspend fun uninstallPackage(packageName: String)
 }

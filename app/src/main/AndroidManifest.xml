@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"
         tools:ignore="RequestInstallPackagesPolicy" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:name=".BSideApplication"
@@ -30,6 +32,13 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="dev.re7gog.b_sideloader.INSTALL_COMPLETE" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".data.installer.UninstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="dev.re7gog.b_sideloader.UNINSTALL_COMPLETE" />
             </intent-filter>
         </receiver>
         <provider
