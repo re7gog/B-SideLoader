@@ -131,7 +131,7 @@ fun SearchAppSearchBar(
                 },
                 trailingIcon = {
                     if (viewModel.isSearchExpanded) {
-                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                        IconButton(onClick = viewModel::closeSearch) {
                             Icon(
                                 painterResource(R.drawable.close_24px),
                                 contentDescription = null
@@ -146,12 +146,13 @@ fun SearchAppSearchBar(
     ) {
         if (searchSource == SearchSource.GitHub) {
             if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
-                Text(
-                    text = "Enter repo name",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Enter repo name",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             SearchResults(
@@ -209,11 +210,6 @@ fun SearchResults(
                             modifier = Modifier.size(40.dp).clip(CircleShape)
                         )
                     },
-                    /*trailingContent = {
-                        IconButton(onClick = { viewModel.addRepoToDatabase(repo, onAppAdded) }) {
-                            Icon(Icons.Default.Add, contentDescription = "Add")
-                        }
-                    },*/
                     modifier = Modifier.clickable { onSearchResClick(repo) }
                 )
             }

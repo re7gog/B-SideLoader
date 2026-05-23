@@ -94,7 +94,7 @@ fun AppGhDetailsTopBar(
             }
         },
         actions = {
-            Text("Autoupdate")
+            Text("Autoupdate", modifier = Modifier.padding(16.dp))
             Switch(
                 checked = autoupdateEnabled,
                 onCheckedChange = onAutoupdateChange
@@ -136,10 +136,12 @@ fun AppGhDetailsContent(
                     text = uiState.stars.toString() + " ⭐",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Text(
-                    text = "Version: " + uiState.version,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                if (uiState.version.isNotEmpty()) {
+                    Text(
+                        text = "Version: " + uiState.version,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
         Text(
@@ -152,7 +154,7 @@ fun AppGhDetailsContent(
             value = uiState.releasesInclude,
             onValueChange = onReleaseIncludeFilterChange,
             label = { Text("Release name must contain (use space to divide key words):") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -160,7 +162,7 @@ fun AppGhDetailsContent(
             value = uiState.releasesExclude,
             onValueChange = onReleaseExcludeFilterChange,
             label = { Text("Release name must not contain:") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -168,7 +170,7 @@ fun AppGhDetailsContent(
             value = uiState.filterInclude,
             onValueChange = onIncludeFilterChange,
             label = { Text("APK file name must contain:") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -176,7 +178,7 @@ fun AppGhDetailsContent(
             value = uiState.filterExclude,
             onValueChange = onExcludeFilterChange,
             label = { Text("APK file name must not contain:") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
         )
 
@@ -187,7 +189,7 @@ fun AppGhDetailsContent(
             shouldUpdate = shouldUpdate,
             isInstalling = isInstalling,
             installProgress = installProgress,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         )
     }
 }

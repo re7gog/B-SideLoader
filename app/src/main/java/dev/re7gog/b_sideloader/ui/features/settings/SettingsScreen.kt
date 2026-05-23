@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.re7gog.b_sideloader.R
@@ -66,6 +68,13 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
             item {
+                Text(
+                    text = "General",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 0.dp)
+                )
+            }
+            item {
                 SettingsSwitchItem(
                     title = "Use privileged installer",
                     subtitle = "Use Shizuku, Sui or Dhizuku",
@@ -91,15 +100,22 @@ fun SettingsScreen(
                 }
             }
             item {
-                Button(
-                    onClick = onTgLoginClick,
-                    modifier = Modifier.padding(paddingValues).fillMaxWidth()
-                ) {
-                    Text("Login Telegram")
-                }
+                Text(
+                    text = "Login & Accounts",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 0.dp)
+                )
             }
             item {
                 GithubTokenSetting()
+            }
+            item {
+                Button(
+                    onClick = onTgLoginClick,
+                    modifier = Modifier.padding(16.dp).fillMaxWidth()
+                ) {
+                    Text("Login Telegram")
+                }
             }
         }
     }
@@ -163,6 +179,7 @@ fun GithubTokenSetting(viewModel: SettingsViewModel = hiltViewModel()) {
             value = token,
             onValueChange = { viewModel.updateGithubToken(it) },
             modifier = Modifier.fillMaxWidth(),
+            label = { Text("GitHub token for increasing API limit") },
             placeholder = { Text("github_pat_****************") },
             trailingIcon = {
                 IconButton(onClick = {

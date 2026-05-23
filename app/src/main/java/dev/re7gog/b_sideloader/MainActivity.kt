@@ -61,7 +61,6 @@ fun BSideLoaderApp() {
                     selected = currentDestination?.hasRoute(it.route::class) == true,
                     onClick = {
                         navController.navigate(it.route) {
-                            // Clear navigation stack but save state
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }

@@ -110,6 +110,11 @@ class SearchAppViewModel @Inject constructor(
         if (_searchSource.value == SearchSource.GitHub) _searchTextFlow.value = newQuery
     }
 
+    fun closeSearch() {
+        _searchQuery.value = ""
+        isSearchExpanded = false
+    }
+
     fun onSourceSelected(source: SearchSource) {
         _searchSource.value = source
     }
