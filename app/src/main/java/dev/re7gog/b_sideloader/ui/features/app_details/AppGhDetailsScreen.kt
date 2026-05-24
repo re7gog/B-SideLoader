@@ -1,9 +1,11 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,13 +20,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -40,12 +47,18 @@ fun AppGhDetailsScreen(
     viewModel: AppGhDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
-    val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
-    val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.snackbarEvents.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     if (uiState != null) {
         Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
                 AppGhDetailsTopBar(
                     onBackClick = onBackClick,
@@ -57,20 +70,14 @@ fun AppGhDetailsScreen(
         ) { paddingValues ->
             AppGhDetailsContent(
                 uiState = uiState!!,
-                onInstallClick = viewModel::installAppGh,
-                onSaveClick = viewModel::saveGhToDb,
-                shouldUpdate = shouldUpdate,
-                isInstalling = isInstalling,
-                installProgress = installProgress,
-                onIncludeFilterChange = viewModel::onFilterIncludeChange,
-                onExcludeFilterChange = viewModel::onFilterExcludeChange,
-                onReleaseIncludeFilterChange = viewModel::onReleasesFilterIncludeChange,
-                onReleaseExcludeFilterChange = viewModel::onReleasesFilterExcludeChange,
+                viewModel = viewModel,
                 modifier = Modifier.padding(paddingValues)
             )
         }
     } else {
-        CircularProgressIndicator()
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
     }
 }
 
@@ -106,28 +113,32 @@ fun AppGhDetailsTopBar(
 @Composable
 fun AppGhDetailsContent(
     uiState: AppGhDetailsUiState,
-    onInstallClick: () -> Unit,
-    onSaveClick: () -> Unit,
-    shouldUpdate: Boolean,
-    isInstalling: Boolean,
-    installProgress: Float,
-    onIncludeFilterChange: (String) -> Unit,
-    onExcludeFilterChange: (String) -> Unit,
-    onReleaseIncludeFilterChange: (String) -> Unit,
-    onReleaseExcludeFilterChange: (String) -> Unit,
+    viewModel: AppGhDetailsViewModel,
     modifier: Modifier = Modifier
 ) {
+    val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
+    val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
+    val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
+
+    val isAppInstalled = uiState.installed
+    var imageModifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp))
+    if (!isAppInstalled) imageModifier = imageModifier.alpha(0.5f)
+    val packageName = uiState.packageName
+    val appIcon = remember(isAppInstalled, packageName) {
+        if (isAppInstalled && packageName != "") viewModel.getAppIcon(uiState.packageName) else null
+    }
+
     Column(modifier = modifier) {
         Row(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             AsyncImage(
-                model = uiState.iconUrl,
+                model = appIcon ?: uiState.iconUrl,
+                placeholder = painterResource(R.drawable.circle_24px),
+                error = painterResource(R.drawable.x_circle_24px),
                 contentDescription = null,
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                modifier = imageModifier
             )
             Column {
                 Text(uiState.name, style = MaterialTheme.typography.headlineMedium)
@@ -152,7 +163,7 @@ fun AppGhDetailsContent(
 
         OutlinedTextField(
             value = uiState.releasesInclude,
-            onValueChange = onReleaseIncludeFilterChange,
+            onValueChange = viewModel::onReleasesFilterIncludeChange,
             label = { Text("Release name must contain (use space to divide key words):") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
@@ -160,7 +171,7 @@ fun AppGhDetailsContent(
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = uiState.releasesExclude,
-            onValueChange = onReleaseExcludeFilterChange,
+            onValueChange = viewModel::onReleasesFilterExcludeChange,
             label = { Text("Release name must not contain:") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
@@ -168,7 +179,7 @@ fun AppGhDetailsContent(
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = uiState.filterInclude,
-            onValueChange = onIncludeFilterChange,
+            onValueChange = viewModel::onFilterIncludeChange,
             label = { Text("APK file name must contain:") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
@@ -176,7 +187,7 @@ fun AppGhDetailsContent(
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = uiState.filterExclude,
-            onValueChange = onExcludeFilterChange,
+            onValueChange = viewModel::onFilterExcludeChange,
             label = { Text("APK file name must not contain:") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp)
@@ -184,8 +195,7 @@ fun AppGhDetailsContent(
 
         GhInstallButton(
             state = uiState,
-            onInstallClick = onInstallClick,
-            onSaveClick = onSaveClick,
+            onInstallClick = viewModel::installAppGh,
             shouldUpdate = shouldUpdate,
             isInstalling = isInstalling,
             installProgress = installProgress,
@@ -198,7 +208,6 @@ fun AppGhDetailsContent(
 fun GhInstallButton(
     state: AppGhDetailsUiState,
     onInstallClick: () -> Unit,
-    onSaveClick: () -> Unit,
     shouldUpdate: Boolean,
     isInstalling: Boolean,
     installProgress: Float,
@@ -224,10 +233,7 @@ fun GhInstallButton(
         }
     } else{
         Button(
-            onClick = {
-                if (!state.isFromDb) onSaveClick()
-                onInstallClick()
-            },
+            onClick = onInstallClick,
             modifier = modifier
         ) {
             Text(
@@ -235,6 +241,8 @@ fun GhInstallButton(
                     "Save and install"
                 } else if (shouldUpdate) {
                     "Update"
+                } else if (state.installed){
+                    "Open"
                 } else {
                     "Install"
                 }

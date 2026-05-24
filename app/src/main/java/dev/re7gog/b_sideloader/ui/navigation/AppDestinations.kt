@@ -15,10 +15,10 @@ object SearchAppRoute
 object SettingsRoute
 
 @Serializable
-data class AppGhDetailsFromDbRoute(val appId: Long)
+data class AppGhDetailsFromDbRoute(val appId: Long, val installed: Boolean)
 
 @Serializable
-data class AppTgDetailsFromDbRoute(val appId: Long)
+data class AppTgDetailsFromDbRoute(val appId: Long, val installed: Boolean)
 
 @Serializable
 data class AppGhDetailsFromSearchRoute(

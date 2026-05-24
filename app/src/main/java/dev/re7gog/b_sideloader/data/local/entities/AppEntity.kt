@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class AppEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sourceType: Int,
+    val packageName: String,
     val name: String,
     val version: String,
     val autoupdate: Boolean,

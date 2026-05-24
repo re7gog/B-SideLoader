@@ -85,11 +85,11 @@ fun BSideLoaderApp() {
         ) {
             composable<AppsListRoute> {
                 AppsListScreen(
-                    onGhAppClick = { id ->
-                        navController.navigate(AppGhDetailsFromDbRoute(appId = id))
+                    onGhAppClick = { id, installed  ->
+                        navController.navigate(AppGhDetailsFromDbRoute(appId = id, installed = installed))
                     },
-                    onTgAppClick = { id ->
-                        navController.navigate(AppTgDetailsFromDbRoute(appId = id))
+                    onTgAppClick = { id, installed ->
+                        navController.navigate(AppTgDetailsFromDbRoute(appId = id, installed = installed))
                     }
                 )
             }

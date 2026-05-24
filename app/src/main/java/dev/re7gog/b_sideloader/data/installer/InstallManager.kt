@@ -1,6 +1,9 @@
 package dev.re7gog.b_sideloader.data.installer
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.domain.logic.IInstallManager
@@ -70,5 +73,28 @@ class InstallManager @Inject constructor(
         val res = shizukuInstaller.checkPermission()
         shizukuInstaller.exit()
         return res
+    }
+
+    override fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    packageName, PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                context.packageManager.getPackageInfo(packageName, 0)
+            }
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    override fun getAppIcon(packageName: String): Drawable? {
+        return try {
+            context.packageManager.getApplicationIcon(packageName)
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
     }
 }

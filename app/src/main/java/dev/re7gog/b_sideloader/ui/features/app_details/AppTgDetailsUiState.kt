@@ -4,7 +4,10 @@ import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromSearchRoute
 
 data class AppTgDetailsUiState(
+    val id: Long,
+    val packageName: String,
     val name: String,
+    val installed: Boolean,
     val version: String,
     val autoupdate: Boolean,
     //val filterInclude: String,
@@ -15,9 +18,12 @@ data class AppTgDetailsUiState(
 )
 
 // From DB to UI
-fun AppWithDetails.toTgUiState(): AppTgDetailsUiState {
+fun AppWithDetails.toTgUiState(installed: Boolean): AppTgDetailsUiState {
     return AppTgDetailsUiState(
+        id = this.app.id,
+        packageName = this.app.packageName,
         name = this.app.name,
+        installed = installed,
         version = this.app.version,
         autoupdate = this.app.autoupdate,
         //filterInclude = this.app.filterInclude,
@@ -31,7 +37,10 @@ fun AppWithDetails.toTgUiState(): AppTgDetailsUiState {
 // From Search to UI
 fun AppTgDetailsFromSearchRoute.toTgUiState(): AppTgDetailsUiState {
     return AppTgDetailsUiState(
+        id = 0L,
+        packageName = "",
         name = this.name,
+        installed = false,
         version = "",
         autoupdate = true,
         //filterInclude = "",

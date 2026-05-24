@@ -110,7 +110,7 @@ class AppTgDetailsViewModel @Inject constructor(
                 repository.getAppStream(fromDb.appId)
                     .collect { data ->
                         if (data != null && data.telegramDetails != null) {
-                            _uiState.value = data.toTgUiState()
+                            _uiState.value = data.toTgUiState(fromDb.installed)
                             _includeFilter.value = data.app.filterInclude
                             _excludeFilter.value = data.app.filterExclude
                         }
@@ -126,6 +126,7 @@ class AppTgDetailsViewModel @Inject constructor(
     private fun genTgApp(): AppType.TelegramApp {
         val app = AppEntity(
             sourceType = 2,
+            packageName = _uiState.value?.packageName ?: "",
             name = _uiState.value?.name ?: "",
             version = _uiState.value?.version ?: "",
             autoupdate = _uiState.value?.autoupdate ?: true,

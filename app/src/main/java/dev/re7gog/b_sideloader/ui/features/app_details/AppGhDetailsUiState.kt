@@ -5,7 +5,10 @@ import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromSearchRoute
 
 data class AppGhDetailsUiState(
+    val id: Long,
+    val packageName: String,
     val name: String,
+    val installed: Boolean,
     val version: String,
     val autoupdate: Boolean,
     val filterInclude: String,
@@ -22,11 +25,16 @@ data class AppGhDetailsUiState(
 )
 
 // From DB to UI
-suspend fun AppWithDetails.toGhUiState(githubApi: GithubApi, token: String?): AppGhDetailsUiState {
+suspend fun AppWithDetails.toGhUiState(
+    githubApi: GithubApi, token: String?, installed: Boolean
+): AppGhDetailsUiState {
     val repo = githubApi.getRepository(
         owner = this.githubDetails?.owner ?: "", repo = this.githubDetails?.repo ?: "", token = token)
     return AppGhDetailsUiState(
+        id = this.app.id,
+        packageName = this.app.packageName,
         name = this.app.name,
+        installed = installed,
         version = this.app.version,
         autoupdate = this.app.autoupdate,
         filterInclude = this.app.filterInclude,
@@ -46,7 +54,10 @@ suspend fun AppWithDetails.toGhUiState(githubApi: GithubApi, token: String?): Ap
 // From Search to UI
 fun AppGhDetailsFromSearchRoute.toGhUiState(): AppGhDetailsUiState {
     return AppGhDetailsUiState(
+        id = 0L,
+        packageName = "",
         name = this.name,
+        installed = false,
         version = "",
         autoupdate = true,
         filterInclude = "",
