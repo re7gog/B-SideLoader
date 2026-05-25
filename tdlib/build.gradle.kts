@@ -23,9 +23,10 @@ android {
             cmake {
                 val maskSecret = getSecret("MASK_SECRET", "0")
                 val idSecret = getSecret("ID_SECRET", "0")
-                val hashSecret = getSecret("HASH_SECRET", "INSERT_YOURSELF!")
+                cppFlags("-DMASK_SECRET=$maskSecret", "-DID_SECRET=$idSecret")
 
-                cppFlags("-DMASK_SECRET=$maskSecret", "-DID_SECRET=$idSecret", "-DHASH_SECRET=\"\\\"$hashSecret\\\"\"")
+                val hashSecret = getSecret("HASH_SECRET", "INSERT_YOURS!")
+                arguments("-DHASH_SECRET=$hashSecret")
             }
         }
     }

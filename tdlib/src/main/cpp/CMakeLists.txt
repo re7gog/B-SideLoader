@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 
+add_compile_definitions(HASH_SECRET="${HASH_SECRET}")
+
 project("bsideloader_native")
 
 add_library(
@@ -13,12 +15,12 @@ add_library(
     native-lib.cpp
 )
 
-find_library(
-    log-lib
-    log
-)
+#find_library(
+#    log-lib
+#    log
+#)
 
-target_link_libraries(
-    native-lib
-    ${log-lib}
-)
+#target_link_libraries(
+#    native-lib
+#    ${log-lib}
+#)

@@ -1,7 +1,7 @@
 #define JM_XORSTR_DISABLE_AVX_INTRINSICS
 
-#include <jni.h>
 #include <string>
+#include <jni.h>
 #include "xorstr.hpp"
 
 extern "C" JNIEXPORT jint JNICALL
