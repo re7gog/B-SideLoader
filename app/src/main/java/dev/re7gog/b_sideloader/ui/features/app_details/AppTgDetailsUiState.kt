@@ -12,6 +12,8 @@ data class AppTgDetailsUiState(
     val autoupdate: Boolean,
     //val filterInclude: String,
     //val filterExclude: String,
+    val messageInclude: String,
+    val messageExclude: String,
     val chatId: Long,
     val topicId: Int?,
     val isFromDb: Boolean
@@ -28,7 +30,9 @@ fun AppWithDetails.toTgUiState(installed: Boolean): AppTgDetailsUiState {
         autoupdate = this.app.autoupdate,
         //filterInclude = this.app.filterInclude,
         //filterExclude = this.app.filterExclude,
-        chatId = this.telegramDetails!!.chatId,
+        messageInclude = this.telegramDetails!!.messageInclude,
+        messageExclude = this.telegramDetails.messageExclude,
+        chatId = this.telegramDetails.chatId,
         topicId = this.telegramDetails.topicId,
         isFromDb = true
     )
@@ -45,6 +49,8 @@ fun AppTgDetailsFromSearchRoute.toTgUiState(): AppTgDetailsUiState {
         autoupdate = true,
         //filterInclude = "",
         //filterExclude = "",
+        messageInclude = "",
+        messageExclude = "",
         chatId = this.chatId,
         topicId = this.topicId,
         isFromDb = false

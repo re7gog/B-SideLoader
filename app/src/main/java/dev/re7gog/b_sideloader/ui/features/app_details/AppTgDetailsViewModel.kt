@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
 import android.util.Log
+import android.util.LongSparseArray
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -46,6 +47,12 @@ class AppTgDetailsViewModel @Inject constructor(
     val includeFilter = _includeFilter.asStateFlow()
     val excludeFilter = _excludeFilter.asStateFlow()
 
+    private val _msgIncludeFilter = MutableStateFlow("")
+    private val _msgExcludeFilter = MutableStateFlow("")
+
+    val msgIncludeFilter = _msgIncludeFilter.asStateFlow()
+    val msgExcludeFilter = _msgExcludeFilter.asStateFlow()
+
     private val _shouldUpdate = MutableStateFlow(false)
     val shouldUpdate = _shouldUpdate.asStateFlow()
 
@@ -58,23 +65,81 @@ class AppTgDetailsViewModel @Inject constructor(
     private var newVersion = ""
 
     val filteredApkMessages = combine(
-        _apkMessages, _includeFilter, _excludeFilter
-    ) { messages, inc, exc ->
+        _apkMessages,
+        _includeFilter,
+        _excludeFilter,
+        _msgIncludeFilter,
+        _msgExcludeFilter
+    ) { messages, inc, exc, msgInc, msgExc ->
         val incWords = inc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
         val excWords = exc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val msgIncWords = msgInc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val msgExcWords = msgExc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
 
-        messages.filter { message ->
-            val doc = (message.content as? TdApi.MessageDocument)?.document
-            val fileName = doc?.fileName?.lowercase() ?: ""
+        // Most optimized data structure for this case
+        // albumId: matchesFilename, message
+        val res = LongSparseArray<Pair<Boolean, TdApi.Message>>()
+        var latestId = 0L  // For inserting single messages in right order
 
-            val isApk = fileName.endsWith(".apk")
-            if (!isApk) return@filter false
+        for (msg in messages) {
+            val content = (msg.content as? TdApi.MessageDocument) ?: continue
 
-            val matchesInc = incWords.all { fileName.contains(it.lowercase()) }
-            val matchesExc = excWords.none { fileName.contains(it.lowercase()) }
+            // Check if matches filename, skip unneeded checks
+            val matchesFile by lazy {
+                val fileName = content.document?.fileName?.lowercase() ?: ""
+                var matchesFile = fileName.endsWith(".apk")
+                if (matchesFile) {
+                    matchesFile = incWords.all { fileName.contains(it.lowercase()) }
+                    if (matchesFile) {
+                        matchesFile = excWords.none { fileName.contains(it.lowercase()) }
+                    }
+                }
+                matchesFile
+            }
 
-            matchesInc && matchesExc
+            // Same, but for message text
+            val matchesText by lazy {
+                val msgText = content.caption?.text ?: ""
+                var matchesText = msgIncWords.all { msgText.contains(it.lowercase()) }
+                if (matchesText) {
+                    matchesText = msgExcWords.none { msgText.contains(it.lowercase()) }
+                }
+                matchesText
+            }
+
+            val albumId = msg.mediaAlbumId
+            if (albumId == 0L) {  // Single message, insert after latest. Only if everything matches
+                if (matchesFile && matchesText) {
+                    latestId += 1
+                    res.put(latestId, Pair(true, msg))
+                }
+            } else {
+                val album = res.get(albumId)
+                // Add new album if matches text. It can not match filename, because can be overwritten later
+                if (album == null) {
+                    if (matchesText) {
+                        res.put(albumId, Pair(matchesFile, msg))
+                        if (albumId > latestId) latestId = albumId  // Remember latest groupId
+                    }
+                } else {
+                    // If previous filename not matches, but new does, replace
+                    if (!album.first && matchesFile) {
+                        // Preserve message text for UI
+                        (msg.content as TdApi.MessageDocument).caption.text = (album.second.content as TdApi.MessageDocument).caption.text
+                        // We found right message, no need to search anymore
+                        res.put(albumId, Pair(true, msg))
+                    }
+                }
+            }
         }
+
+        // We need to filter albums with no matching filenames and convert it to simple list
+        val finalRes = mutableListOf<TdApi.Message>()
+        for (i in 0 until res.size()) {
+            val value = res.valueAt(i)
+            if (value.first) finalRes.add(value.second)
+        }
+        finalRes
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),

@@ -12,5 +12,5 @@ Java_org_drinkless_tdlib_Secrets_getApiId(JNIEnv* env, jobject thiz) {
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_org_drinkless_tdlib_Secrets_getApiHash(JNIEnv* env, jobject thiz) {
-    return env->NewStringUTF(xorstr(HASH_SECRET).crypt_get());
+    return env->NewStringUTF(xorstr_(HASH_SECRET));
 }

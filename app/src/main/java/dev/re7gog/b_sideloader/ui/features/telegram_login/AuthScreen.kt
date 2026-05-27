@@ -82,7 +82,7 @@ fun AuthScreen(
                     value = inputFieldValue,
                     onValueChange = { inputFieldValue = it },
                     onConfirm = { viewModel.sendPassword(inputFieldValue); inputFieldValue = "" },
-                    isPassword = true // Добавь этот параметр в AuthInputSection для защиты текста
+                    isPassword = true
                 )
             }
 
