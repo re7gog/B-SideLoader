@@ -101,10 +101,11 @@ fun AppGhDetailsTopBar(
             }
         },
         actions = {
-            Text("Autoupdate", modifier = Modifier.padding(16.dp))
+            Text("Autoupdate", modifier = Modifier.padding(8.dp))
             Switch(
                 checked = autoupdateEnabled,
-                onCheckedChange = onAutoupdateChange
+                onCheckedChange = onAutoupdateChange,
+                modifier = Modifier.padding(8.dp)
             )
         }
     )

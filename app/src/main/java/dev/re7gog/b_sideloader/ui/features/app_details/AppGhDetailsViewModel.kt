@@ -17,6 +17,7 @@ import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromDbRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromSearchRoute
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,7 +132,7 @@ class AppGhDetailsViewModel @Inject constructor(
     }
 
     fun installAppGh() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isInstalling.value = true
                 installManager.downloadAndInstall(downloadUrl).collect {

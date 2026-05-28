@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
+import android.graphics.drawable.Drawable
 import android.util.Log
 import android.util.LongSparseArray
 import androidx.lifecycle.SavedStateHandle
@@ -29,6 +30,10 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
+import androidx.core.util.size
+import dev.re7gog.b_sideloader.data.installer.InstallEventManager
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 @HiltViewModel
 class AppTgDetailsViewModel @Inject constructor(
@@ -62,7 +67,15 @@ class AppTgDetailsViewModel @Inject constructor(
     private val _installProgress = MutableStateFlow(0f)
     val installProgress = _installProgress.asStateFlow()
 
+    private val installEvents = InstallEventManager.installEvents
+
     private var newVersion = ""
+
+    private val _icon = MutableStateFlow<Drawable?>(null)
+    val icon = _icon.asStateFlow()
+
+    private val _snackbarEvents = MutableSharedFlow<String>()
+    val snackbarEvents = _snackbarEvents.asSharedFlow()
 
     val filteredApkMessages = combine(
         _apkMessages,
@@ -86,9 +99,10 @@ class AppTgDetailsViewModel @Inject constructor(
 
             // Check if matches filename, skip unneeded checks
             val matchesFile by lazy {
-                val fileName = content.document?.fileName?.lowercase() ?: ""
+                var fileName = content.document?.fileName?.lowercase() ?: ""
                 var matchesFile = fileName.endsWith(".apk")
                 if (matchesFile) {
+                    fileName = fileName.dropLast(4)
                     matchesFile = incWords.all { fileName.contains(it.lowercase()) }
                     if (matchesFile) {
                         matchesFile = excWords.none { fileName.contains(it.lowercase()) }
@@ -135,7 +149,7 @@ class AppTgDetailsViewModel @Inject constructor(
 
         // We need to filter albums with no matching filenames and convert it to simple list
         val finalRes = mutableListOf<TdApi.Message>()
-        for (i in 0 until res.size()) {
+        for (i in 0 until res.size) {
             val value = res.valueAt(i)
             if (value.first) finalRes.add(value.second)
         }
@@ -148,7 +162,7 @@ class AppTgDetailsViewModel @Inject constructor(
 
     val targetApkMessage = filteredApkMessages
         .map { it.firstOrNull() }
-        .also {
+        .also {  // Switch state to show that update is available
             if ((_uiState.value?.version ?: "") == "") return@also
             viewModelScope.launch {
                 val currMessageId = it.firstOrNull()?.id?.toString() ?: return@launch
@@ -172,20 +186,38 @@ class AppTgDetailsViewModel @Inject constructor(
 
         viewModelScope.launch {
             if (fromDb != null) {
-                repository.getAppStream(fromDb.appId)
-                    .collect { data ->
-                        if (data != null && data.telegramDetails != null) {
-                            _uiState.value = data.toTgUiState(fromDb.installed)
-                            _includeFilter.value = data.app.filterInclude
-                            _excludeFilter.value = data.app.filterExclude
-                        }
-                    }
+                val app = repository.getAppStream(fromDb.appId).firstOrNull()
+                if (app != null && app.telegramDetails != null) {
+                    _uiState.value = app.toTgUiState(fromDb.installed)
+                    _includeFilter.value = app.app.filterInclude
+                    _excludeFilter.value = app.app.filterExclude
+                    _msgIncludeFilter.value = app.telegramDetails.messageInclude
+                    _msgExcludeFilter.value = app.telegramDetails.messageExclude
+                }
             } else if (fromSearch != null) {
                 _uiState.value = fromSearch.toTgUiState()
             }
+            loadApkMessages()
         }
+        viewModelScope.launch {
+            installEvents.collect { installRes ->
+                if (installRes.succeeded) {
+                    _uiState.update { it?.copy(version = newVersion) }
+                    if (installRes.packageName != null) {
+                        _uiState.update { it?.copy(packageName = installRes.packageName) }
+                    }
+                    if (_shouldUpdate.value) _shouldUpdate.value = false
 
-        loadApkMessages()
+                    if (_uiState.value?.isFromDb ?: false) {
+                        repository.updateApp(genTgApp())
+                    } else {
+                        repository.addApp(genTgApp())
+                    }
+                } else {
+                    _snackbarEvents.emit(installRes.errorMessage ?: "Installation error")
+                }
+            }
+        }
     }
 
     private fun genTgApp(): AppType.TelegramApp {
@@ -201,26 +233,20 @@ class AppTgDetailsViewModel @Inject constructor(
         val details = TelegramDetailsEntity(
             id = 0,
             chatId = _uiState.value?.chatId ?: 0L,
-            topicId = _uiState.value?.topicId ?: 0
+            topicId = _uiState.value?.topicId ?: 0,
+            messageInclude = _msgIncludeFilter.value,
+            messageExclude = _msgExcludeFilter.value
         )
         return AppType.TelegramApp(app, details)
     }
 
-    fun saveTgToDb() {
-        viewModelScope.launch {
-            repository.addApp(genTgApp())
-        }
+    suspend fun loadApkMessages() {
+        val result = telegramManager.searchApkMessages(
+            _uiState.value?.chatId ?: 0L, _uiState.value?.topicId ?: 0)
+        if (result != null) _apkMessages.value = result.messages.toList()
     }
 
-    fun loadApkMessages() {
-        viewModelScope.launch {
-            val result = telegramManager.searchApkMessages(
-                _uiState.value?.chatId ?: 0L, _uiState.value?.topicId ?: 0)
-            if (result != null) _apkMessages.value = result.messages.toList()
-        }
-    }
-
-    fun startInstall() {
+    fun installAppTg() {
         viewModelScope.launch(Dispatchers.IO) {
             val doc = (targetApkMessage.firstOrNull()?.content as? TdApi.MessageDocument)?.document ?: return@launch
             val fileId = doc.document.id
@@ -234,14 +260,10 @@ class AppTgDetailsViewModel @Inject constructor(
                 installManager.installFromFile(localFile, doc.document.size).collect {
                     _installProgress.value = it
                 }
-
-                if (_shouldUpdate.value) {
-                    _uiState.update { it?.copy(version = newVersion) }
-                    _shouldUpdate.value = false
-                }
             } catch (e: Exception) {
-                Log.e("Install", "Installation error: ${e.message}")
+                _snackbarEvents.emit(e.message ?: "Installation error")
             } finally {
+                _installProgress.value = 0f
                 _isInstalling.value = false
                 cleanupFile(fileId, localFile)
             }
@@ -256,10 +278,17 @@ class AppTgDetailsViewModel @Inject constructor(
         }
     }
 
+    fun getAppIcon(packageName: String): Drawable? {
+        return installManager.getAppIcon(packageName)
+    }
+
     fun onAutoUpdateChange(enabled: Boolean) {
         _uiState.update { it?.copy(autoupdate = enabled) }
     }
 
     fun onIncludeFilterChange(text: String) { _includeFilter.value = text }
     fun onExcludeFilterChange(text: String) { _excludeFilter.value = text }
+
+    fun onMsgIncludeFilterChange(text: String) { _msgIncludeFilter.value = text }
+    fun onMsgExcludeFilterChange(text: String) { _msgExcludeFilter.value = text }
 }
