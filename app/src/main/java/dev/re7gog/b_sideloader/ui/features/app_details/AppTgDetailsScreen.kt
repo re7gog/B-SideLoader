@@ -212,9 +212,8 @@ fun AppTgDetailsContent(
         Text(
             "Available APKs",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(vertical = 12.dp)
         )
-        LazyColumn(modifier = modifier) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(filteredMessages, key = { it.id }) { message ->
                 val isTarget = message.id == targetApkMessage?.id
                 ApkMessageStaticRow(message, isTarget)

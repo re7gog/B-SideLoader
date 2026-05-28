@@ -103,10 +103,8 @@ class AppTgDetailsViewModel @Inject constructor(
                 var matchesFile = fileName.endsWith(".apk")
                 if (matchesFile) {
                     fileName = fileName.dropLast(4)
-                    matchesFile = incWords.all { fileName.contains(it.lowercase()) }
-                    if (matchesFile) {
-                        matchesFile = excWords.none { fileName.contains(it.lowercase()) }
-                    }
+                    matchesFile = incWords.all { fileName.contains(it.lowercase()) } &&
+                            excWords.none { fileName.contains(it.lowercase()) }
                 }
                 matchesFile
             }
@@ -114,11 +112,8 @@ class AppTgDetailsViewModel @Inject constructor(
             // Same, but for message text
             val matchesText by lazy {
                 val msgText = content.caption?.text ?: ""
-                var matchesText = msgIncWords.all { msgText.contains(it.lowercase()) }
-                if (matchesText) {
-                    matchesText = msgExcWords.none { msgText.contains(it.lowercase()) }
-                }
-                matchesText
+                msgIncWords.all { msgText.contains(it.lowercase()) } &&
+                        msgExcWords.none { msgText.contains(it.lowercase()) }
             }
 
             val albumId = msg.mediaAlbumId
@@ -135,14 +130,11 @@ class AppTgDetailsViewModel @Inject constructor(
                         res.put(albumId, Pair(matchesFile, msg))
                         if (albumId > latestId) latestId = albumId  // Remember latest groupId
                     }
-                } else {
-                    // If previous filename not matches, but new does, replace
-                    if (!album.first && matchesFile) {
-                        // Preserve message text for UI
-                        (msg.content as TdApi.MessageDocument).caption.text = (album.second.content as TdApi.MessageDocument).caption.text
-                        // We found right message, no need to search anymore
-                        res.put(albumId, Pair(true, msg))
-                    }
+                } else if (!album.first && matchesFile) { // If previous filename not matches, but new does, replace
+                    // Preserve message text for UI
+                    (msg.content as TdApi.MessageDocument).caption.text = (album.second.content as TdApi.MessageDocument).caption.text
+                    // We found right message, no need to search anymore
+                    res.put(albumId, Pair(true, msg))
                 }
             }
         }

@@ -43,7 +43,7 @@ fun AppTgDetailsFromSearchRoute.toTgUiState(): AppTgDetailsUiState {
     return AppTgDetailsUiState(
         id = 0L,
         packageName = "",
-        name = this.name,
+        name = this.chatTitle,
         installed = false,
         version = "",
         autoupdate = true,

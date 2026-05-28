@@ -111,8 +111,8 @@ fun BSideLoaderApp() {
                     onTgSearchResClick = { messageList ->
                         navController.navigate(
                             AppTgDetailsFromSearchRoute(
-                                name = messageList.name,
                                 chatId = messageList.chatId,
+                                chatTitle = messageList.chatTitle,
                                 topicId = messageList.topicId
                             )
                         )

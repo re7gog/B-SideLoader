@@ -1,18 +1,18 @@
 package dev.re7gog.b_sideloader.ui.features.search_app
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
-import kotlin.collections.emptyList
 
 enum class SearchSource {
     GitHub, Telegram
@@ -31,34 +30,37 @@ enum class SearchSource {
 sealed class SelectionState {
     object ChatList : SelectionState()
     data class TopicList(val chatId: Long, val chatTitle: String) : SelectionState()
-    data class MessageList(val chatId: Long, val topicId: Int?, val name: String) : SelectionState()
+    data class MessageList(val chatId: Long, val chatTitle: String, val topicId: Int?) : SelectionState()
 }
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SearchAppViewModel @Inject constructor(
     private val githubApi: GithubApi,
-    private val telegramManager: TelegramManager
+    private val telegramManager: TelegramManager,
+    private val secureStorage: SecureStorage
 ) : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    var isSearchExpanded by mutableStateOf(false)
-    var searchResult by mutableStateOf<List<GithubRepoDto>>(emptyList())
-    var isLoading by mutableStateOf(false)
 
-    private val _searchTextFlow = MutableStateFlow("")
+    private val _isSearchExpanded = MutableStateFlow(false)
+    val isSearchExpanded = _isSearchExpanded.asStateFlow()
+
+    private val _ghSearchResult = MutableStateFlow<List<GithubRepoDto>>(emptyList())
+    val ghSearchResult = _ghSearchResult.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
 
     private val _searchSource = MutableStateFlow(SearchSource.GitHub)
-    val searchSource: StateFlow<SearchSource> = _searchSource.asStateFlow()
+    val searchSource = _searchSource.asStateFlow()
 
-    val telegramSearchResults = combine(
-        telegramManager.chatsFlow,
-        searchQuery
-    ) { chats, query ->
+    val tgSearchResults = combine(
+        _searchQuery,
+        telegramManager.chatsFlow
+    ) { query, chats ->
         chats.filter { chat ->
-            val isChannel = chat.type is TdApi.ChatTypeSupergroup
-            val matchesQuery = chat.title.contains(query, ignoreCase = true)
-            isChannel && matchesQuery
+            chat.type is TdApi.ChatTypeSupergroup && chat.title.contains(query, ignoreCase = true)
         }
     }.stateIn(
         viewModelScope,
@@ -72,47 +74,50 @@ class SearchAppViewModel @Inject constructor(
     private val _topics = MutableStateFlow<List<TdApi.ForumTopic>>(emptyList())
     val topics = _topics.asStateFlow()
 
-    /*
-    val availableChats = telegramManager.chatsFlow.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        emptyList()
-    )
-     */
+    private val _ghToken by lazy { secureStorage.getGithubToken() }
+
+    private val _snackbarEvents = MutableSharedFlow<String>()
+    val snackbarEvents = _snackbarEvents.asSharedFlow()
 
     init {
         viewModelScope.launch {
-            _searchTextFlow
+            _searchQuery
                 .debounce(500L) // Wait 0.5 sec
                 .filter { it.isNotBlank() }
                 .distinctUntilChanged()  // Don't search if not changed
                 .collect { query ->
-                    performSearch(query)
+                    if (_searchSource.value == SearchSource.GitHub) {
+                        performGhSearch(query)
+                    } else {
+                        telegramManager.loadChats()
+                    }
                 }
         }
-        telegramManager.loadChats()
     }
 
-    private suspend fun performSearch(query: String) {
-        isLoading = true
+    private suspend fun performGhSearch(query: String) {
+        _isLoading.value = true
         try {
-            val response = githubApi.searchRepositories(query = query)
-            searchResult = response.items
+            val response = githubApi.searchRepositories(query = query, token = _ghToken)
+            _ghSearchResult.value = response.items
         } catch (e: Exception) {
-            // TODO: Handle exceptions
+            _snackbarEvents.emit(e.message ?: "Search request error")
         } finally {
-            isLoading = false
+            _isLoading.value = false
         }
     }
 
     fun onQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
-        if (_searchSource.value == SearchSource.GitHub) _searchTextFlow.value = newQuery
+    }
+
+    fun changeSearchExpanded(expanded: Boolean) {
+        _isSearchExpanded.value = expanded
     }
 
     fun closeSearch() {
         _searchQuery.value = ""
-        isSearchExpanded = false
+        _isSearchExpanded.value = false
     }
 
     fun onSourceSelected(source: SearchSource) {
@@ -125,27 +130,21 @@ class SearchAppViewModel @Inject constructor(
 
             if (isChatForum) {
                 _selectionState.value = SelectionState.TopicList(chat.id, chat.title)
-                loadTopics(chat.id)
+                val topicsRes = telegramManager.getForumTopics(chat.id)
+                _topics.value = topicsRes?.topics?.toList() ?: emptyList()
             } else {
-                onTopicSelected(chat.id, 0, chat.title)
+                _selectionState.value = SelectionState.MessageList(chat.id, chat.title, null)
             }
         }
     }
 
-    private fun loadTopics(chatId: Long) {
-        viewModelScope.launch {
-            val result = telegramManager.getForumTopics(chatId)
-            _topics.value = result?.topics?.toList() ?: emptyList()
-        }
-    }
-
-    fun onTopicSelected(chatId: Long, topicId: Int, title: String) {
-        _selectionState.value = SelectionState.MessageList(
-            chatId, if (topicId == 0) null else topicId, title)
+    fun onTopicSelected(topicId: Int? = null) {
+        val state = _selectionState.value as SelectionState.TopicList
+        _selectionState.value = SelectionState.MessageList(state.chatId, state.chatTitle, topicId)
     }
 
     fun onBackToChats() {
-        _topics.value = emptyList()
         _selectionState.value = SelectionState.ChatList
+        _topics.value = emptyList()
     }
 }

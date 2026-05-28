@@ -32,8 +32,8 @@ data class AppGhDetailsFromSearchRoute(
 
 @Serializable
 data class AppTgDetailsFromSearchRoute(
-    val name: String,
     val chatId: Long,
+    val chatTitle: String,
     val topicId: Int?
 )
 

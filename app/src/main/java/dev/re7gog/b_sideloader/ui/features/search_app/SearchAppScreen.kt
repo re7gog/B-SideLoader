@@ -60,6 +60,8 @@ fun SearchAppScreen(
 ) {
     val searchSource by viewModel.searchSource.collectAsStateWithLifecycle()
     val selectionState by viewModel.selectionState.collectAsStateWithLifecycle()
+    val topics by viewModel.topics.collectAsStateWithLifecycle()
+
     if (selectionState is SelectionState.MessageList) {
         onTgSearchResClick(selectionState as SelectionState.MessageList)
     }
@@ -69,19 +71,17 @@ fun SearchAppScreen(
         if (searchSource == SearchSource.GitHub ||
             searchSource == SearchSource.Telegram && selectionState is SelectionState.ChatList) {
             SearchAppSearchBar(
-                viewModel = viewModel,
-                onSearchResClick = { onGhSearchResClick(it) },
+                onGhSearchResClick = onGhSearchResClick,
                 searchSource = searchSource,
+                viewModel = viewModel,
                 modifier = Modifier.fillMaxWidth()
             )
         } else if (selectionState is SelectionState.TopicList) {
-            val topics by viewModel.topics.collectAsStateWithLifecycle()
-            val state = selectionState as SelectionState.TopicList
             Column {
                 TopAppBar(
-                    title = { Text(state.chatTitle) },
+                    title = { Text((selectionState as SelectionState.TopicList).chatTitle) },
                     navigationIcon = {
-                        IconButton(onClick = { viewModel.onBackToChats() }) {
+                        IconButton(onClick = viewModel::onBackToChats) {
                             Icon(
                                 painterResource(R.drawable.arrow_back_24px),
                                 "Back"
@@ -92,7 +92,7 @@ fun SearchAppScreen(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(topics, key = { it.info.forumTopicId }) { topic ->
                         TelegramTopicRow(topic = topic) {
-                            viewModel.onTopicSelected(topic.info.chatId, topic.info.forumTopicId, "TODO ME!") // TODO: Chat label, not topic
+                            viewModel.onTopicSelected(topic.info.forumTopicId)
                         }
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     }
@@ -105,32 +105,35 @@ fun SearchAppScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchAppSearchBar(
-    onSearchResClick: (repo: GithubRepoDto) -> Unit,
-    viewModel: SearchAppViewModel,
+    onGhSearchResClick: (repo: GithubRepoDto) -> Unit,
     searchSource: SearchSource,
+    viewModel: SearchAppViewModel,
     modifier: Modifier = Modifier
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val tgResults by viewModel.telegramSearchResults.collectAsState()
+    val isSearchExpanded by viewModel.isSearchExpanded.collectAsStateWithLifecycle()
+    val ghResult by viewModel.ghSearchResult.collectAsStateWithLifecycle()
+    val tgResults by viewModel.tgSearchResults.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     SearchBar(
         modifier = modifier,
         inputField = {
             SearchBarDefaults.InputField(
                 query = searchQuery,
-                onQueryChange = { viewModel.onQueryChange(it) },
-                onSearch = { viewModel.isSearchExpanded = false },
-                expanded = viewModel.isSearchExpanded,
-                onExpandedChange = { viewModel.isSearchExpanded = it },
+                onQueryChange = viewModel::onQueryChange,
+                onSearch = { viewModel.changeSearchExpanded(false) },
+                expanded = isSearchExpanded,
+                onExpandedChange = viewModel::changeSearchExpanded,
                 placeholder = { Text(stringResource(R.string.search)) },
                 leadingIcon = {
                     SearchSourceSelector(
                         currentSource = searchSource,
-                        onSourceSelected = { viewModel.onSourceSelected(it) }
+                        onSourceSelected = viewModel::onSourceSelected
                     )
                 },
                 trailingIcon = {
-                    if (viewModel.isSearchExpanded) {
+                    if (isSearchExpanded) {
                         IconButton(onClick = viewModel::closeSearch) {
                             Icon(
                                 painterResource(R.drawable.close_24px),
@@ -141,11 +144,11 @@ fun SearchAppSearchBar(
                 }
             )
         },
-        expanded = viewModel.isSearchExpanded,
-        onExpandedChange = { viewModel.isSearchExpanded = it }
+        expanded = isSearchExpanded,
+        onExpandedChange = viewModel::changeSearchExpanded
     ) {
         if (searchSource == SearchSource.GitHub) {
-            if (viewModel.searchResult.isEmpty() && !viewModel.isLoading) {
+            if (ghResult.isEmpty() && !isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "Enter repo name",
@@ -154,10 +157,11 @@ fun SearchAppSearchBar(
                     )
                 }
             }
-            if (viewModel.isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             SearchResults(
-                viewModel = viewModel,
-                onSearchResClick = onSearchResClick,
+                onSearchResClick = onGhSearchResClick,
+                isLoading = isLoading,
+                ghSearchRes = ghResult,
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
@@ -184,10 +188,11 @@ fun SearchAppSearchBar(
 @Composable
 fun SearchResults(
     onSearchResClick: (repo: GithubRepoDto) -> Unit,
-    viewModel: SearchAppViewModel,
+    isLoading: Boolean,
+    ghSearchRes: List<GithubRepoDto>,
     modifier: Modifier = Modifier
 ) {
-    if (viewModel.isLoading) {
+    if (isLoading) {
         repeat(5) {
             Box(modifier = Modifier
                 .fillMaxWidth()
@@ -199,7 +204,7 @@ fun SearchResults(
         }
     } else {
         LazyColumn(modifier = modifier) {
-            items(viewModel.searchResult) { repo ->
+            items(ghSearchRes) { repo ->
                 ListItem(
                     headlineContent = { Text(repo.name + " by " + repo.owner.login)  },
                     supportingContent = { Text(repo.description ?: "No description", maxLines = 1) },
