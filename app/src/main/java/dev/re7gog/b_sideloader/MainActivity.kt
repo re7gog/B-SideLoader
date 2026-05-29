@@ -1,13 +1,18 @@
 package dev.re7gog.b_sideloader
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -17,6 +22,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import dagger.hilt.android.AndroidEntryPoint
 import dev.re7gog.b_sideloader.ui.features.app_details.AppGhDetailsScreen
 import dev.re7gog.b_sideloader.ui.features.app_details.AppTgDetailsScreen
@@ -44,6 +53,35 @@ class MainActivity : ComponentActivity() {
             BSideLoaderTheme {
                 BSideLoaderApp()
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun NotificationPermissionHandler() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permissionState = rememberPermissionState(
+            permission = Manifest.permission.POST_NOTIFICATIONS)
+
+        LaunchedEffect(key1 = true) {
+            if (!permissionState.status.isGranted && !permissionState.status.shouldShowRationale) {
+                permissionState.launchPermissionRequest()
+            }
+        }
+        if (permissionState.status.shouldShowRationale) {
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("Enable Notifications") },
+                text = { Text("This app needs notification permission for the autoupdate feature. Please allow it on the next screen.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = { permissionState.launchPermissionRequest() }
+                    ) {
+                        Text("OK")
+                    }
+                }
+            )
         }
     }
 }
@@ -79,6 +117,7 @@ fun BSideLoaderApp() {
             }
         }
     ) {
+        NotificationPermissionHandler()
         NavHost(
             navController = navController,
             startDestination = AppsListRoute

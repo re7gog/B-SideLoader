@@ -7,7 +7,7 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
 kotlin = "2.3.21"
-composeBom = "2026.05.00"
+composeBom = "2026.05.01"
 ksp = "2.3.7"
 room = "2.8.4"
 hilt = "2.59.2"
@@ -23,11 +23,12 @@ refine = "4.4.0"
 hiddenApiBypass = "6.1"
 dhizuku = "2.5.4"
 appcompat = "1.7.1"
-material = "1.13.0"
+material = "1.14.0"
 androidxAnnotation = "1.10.0"
-runtime = "1.11.1"
+runtime = "1.11.2"
 datastorePref = "1.2.1"
 material3 = "1.4.0"
+accompanist = "0.37.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -79,6 +80,7 @@ androidx-annotation = { group = "androidx.annotation", name = "annotation", vers
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePref" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

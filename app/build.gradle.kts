@@ -127,4 +127,7 @@ dependencies {
 
     // Settings
     implementation(libs.datastore.preferences)
+
+    // Notifications
+    implementation(libs.accompanist.permissions)
 }
