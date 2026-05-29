@@ -3,11 +3,13 @@ package dev.re7gog.b_sideloader.ui.features.app_details
 import android.graphics.drawable.Drawable
 import android.util.Log
 import android.util.LongSparseArray
+import androidx.core.util.size
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.re7gog.b_sideloader.data.installer.InstallEventManager
 import dev.re7gog.b_sideloader.data.local.entities.AppEntity
 import dev.re7gog.b_sideloader.data.local.entities.TelegramDetailsEntity
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
@@ -17,9 +19,11 @@ import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromDbRoute
 import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromSearchRoute
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
@@ -30,10 +34,20 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
-import androidx.core.util.size
-import dev.re7gog.b_sideloader.data.installer.InstallEventManager
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+
+data class ApkTgMessageTemp(
+    val foundFile: Boolean,
+    val foundMsgText: Boolean,
+    val file: TdApi.Document,
+    val msgText: String,
+    val id: Long
+)
+
+data class ApkTgMessage(
+    val file: TdApi.Document,
+    val msgText: String,
+    val id: Long
+)
 
 @HiltViewModel
 class AppTgDetailsViewModel @Inject constructor(
@@ -89,17 +103,18 @@ class AppTgDetailsViewModel @Inject constructor(
         val msgIncWords = msgInc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
         val msgExcWords = msgExc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
 
-        // Most optimized data structure for this case
-        // albumId: matchesFilename, message
-        val res = LongSparseArray<Pair<Boolean, TdApi.Message>>()
+        // albumId: foundFile, foundMsgText, file, msgText
+        val res = LongSparseArray<ApkTgMessageTemp>()
         var latestId = 0L  // For inserting single messages in right order
 
         for (msg in messages) {
             val content = (msg.content as? TdApi.MessageDocument) ?: continue
+            val document = content.document
+            val msgText = content.caption.text
 
             // Check if matches filename, skip unneeded checks
             val matchesFile by lazy {
-                var fileName = content.document?.fileName?.lowercase() ?: ""
+                var fileName = document.fileName.lowercase()
                 var matchesFile = fileName.endsWith(".apk")
                 if (matchesFile) {
                     fileName = fileName.dropLast(4)
@@ -111,7 +126,6 @@ class AppTgDetailsViewModel @Inject constructor(
 
             // Same, but for message text
             val matchesText by lazy {
-                val msgText = content.caption?.text ?: ""
                 msgIncWords.all { msgText.contains(it.lowercase()) } &&
                         msgExcWords.none { msgText.contains(it.lowercase()) }
             }
@@ -120,30 +134,40 @@ class AppTgDetailsViewModel @Inject constructor(
             if (albumId == 0L) {  // Single message, insert after latest. Only if everything matches
                 if (matchesFile && matchesText) {
                     latestId += 1
-                    res.put(latestId, Pair(true, msg))
+                    res.put(latestId, ApkTgMessageTemp(
+                        foundFile = true, foundMsgText = true,
+                        file = document, msgText = msgText, id = msg.id
+                    ))
                 }
             } else {
-                val album = res.get(albumId)
-                // Add new album if matches text. It can not match filename, because can be overwritten later
+                var album = res.get(albumId)
                 if (album == null) {
-                    if (matchesText) {
-                        res.put(albumId, Pair(matchesFile, msg))
-                        if (albumId > latestId) latestId = albumId  // Remember latest groupId
+                    res.put(albumId, ApkTgMessageTemp(
+                        foundFile = matchesFile, foundMsgText = matchesText,
+                        file = document, msgText = msgText, id = msg.id
+                    ))
+                    if (albumId > latestId) latestId = albumId  // Remember latest groupId
+                } else {
+                    if (!album.foundFile && matchesFile) {  // Message with file is the main one
+                        res.put(albumId, album.copy(foundFile = true, file = document, id = msg.id))
+                        album = res.get(albumId)
                     }
-                } else if (!album.first && matchesFile) { // If previous filename not matches, but new does, replace
-                    // Preserve message text for UI
-                    (msg.content as TdApi.MessageDocument).caption.text = (album.second.content as TdApi.MessageDocument).caption.text
-                    // We found right message, no need to search anymore
-                    res.put(albumId, Pair(true, msg))
+                    if (album.msgText == "" && msgText != "") {
+                        res.put(albumId, album.copy(foundMsgText = matchesText, msgText = msgText))
+                    }
                 }
             }
         }
 
         // We need to filter albums with no matching filenames and convert it to simple list
-        val finalRes = mutableListOf<TdApi.Message>()
-        for (i in 0 until res.size) {
+        val finalRes = mutableListOf<ApkTgMessage>()
+        for (i in res.size - 1 downTo 0) {
             val value = res.valueAt(i)
-            if (value.first) finalRes.add(value.second)
+            if (value.foundFile && value.foundMsgText) {
+                finalRes.add(ApkTgMessage(
+                    file = value.file, msgText = value.msgText, id = value.id
+                ))
+            }
         }
         finalRes
     }.stateIn(
@@ -154,10 +178,10 @@ class AppTgDetailsViewModel @Inject constructor(
 
     val targetApkMessage = filteredApkMessages
         .map { it.firstOrNull() }
-        .also {  // Switch state to show that update is available
+        .also { msg -> // Switch state to show that update is available
             if ((_uiState.value?.version ?: "") == "") return@also
             viewModelScope.launch {
-                val currMessageId = it.firstOrNull()?.id?.toString() ?: return@launch
+                val currMessageId = msg.firstOrNull()?.id?.toString() ?: return@launch
                 if (currMessageId != _uiState.value!!.version) {
                     newVersion = currMessageId
                     _shouldUpdate.value = true
@@ -240,16 +264,15 @@ class AppTgDetailsViewModel @Inject constructor(
 
     fun installAppTg() {
         viewModelScope.launch(Dispatchers.IO) {
-            val doc = (targetApkMessage.firstOrNull()?.content as? TdApi.MessageDocument)?.document ?: return@launch
-            val fileId = doc.document.id
+            val doc = targetApkMessage.firstOrNull()?.file?.document ?: return@launch
             var localFile: File? = null
             try {
                 _isInstalling.value = true
 
-                val localPath = telegramManager.downloadFile(fileId)
+                val localPath = telegramManager.downloadFile(doc.id)
                 localFile = File(localPath)
 
-                installManager.installFromFile(localFile, doc.document.size).collect {
+                installManager.installFromFile(localFile, doc.size).collect {
                     _installProgress.value = it
                 }
             } catch (e: Exception) {
@@ -257,7 +280,7 @@ class AppTgDetailsViewModel @Inject constructor(
             } finally {
                 _installProgress.value = 0f
                 _isInstalling.value = false
-                cleanupFile(fileId, localFile)
+                cleanupFile(doc.id, localFile)
             }
         }
     }

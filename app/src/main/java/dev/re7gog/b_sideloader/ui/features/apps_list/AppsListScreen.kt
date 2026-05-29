@@ -21,6 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
@@ -88,13 +89,11 @@ fun AppItemCard(
         if (isAppInstalled) viewModel.getAppIcon(packageName) else null
     }
 
-    val substring = "by ${appItem.githubDetails?.owner ?: ""}"
-
     Card(
         modifier = modifier,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = appIcon,
                 contentDescription = "Icon of ${appItem.app.name} app",
@@ -105,7 +104,9 @@ fun AppItemCard(
             Spacer(Modifier.padding(8.dp))
             Column {
                 Text(text = appItem.app.name, style = MaterialTheme.typography.titleMedium)
-                Text(text = substring, style = MaterialTheme.typography.titleMedium)
+                if (appItem.githubDetails != null) {
+                    Text(text = "by ${appItem.githubDetails.owner}", style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
     }

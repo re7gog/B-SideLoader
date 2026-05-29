@@ -43,7 +43,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
-import org.drinkless.tdlib.TdApi
 
 @Composable
 fun AppTgDetailsScreen(
@@ -142,7 +141,7 @@ fun AppTgDetailsContent(
     }
 
     val targetApkName = remember(targetApkMessage?.id) {
-        (targetApkMessage?.content as? TdApi.MessageDocument)?.document?.fileName ?: ""
+        targetApkMessage?.file?.fileName ?: ""
     }
 
     Column(modifier = modifier) {
@@ -272,10 +271,7 @@ fun TgInstallButton(
 }
 
 @Composable
-fun ApkMessageStaticRow(message: TdApi.Message, isTarget: Boolean) {
-    val doc = (message.content as TdApi.MessageDocument).document
-    val caption = (message.content as TdApi.MessageDocument).caption.text
-
+fun ApkMessageStaticRow(message: ApkTgMessage, isTarget: Boolean) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -285,11 +281,11 @@ fun ApkMessageStaticRow(message: TdApi.Message, isTarget: Boolean) {
         border = if (isTarget) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(doc.fileName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (caption.isNotEmpty()) {
-                Text(caption, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(message.file.fileName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (message.msgText.isNotEmpty()) {
+                Text(message.msgText, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-            Text("${doc.document.size / 1024 / 1024} MB", style = MaterialTheme.typography.bodySmall)
+            Text("${message.file.document.size / 1024 / 1024} MB", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
