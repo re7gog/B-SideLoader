@@ -9,6 +9,7 @@ interface IInstallManager {
     suspend fun downloadAndInstall(url: String): Flow<Float>
     suspend fun installFromFile(file: File, lengthBytes: Long): Flow<Float>
     suspend fun checkPrivilegedPermission(): ShizukuPermission
+    suspend fun uninstallPackage(packageName: String)
     fun isPackageInstalled(packageName: String): Boolean
     fun getAppIcon(packageName: String): Drawable?
 }

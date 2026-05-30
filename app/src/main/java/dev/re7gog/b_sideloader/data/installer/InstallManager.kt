@@ -75,6 +75,17 @@ class InstallManager @Inject constructor(
         return res
     }
 
+    override suspend fun uninstallPackage(packageName: String) {
+        if (useShizuku.value) {
+            val shizukuInstaller = ShizukuInstaller(context)
+            shizukuInstaller.init()
+            shizukuInstaller.uninstallPackage(packageName)
+            shizukuInstaller.exit()
+        } else {
+            SessionInstaller(context).uninstallPackage(packageName)
+        }
+    }
+
     override fun isPackageInstalled(packageName: String): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

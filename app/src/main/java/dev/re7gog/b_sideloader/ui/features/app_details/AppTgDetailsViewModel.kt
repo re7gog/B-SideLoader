@@ -75,6 +75,9 @@ class AppTgDetailsViewModel @Inject constructor(
     private val _shouldUpdate = MutableStateFlow(false)
     val shouldUpdate = _shouldUpdate.asStateFlow()
 
+    private val _shouldSave = MutableStateFlow(false)
+    val shouldSave = _shouldSave.asStateFlow()
+
     private val _isInstalling = MutableStateFlow(false)
     val isInstalling = _isInstalling.asStateFlow()
 
@@ -293,17 +296,43 @@ class AppTgDetailsViewModel @Inject constructor(
         }
     }
 
+    fun uninstallApp() {
+        viewModelScope.launch(Dispatchers.IO) {
+            installManager.uninstallPackage(_uiState.value?.packageName ?: return@launch)
+        }
+    }
+
+    fun saveToDb() {
+        viewModelScope.launch {
+            repository.updateApp(genTgApp())
+            _shouldSave.value = false
+        }
+    }
+
     fun getAppIcon(packageName: String): Drawable? {
         return installManager.getAppIcon(packageName)
     }
 
     fun onAutoUpdateChange(enabled: Boolean) {
         _uiState.update { it?.copy(autoupdate = enabled) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 
-    fun onIncludeFilterChange(text: String) { _includeFilter.value = text }
-    fun onExcludeFilterChange(text: String) { _excludeFilter.value = text }
+    fun onIncludeFilterChange(text: String) {
+        _includeFilter.value = text
+        if (!_shouldSave.value) _shouldSave.value = true
+    }
+    fun onExcludeFilterChange(text: String) {
+        _excludeFilter.value = text
+        if (!_shouldSave.value) _shouldSave.value = true
+    }
 
-    fun onMsgIncludeFilterChange(text: String) { _msgIncludeFilter.value = text }
-    fun onMsgExcludeFilterChange(text: String) { _msgExcludeFilter.value = text }
+    fun onMsgIncludeFilterChange(text: String) {
+        _msgIncludeFilter.value = text
+        if (!_shouldSave.value) _shouldSave.value = true
+    }
+    fun onMsgExcludeFilterChange(text: String) {
+        _msgExcludeFilter.value = text
+        if (!_shouldSave.value) _shouldSave.value = true
+    }
 }
