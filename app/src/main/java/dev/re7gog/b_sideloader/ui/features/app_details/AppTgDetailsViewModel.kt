@@ -85,6 +85,7 @@ class AppTgDetailsViewModel @Inject constructor(
     val installProgress = _installProgress.asStateFlow()
 
     private val installEvents = InstallEventManager.installEvents
+    private val uninstallEvents = InstallEventManager.uninstallEvents
 
     private var newVersion = ""
 
@@ -182,12 +183,12 @@ class AppTgDetailsViewModel @Inject constructor(
     val targetApkMessage = filteredApkMessages
         .map { it.firstOrNull() }
         .also { msg -> // Switch state to show that update is available
-            if ((_uiState.value?.version ?: "") == "") return@also
             viewModelScope.launch {
                 val currMessageId = msg.firstOrNull()?.id?.toString() ?: return@launch
-                if (currMessageId != _uiState.value!!.version) {
+                val currVer = _uiState.value?.version
+                if (currMessageId != currVer) {
                     newVersion = currMessageId
-                    _shouldUpdate.value = true
+                    if (!currVer.isNullOrEmpty()) _shouldUpdate.value = true
                 } else if (_shouldUpdate.value) {
                     _shouldUpdate.value = false
                 }
@@ -237,10 +238,20 @@ class AppTgDetailsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            uninstallEvents.collect { uninstallRes ->
+                if (uninstallRes.succeeded) {
+                    _uiState.update { it?.copy(installed = false) }
+                } else {
+                    _snackbarEvents.emit(uninstallRes.errorMessage ?: "Uninstall failed")
+                }
+            }
+        }
     }
 
     private fun genTgApp(): AppType.TelegramApp {
         val app = AppEntity(
+            id = _uiState.value?.id ?: 0L,
             sourceType = 2,
             packageName = _uiState.value?.packageName ?: "",
             name = _uiState.value?.name ?: "",
@@ -250,7 +261,7 @@ class AppTgDetailsViewModel @Inject constructor(
             filterExclude = _excludeFilter.value,
         )
         val details = TelegramDetailsEntity(
-            id = 0,
+            id = _uiState.value?.id ?: 0L,
             chatId = _uiState.value?.chatId ?: 0L,
             topicId = _uiState.value?.topicId ?: 0,
             messageInclude = _msgIncludeFilter.value,

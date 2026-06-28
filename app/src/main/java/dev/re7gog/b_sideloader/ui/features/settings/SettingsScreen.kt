@@ -49,6 +49,7 @@ fun SettingsScreen(
     val shizukuIcon by viewModel.shizukuIcon.collectAsStateWithLifecycle()
     val useAutoupdates by viewModel.useAutoupdates.collectAsStateWithLifecycle()
     val useMobileData by viewModel.useMobileData.collectAsStateWithLifecycle()
+    val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -98,6 +99,20 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.switchMobileData(it) }
                     )
                 }
+            }
+            item {
+                Text(
+                    text = "Appearance",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 0.dp)
+                )
+            }
+            item {
+                SettingsSwitchItem(
+                    title = "Use dynamic color",
+                    checked = useDynamicColor,
+                    onCheckedChange = { viewModel.switchDynamicColor(it) }
+                )
             }
             item {
                 Text(

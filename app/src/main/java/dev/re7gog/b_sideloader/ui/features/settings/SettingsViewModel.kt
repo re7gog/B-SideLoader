@@ -38,6 +38,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, false
     )
 
+    val useDynamicColor = settingsManager.useDynamicColor.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
     private val _githubToken = MutableStateFlow(secureStorage.getGithubToken() ?: "")
     val githubToken = _githubToken.asStateFlow()
 
@@ -101,6 +105,12 @@ class SettingsViewModel @Inject constructor(
     fun switchMobileData(enable: Boolean) {
         viewModelScope.launch {
             settingsManager.setUseMobileData(enable)
+        }
+    }
+
+    fun switchDynamicColor(enable: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setUseDynamicColor(enable)
         }
     }
 

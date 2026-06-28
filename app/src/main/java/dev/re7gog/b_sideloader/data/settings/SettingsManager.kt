@@ -20,6 +20,7 @@ class SettingsManager @Inject constructor(
         val USE_SHIZUKU = booleanPreferencesKey("use_shizuku")
         val USE_AUTOUPDATES = booleanPreferencesKey("use_autoupdates")
         val USE_MOBILE_DATA = booleanPreferencesKey("use_mobile_data")
+        val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
     }
 
     val useShizuku: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -32,6 +33,10 @@ class SettingsManager @Inject constructor(
 
     val useMobileData: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[Keys.USE_MOBILE_DATA] ?: false
+    }
+
+    val useDynamicColor: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[Keys.USE_DYNAMIC_COLOR] ?: false
     }
 
     suspend fun setUseShizuku(enabled: Boolean) {
@@ -49,6 +54,12 @@ class SettingsManager @Inject constructor(
     suspend fun setUseMobileData(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.USE_MOBILE_DATA] = enabled
+        }
+    }
+
+    suspend fun setUseDynamicColor(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.USE_DYNAMIC_COLOR] = enabled
         }
     }
 }
