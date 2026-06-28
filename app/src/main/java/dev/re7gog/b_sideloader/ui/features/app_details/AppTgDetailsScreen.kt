@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -120,10 +121,6 @@ fun AppTgDetailsContent(
     viewModel: AppTgDetailsViewModel,
     modifier: Modifier = Modifier
 ) {
-
-    val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
-    val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
-    val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
     val filteredMessages by viewModel.filteredApkMessages.collectAsStateWithLifecycle()
     val targetApkMessage by viewModel.targetApkMessage.collectAsStateWithLifecycle()
 
@@ -133,8 +130,6 @@ fun AppTgDetailsContent(
     val msgExcludeFilter by viewModel.msgExcludeFilter.collectAsStateWithLifecycle()
 
     val isAppInstalled = uiState.installed
-    var imageModifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp))
-    if (!isAppInstalled) imageModifier = imageModifier.alpha(0.5f)
     val packageName = uiState.packageName
     val appIcon = remember(isAppInstalled, packageName) {
         if (isAppInstalled && packageName != "") viewModel.getAppIcon(uiState.packageName) else null
@@ -149,13 +144,15 @@ fun AppTgDetailsContent(
             Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            AsyncImage(
-                model = appIcon,
-                placeholder = painterResource(R.drawable.circle_24px),
-                error = painterResource(R.drawable.x_circle_24px),
-                contentDescription = null,
-                modifier = imageModifier
-            )
+            if (appIcon != null) {
+                var imageModifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp))
+                if (!isAppInstalled) imageModifier = imageModifier.alpha(0.5f)
+                AsyncImage(
+                    model = appIcon,
+                    contentDescription = null,
+                    modifier = imageModifier
+                )
+            }
             Column {
                 Text(uiState.name, style = MaterialTheme.typography.headlineMedium)
                 if (uiState.version.isNotEmpty()) {
@@ -200,13 +197,15 @@ fun AppTgDetailsContent(
 
         TgInstallButton(
             state = uiState,
-            onInstallClick = viewModel::installAppTg,
-            shouldUpdate = shouldUpdate,
-            isInstalling = isInstalling,
-            installProgress = installProgress,
+            viewModel = viewModel,
             targetApkName = targetApkName,
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         )
+        if (isAppInstalled) {
+            OutlinedButton(onClick = viewModel::uninstallApp) {
+                Text("Uninstall")
+            }
+        }
 
         Text(
             "Available APKs",
@@ -224,13 +223,15 @@ fun AppTgDetailsContent(
 @Composable
 fun TgInstallButton(
     state: AppTgDetailsUiState,
-    onInstallClick: () -> Unit,
-    shouldUpdate: Boolean,
-    isInstalling: Boolean,
-    installProgress: Float,
+    viewModel: AppTgDetailsViewModel,
     targetApkName: String?,
     modifier: Modifier = Modifier
 ) {
+    val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
+    val shouldSave by viewModel.shouldSave.collectAsStateWithLifecycle()
+    val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
+    val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
+
     if (isInstalling) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -251,19 +252,21 @@ fun TgInstallButton(
         }
     } else{
         Button(
-            onClick = onInstallClick,
+            onClick = { if (shouldSave) viewModel.saveToDb() else viewModel.installAppTg() },
             enabled = targetApkName != null,
             modifier = modifier
         ) {
             Text(
                 if (!state.isFromDb){
                     "Save and install $targetApkName"
+                } else if (shouldSave) {
+                    "Save"
                 } else if (shouldUpdate) {
                     "Update $targetApkName"
-                } else if (state.installed) {
-                    "Open"
-                } else {
+                } else if (!state.installed) {
                     "Install $targetApkName"
+                } else {
+                    "Open"
                 }
             )
         }

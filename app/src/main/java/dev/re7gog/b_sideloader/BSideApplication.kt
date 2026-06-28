@@ -39,7 +39,7 @@ class BSideApplication: Application(), Configuration.Provider {
     private suspend fun schedulePeriodicUpdateCheck() {
         if (!(settingsManager.useAutoupdates.firstOrNull() ?: true)) return
         val constrains = Constraints.Builder().setRequiresBatteryNotLow(true)
-        if (!(settingsManager.useMobileData.firstOrNull() ?: true)) {
+        if (!(settingsManager.useMobileData.firstOrNull() ?: false)) {
             constrains.setRequiredNetworkType(NetworkType.UNMETERED)
         }
         val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(6, TimeUnit.HOURS)

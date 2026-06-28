@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -46,11 +48,14 @@ import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            BSideLoaderTheme {
+            val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+            BSideLoaderTheme(dynamicColor = useDynamicColor) {
                 BSideLoaderApp()
             }
         }
@@ -144,7 +149,6 @@ fun BSideLoaderApp() {
                                 stars = repo.stars,
                                 iconUrl = repo.owner.avatarUrl
                             )
-
                         )
                     },
                     onTgSearchResClick = { messageList ->

@@ -33,7 +33,6 @@ class UpdateCheckWorker @AssistedInject constructor(
         return Result.success()
     }
 
-
     private fun showUpdateNotification(apps: String) {
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -50,7 +49,7 @@ class UpdateCheckWorker @AssistedInject constructor(
         )
 
         val notification = NotificationCompat.Builder(applicationContext, NotificationHelper.UPDATE_ALERT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.download_24px)
+            .setSmallIcon(R.drawable.update_24px)
             .setContentTitle("Updates available")
             .setContentText("New version of $apps available")
             .setContentIntent(pendingIntent)
@@ -58,5 +57,15 @@ class UpdateCheckWorker @AssistedInject constructor(
             .build()
 
         notificationManager.notify(apps.hashCode(), notification)
+    }
+
+    private fun updateProgressNotification(): NotificationCompat.Builder {
+        return NotificationCompat.Builder(applicationContext, NotificationHelper.UPDATE_PROGRESS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.update_24px)
+            .setContentTitle("Updates in progress")
+            //.setContentText("New version of $app available")
+            .setAutoCancel(true)
+            .setOngoing(true)
+            .setProgress(100, 0, false)
     }
 }
