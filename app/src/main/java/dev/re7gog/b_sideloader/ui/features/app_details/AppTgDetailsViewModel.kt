@@ -10,10 +10,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.data.installer.InstallEventManager
+import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.local.entities.AppEntity
 import dev.re7gog.b_sideloader.data.local.entities.TelegramDetailsEntity
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromDbRoute
@@ -54,7 +54,7 @@ class AppTgDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: AppsRepository,
     private val telegramManager: TelegramManager,
-    private val installManager: IInstallManager
+    private val installManager: InstallManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<AppTgDetailsUiState?>(null)
     val uiState: StateFlow<AppTgDetailsUiState?> = _uiState.asStateFlow()

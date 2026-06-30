@@ -4,7 +4,7 @@ import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
+import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.domain.model.AppWithDetails
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,7 +15,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AppsListViewModel @Inject constructor(
     appsRepository: AppsRepository,
-    private val installManager: IInstallManager
+    private val installManager: InstallManager
 ) : ViewModel() {
     val appsState: StateFlow<List<AppWithDetails>> = appsRepository.getAllAppsStream()
         .stateIn(

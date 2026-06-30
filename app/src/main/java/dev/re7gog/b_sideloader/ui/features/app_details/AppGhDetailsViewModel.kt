@@ -8,11 +8,11 @@ import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import dev.re7gog.b_sideloader.data.installer.InstallEventManager
+import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.local.entities.AppEntity
 import dev.re7gog.b_sideloader.data.local.entities.GithubDetailsEntity
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.updater.UpdatesManager
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromDbRoute
@@ -33,7 +33,7 @@ class AppGhDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: AppsRepository,
     private val githubApi: GithubApi,
-    private val installManager: IInstallManager,
+    private val installManager: InstallManager,
     private val secureStorage: SecureStorage,
     private val updatesManager: UpdatesManager
 ) : ViewModel() {

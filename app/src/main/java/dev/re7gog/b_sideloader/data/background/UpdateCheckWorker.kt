@@ -26,16 +26,17 @@ class UpdateCheckWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         val install = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S || settingsManager.useShizuku.firstOrNull() ?: false
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         updatesManager.checkAllUpdates(
             install = install,
-            showUpdateNotification = { showUpdateNotification(it) }
+            notifManager = notificationManager,
+            notifBuilder = updateProgressNotification(),
+            showUpdateNotification = { showUpdateNotification(it, notificationManager) }
         )
         return Result.success()
     }
 
-    private fun showUpdateNotification(apps: String) {
-        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
+    private fun showUpdateNotification(apps: String, notifManager: NotificationManager) {
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             putExtra("DO_UPDATE", true)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -56,7 +57,7 @@ class UpdateCheckWorker @AssistedInject constructor(
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(apps.hashCode(), notification)
+        notifManager.notify(apps.hashCode(), notification)
     }
 
     private fun updateProgressNotification(): NotificationCompat.Builder {

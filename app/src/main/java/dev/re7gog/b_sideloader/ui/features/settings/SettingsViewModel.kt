@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
+import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.data.installer.ShizukuPermission
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,7 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsManager: SettingsManager,
-    private val installManager: IInstallManager,
+    private val installManager: InstallManager,
     private val secureStorage: SecureStorage
 ) : ViewModel() {
     val useShizuku = settingsManager.useShizuku.stateIn(
