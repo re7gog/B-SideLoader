@@ -1,9 +1,7 @@
 package dev.re7gog.b_sideloader.data.updater
 
-import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.remote.GithubApi
@@ -27,15 +25,7 @@ class UpdatesManager @Inject constructor(
     private val installManager: InstallManager,
     private val telegramManager: TelegramManager
 ) {
-    suspend fun checkAllUpdates(install: Boolean, notifManager: NotificationManager, notifBuilder: NotificationCompat.Builder, showUpdateNotification: (String) -> Unit) {
-        if (!install) {
-            checkAll(showUpdateNotification)
-        } else {
-            checkAllAndInstall(notifManager, notifBuilder)
-        }
-    }
-
-    private suspend fun checkAll(showUpdateNotification: (String) -> Unit) {
+    suspend fun checkAllUpdates(showUpdateNotification: (String) -> Unit) {
         val apps = appsRepository.getAllAppsStream().firstOrNull() ?: return
         var updates = ""
         for (app in apps) {
@@ -53,17 +43,15 @@ class UpdatesManager @Inject constructor(
         if (updates != "") showUpdateNotification(updates)
     }
 
-    private suspend fun checkAllAndInstall(notifManager: NotificationManager, progressNotification: NotificationCompat.Builder) {
+    suspend fun checkAllAndInstall(updateProgressNotification: suspend (String, Int) -> Unit) {
         val apps = appsRepository.getAllAppsStream().firstOrNull() ?: return
         for (app in apps) {
-            progressNotification.setContentText("New version of $app available")
             if (app.githubDetails != null) {
                 val ghApp = AppType.GithubApp(app = app.app, details = app.githubDetails)
                 val res = checkGhUpdate(ghApp) ?: continue
                 if (res.version != ghApp.app.version) {
                     installManager.downloadAndInstall(res.downloadUrl).collect {
-                        progressNotification.setProgress(100, (it * 100).toInt(), false)
-                        notifManager.notify(app.app.name.hashCode(), progressNotification.build())
+                        updateProgressNotification(app.app.name, (it * 100).toInt())
                     }
                     val updatedApp = ghApp.copy(app = ghApp.app.copy(version = res.version))
                     appsRepository.updateApp(updatedApp)
@@ -71,8 +59,7 @@ class UpdatesManager @Inject constructor(
             } else if (app.telegramDetails != null) {
                 val tgApp = AppType.TelegramApp(app = app.app, details = app.telegramDetails)
                 doTgUpdate(tgApp, true) {
-                    progressNotification.setProgress(100, it, false)
-                    notifManager.notify(app.app.name.hashCode(), progressNotification.build())
+                    updateProgressNotification(app.app.name, it)
                 }
             }
         }
@@ -111,7 +98,7 @@ class UpdatesManager @Inject constructor(
         return null
     }
 
-    suspend fun doTgUpdate(telegramApp: AppType.TelegramApp, install: Boolean, notification: (Int) -> Unit): Boolean {
+    suspend fun doTgUpdate(telegramApp: AppType.TelegramApp, install: Boolean, notification: suspend (Int) -> Unit): Boolean {
         val messages = telegramManager.searchApkMessages(
             telegramApp.details.chatId, telegramApp.details.topicId
         )?.messages?.toList() ?: return false
