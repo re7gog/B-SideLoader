@@ -101,6 +101,14 @@ fun SettingsScreen(
                 }
             }
             item {
+                Button(
+                    onClick = viewModel::allowBackground,
+                    modifier = Modifier.padding(16.dp).fillMaxWidth()
+                ) {
+                    Text("Allow background work")
+                }
+            }
+            item {
                 Text(
                     text = "Appearance",
                     style = MaterialTheme.typography.titleMedium,
