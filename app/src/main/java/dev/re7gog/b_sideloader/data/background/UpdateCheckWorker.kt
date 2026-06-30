@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -26,17 +27,17 @@ class UpdateCheckWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         val install = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S || settingsManager.useShizuku.firstOrNull() ?: false
-        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        updatesManager.checkAllUpdates(
-            install = install,
-            notifManager = notificationManager,
-            notifBuilder = updateProgressNotification(),
-            showUpdateNotification = { showUpdateNotification(it, notificationManager) }
-        )
+        if (install) {
+            setForeground(updateProgressNotification(null, 0))
+            updatesManager.checkAllAndInstall { string, i -> setForeground(updateProgressNotification(string, i))  }
+        } else {
+            updatesManager.checkAllUpdates { showUpdateNotification(it) }
+        }
         return Result.success()
     }
 
-    private fun showUpdateNotification(apps: String, notifManager: NotificationManager) {
+    private fun showUpdateNotification(apps: String) {
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             putExtra("DO_UPDATE", true)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -57,16 +58,17 @@ class UpdateCheckWorker @AssistedInject constructor(
             .setAutoCancel(true)
             .build()
 
-        notifManager.notify(apps.hashCode(), notification)
+        notificationManager.notify(apps.hashCode(), notification)
     }
 
-    private fun updateProgressNotification(): NotificationCompat.Builder {
-        return NotificationCompat.Builder(applicationContext, NotificationHelper.UPDATE_PROGRESS_CHANNEL_ID)
+    private fun updateProgressNotification(app: String?, progress: Int): ForegroundInfo {
+        val notification = NotificationCompat.Builder(applicationContext, NotificationHelper.UPDATE_PROGRESS_CHANNEL_ID)
             .setSmallIcon(R.drawable.update_24px)
             .setContentTitle("Updates in progress")
-            //.setContentText("New version of $app available")
-            .setAutoCancel(true)
+            .setContentText("New version of ${app ?: "some apps"} available")
             .setOngoing(true)
-            .setProgress(100, 0, false)
+            .setProgress(100, progress, false)
+            .build()
+        return ForegroundInfo(app.hashCode(), notification)
     }
 }
