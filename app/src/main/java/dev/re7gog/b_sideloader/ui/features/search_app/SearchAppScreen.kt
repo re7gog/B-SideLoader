@@ -27,10 +27,10 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
+import dev.re7gog.b_sideloader.ui.components.TelegramAvatar
 import org.drinkless.tdlib.TdApi
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,8 +64,14 @@ fun SearchAppScreen(
     val selectionState by viewModel.selectionState.collectAsStateWithLifecycle()
     val topics by viewModel.topics.collectAsStateWithLifecycle()
 
-    if (selectionState is SelectionState.MessageList) {
-        onTgSearchResClick(selectionState as SelectionState.MessageList)
+    LaunchedEffect(selectionState) {
+        val state = selectionState
+        if (state is SelectionState.MessageList) {
+            onTgSearchResClick(state)
+            // Reset so navigating back here shows the list again instead of
+            // immediately re-opening the details page
+            viewModel.onBackToChats()
+        }
     }
     Box(
         modifier = modifier
@@ -170,7 +178,10 @@ fun SearchAppSearchBar(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(tgResults, key = { it.id }) { chat ->
-                        TelegramChatRow(chat = chat) {
+                        TelegramChatRow(
+                            chat = chat,
+                            downloadPhoto = viewModel::downloadPhoto
+                        ) {
                             viewModel.onChatSelected(chat)
                         }
                         HorizontalDivider(
@@ -225,6 +236,7 @@ fun SearchResults(
 @Composable
 fun TelegramChatRow(
     chat: TdApi.Chat,
+    downloadPhoto: suspend (Int) -> String?,
     onClick: () -> Unit
 ) {
     ListItem(
@@ -241,19 +253,12 @@ fun TelegramChatRow(
             Text("Channel", style = MaterialTheme.typography.bodySmall)
         },
         leadingContent = {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = chat.title.take(1).uppercase(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
+            TelegramAvatar(
+                fallbackText = chat.title.take(1).uppercase(),
+                photoFileId = chat.photo?.small?.id,
+                downloadPhoto = downloadPhoto,
+                modifier = Modifier.size(40.dp)
+            )
         },
         trailingContent = {
             Icon(
@@ -270,14 +275,24 @@ fun TelegramTopicRow(
     topic: TdApi.ForumTopic,
     onClick: () -> Unit
 ) {
+    val iconColor = topic.info.icon.color
+    val hasColor = iconColor != 0
+    val container = if (hasColor) {
+        Color(0xFF000000.toInt() or (iconColor and 0xFFFFFF))
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+    val onContainer = if (hasColor) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
+
     ListItem(
         modifier = Modifier.clickable { onClick() },
         headlineContent = { Text(topic.info.name) },
         leadingContent = {
-            Icon(
-                painter = painterResource(R.drawable.forum_24px),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary
+            TelegramAvatar(
+                fallbackText = topic.info.name.take(1).uppercase().ifEmpty { "#" },
+                modifier = Modifier.size(40.dp),
+                containerColor = container,
+                contentColor = onContainer
             )
         },
         trailingContent = {

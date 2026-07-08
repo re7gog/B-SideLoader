@@ -169,22 +169,22 @@ fun BSideLoaderApp() {
             }
             composable<AppGhDetailsFromDbRoute> {
                 AppGhDetailsScreen(
-                    onBackClick = { navController.navigate(AppsListRoute) }
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable<AppGhDetailsFromSearchRoute> {
                 AppGhDetailsScreen(
-                    onBackClick = { navController.navigate(SearchAppRoute) }
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable<AppTgDetailsFromDbRoute> {
                 AppTgDetailsScreen(
-                    onBackClick = { navController.navigate(AppsListRoute) }
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable<AppTgDetailsFromSearchRoute> {
                 AppTgDetailsScreen(
-                    onBackClick = { navController.navigate(SearchAppRoute) }
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable<TgLoginRoute> {

@@ -7,14 +7,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -34,20 +30,11 @@ class TelegramManager @Inject constructor(
     private val _authState = MutableStateFlow<TdApi.AuthorizationState?>(null)
     val authState = _authState.asStateFlow()
 
-    private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    //private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
+    // Cache of chats known to the client, populated by UpdateNewChat. Used to resolve
+    // chat ids returned by server-side search into full Chat objects.
     private val _chats = MutableStateFlow<Map<Long, TdApi.Chat>>(emptyMap())
-    val chatsFlow: StateFlow<List<TdApi.Chat>> = _chats
-        .map { map ->
-            map.values.sortedByDescending { chat ->
-                chat.positions.firstOrNull{ it.list is TdApi.ChatListMain }?.order ?: 0L
-            }
-        }
-        .stateIn(
-            managerScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
 
     private val _fileUpdates = MutableSharedFlow<TdApi.UpdateFile>(extraBufferCapacity = 100)
 
@@ -164,12 +151,36 @@ class TelegramManager @Inject constructor(
         }
     }
 
-    fun loadChats() {
-        send(TdApi.LoadChats(null, 50)) { result ->
-            if (result is TdApi.Ok) {
-                Log.d("TDLib", "Loading chats")
-            } else if (result is TdApi.Error) {
-                Log.e("TDLib", "Error loading chats: ${result.message}")
+    suspend fun getChat(chatId: Long): TdApi.Chat? = suspendCancellableCoroutine { continuation ->
+        send(TdApi.GetChat(chatId)) { result ->
+            if (!continuation.isActive) return@send
+            continuation.resume(result as? TdApi.Chat)
+        }
+    }
+
+    /** Downloads a photo/avatar file and returns its local path, or null on failure. */
+    suspend fun downloadPhoto(fileId: Int): String? =
+        runCatching { downloadFile(fileId) }.getOrNull()
+
+    /**
+     * Server-side search across the user's chats by title and username. TDLib
+     * delivers the matching chats via UpdateNewChat before this response, so they
+     * are already present in [_chats] and can be resolved from the cache.
+     */
+    suspend fun searchChatsOnServer(
+        query: String,
+        limit: Int = 50
+    ): List<TdApi.Chat> = suspendCancellableCoroutine { continuation ->
+        send(TdApi.SearchChatsOnServer(query, limit)) { result ->
+            if (!continuation.isActive) return@send
+            if (result is TdApi.Chats) {
+                val cache = _chats.value
+                continuation.resume(result.chatIds.toList().mapNotNull { cache[it] })
+            } else {
+                if (result is TdApi.Error) {
+                    Log.e("TDLib", "Chat search error: ${result.message}")
+                }
+                continuation.resume(emptyList())
             }
         }
     }

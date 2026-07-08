@@ -51,6 +51,11 @@ class AppGhDetailsViewModel @Inject constructor(
 
     private val installEvents = InstallEventManager.installEvents
 
+    // Install events are a global bus shared by every detail screen, so we only react
+    // to one after THIS screen actually started an install (avoids saving an app to the
+    // DB just because an unrelated install finished while this page was open).
+    private var installRequested = false
+
     private var downloadUrl = ""
     private var newVersion = ""
 
@@ -80,6 +85,8 @@ class AppGhDetailsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             installEvents.collect { installRes ->
+                if (!installRequested) return@collect  // Not our install, ignore
+                installRequested = false
                 if (installRes.succeeded) {
                     _uiState.update { it?.copy(version = newVersion) }
                     if (installRes.packageName != null) {
@@ -135,10 +142,12 @@ class AppGhDetailsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isInstalling.value = true
+                installRequested = true
                 installManager.downloadAndInstall(downloadUrl).collect {
                     _installProgress.value = it
                 }
             } catch (e: Exception) {
+                installRequested = false  // No install event will arrive on download failure
                 _snackbarEvents.emit(e.message ?: "Installation error")
             } finally {
                 _installProgress.value = 0f

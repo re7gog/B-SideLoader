@@ -7,21 +7,23 @@ import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class SearchSource {
     GitHub, Telegram
@@ -33,7 +35,7 @@ sealed class SelectionState {
     data class MessageList(val chatId: Long, val chatTitle: String, val topicId: Int?) : SelectionState()
 }
 
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SearchAppViewModel @Inject constructor(
     private val githubApi: GithubApi,
@@ -55,18 +57,25 @@ class SearchAppViewModel @Inject constructor(
     private val _searchSource = MutableStateFlow(SearchSource.GitHub)
     val searchSource = _searchSource.asStateFlow()
 
-    val tgSearchResults = combine(
-        _searchQuery,
-        telegramManager.chatsFlow
-    ) { query, chats ->
-        chats.filter { chat ->
-            chat.type is TdApi.ChatTypeSupergroup && chat.title.contains(query, ignoreCase = true)
-        }
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        emptyList()
-    )
+    // Server-side chat search, limited to channels/supergroups. mapLatest cancels an
+    // in-flight request when the query changes, so results always match the latest input.
+    val tgSearchResults: StateFlow<List<TdApi.Chat>> =
+        combine(_searchQuery, _searchSource) { query, source -> query to source }
+            .debounce(300L.milliseconds)
+            .distinctUntilChanged()
+            .mapLatest { (query, source) ->
+                if (source != SearchSource.Telegram || query.isBlank()) {
+                    emptyList()
+                } else {
+                    telegramManager.searchChatsOnServer(query)
+                        .filter { it.type is TdApi.ChatTypeSupergroup }
+                }
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
 
     private val _selectionState = MutableStateFlow<SelectionState>(SelectionState.ChatList)
     val selectionState = _selectionState.asStateFlow()
@@ -77,19 +86,19 @@ class SearchAppViewModel @Inject constructor(
     private val _ghToken by lazy { secureStorage.getGithubToken() }
 
     private val _snackbarEvents = MutableSharedFlow<String>()
-    val snackbarEvents = _snackbarEvents.asSharedFlow()
+    //val snackbarEvents = _snackbarEvents.asSharedFlow()
 
     init {
         viewModelScope.launch {
             _searchQuery
-                .debounce(500L) // Wait 0.5 sec
+                .debounce(500L.milliseconds) // Wait 0.5 sec
                 .filter { it.isNotBlank() }
                 .distinctUntilChanged()  // Don't search if not changed
                 .collect { query ->
+                    // Telegram results come from the reactive server-search flow above,
+                    // so only GitHub needs a per-query network request here
                     if (_searchSource.value == SearchSource.GitHub) {
                         performGhSearch(query)
-                    } else {
-                        telegramManager.loadChats()
                     }
                 }
         }
@@ -123,6 +132,9 @@ class SearchAppViewModel @Inject constructor(
     fun onSourceSelected(source: SearchSource) {
         _searchSource.value = source
     }
+
+    /** Downloads a chat photo/avatar and returns its local path (null if none). */
+    suspend fun downloadPhoto(fileId: Int): String? = telegramManager.downloadPhoto(fileId)
 
     fun onChatSelected(chat: TdApi.Chat) {
         viewModelScope.launch {

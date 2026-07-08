@@ -44,6 +44,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.ui.components.TelegramAvatar
 
 @Composable
 fun AppTgDetailsScreen(
@@ -123,6 +124,7 @@ fun AppTgDetailsContent(
 ) {
     val filteredMessages by viewModel.filteredApkMessages.collectAsStateWithLifecycle()
     val targetApkMessage by viewModel.targetApkMessage.collectAsStateWithLifecycle()
+    val channelPhotoFileId by viewModel.channelPhotoFileId.collectAsStateWithLifecycle()
 
     val includeFilter by viewModel.includeFilter.collectAsStateWithLifecycle()
     val excludeFilter by viewModel.excludeFilter.collectAsStateWithLifecycle()
@@ -151,6 +153,14 @@ fun AppTgDetailsContent(
                     model = appIcon,
                     contentDescription = null,
                     modifier = imageModifier
+                )
+            } else {
+                TelegramAvatar(
+                    fallbackText = uiState.name.take(1).uppercase().ifEmpty { "?" },
+                    photoFileId = channelPhotoFileId,
+                    downloadPhoto = viewModel::downloadPhoto,
+                    modifier = Modifier.size(120.dp),
+                    textStyle = MaterialTheme.typography.displaySmall
                 )
             }
             Column {

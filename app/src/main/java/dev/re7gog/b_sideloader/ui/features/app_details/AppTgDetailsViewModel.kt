@@ -87,10 +87,19 @@ class AppTgDetailsViewModel @Inject constructor(
     private val installEvents = InstallEventManager.installEvents
     private val uninstallEvents = InstallEventManager.uninstallEvents
 
+    // Install events are a global bus shared by every detail screen, so we only react
+    // to one after THIS screen actually started an install (avoids saving an app to the
+    // DB just because an unrelated install finished while this page was open).
+    private var installRequested = false
+
     private var newVersion = ""
 
     private val _icon = MutableStateFlow<Drawable?>(null)
     val icon = _icon.asStateFlow()
+
+    // Small photo file id of the source channel, used for the header avatar
+    private val _channelPhotoFileId = MutableStateFlow<Int?>(null)
+    val channelPhotoFileId = _channelPhotoFileId.asStateFlow()
 
     private val _snackbarEvents = MutableSharedFlow<String>()
     val snackbarEvents = _snackbarEvents.asSharedFlow()
@@ -218,9 +227,14 @@ class AppTgDetailsViewModel @Inject constructor(
                 _uiState.value = fromSearch.toTgUiState()
             }
             loadApkMessages()
+            _uiState.value?.chatId?.let { chatId ->
+                _channelPhotoFileId.value = telegramManager.getChat(chatId)?.photo?.small?.id
+            }
         }
         viewModelScope.launch {
             installEvents.collect { installRes ->
+                if (!installRequested) return@collect  // Not our install, ignore
+                installRequested = false
                 if (installRes.succeeded) {
                     _uiState.update { it?.copy(version = newVersion) }
                     if (installRes.packageName != null) {
@@ -282,6 +296,7 @@ class AppTgDetailsViewModel @Inject constructor(
             var localFile: File? = null
             try {
                 _isInstalling.value = true
+                installRequested = true
 
                 val localPath = telegramManager.downloadFile(doc.id)
                 localFile = File(localPath)
@@ -290,6 +305,7 @@ class AppTgDetailsViewModel @Inject constructor(
                     _installProgress.value = it
                 }
             } catch (e: Exception) {
+                installRequested = false  // No install event will arrive on download failure
                 _snackbarEvents.emit(e.message ?: "Installation error")
             } finally {
                 _installProgress.value = 0f
@@ -323,6 +339,9 @@ class AppTgDetailsViewModel @Inject constructor(
     fun getAppIcon(packageName: String): Drawable? {
         return installManager.getAppIcon(packageName)
     }
+
+    /** Downloads the channel photo/avatar and returns its local path (null if none). */
+    suspend fun downloadPhoto(fileId: Int): String? = telegramManager.downloadPhoto(fileId)
 
     fun onAutoUpdateChange(enabled: Boolean) {
         _uiState.update { it?.copy(autoupdate = enabled) }
