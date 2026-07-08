@@ -1,13 +1,17 @@
 package dev.re7gog.b_sideloader.ui.features.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.data.background.openAutostartSettings
+import dev.re7gog.b_sideloader.data.background.requestBatteryOptimizationExemption
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
+import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.data.installer.ShizukuPermission
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,8 +23,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val settingsManager: SettingsManager,
-    private val installManager: IInstallManager,
+    private val installManager: InstallManager,
     private val secureStorage: SecureStorage
 ) : ViewModel() {
     val useShizuku = settingsManager.useShizuku.stateIn(
@@ -117,5 +122,10 @@ class SettingsViewModel @Inject constructor(
     fun updateGithubToken(newToken: String) {
         secureStorage.saveGithubToken(newToken)
         _githubToken.value = newToken
+    }
+
+    fun allowBackground() {
+        requestBatteryOptimizationExemption(context)
+        openAutostartSettings(context)
     }
 }

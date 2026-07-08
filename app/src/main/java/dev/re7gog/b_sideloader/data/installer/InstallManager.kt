@@ -6,7 +6,6 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
-import dev.re7gog.b_sideloader.domain.logic.IInstallManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,13 +23,13 @@ class InstallManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val okHttpClient: OkHttpClient,
     settingsManager: SettingsManager
-) : IInstallManager {
+) {
     private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     val useShizuku = settingsManager.useShizuku.stateIn(
         managerScope, SharingStarted.Eagerly, false
     )
 
-    override suspend fun downloadAndInstall(
+    fun downloadAndInstall(
         url: String
     ): Flow<Float> = flow {
         val request = Request.Builder().url(url).build()
@@ -51,7 +50,7 @@ class InstallManager @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
-    override suspend fun installFromFile(
+    fun installFromFile(
         file: File, lengthBytes: Long
     ): Flow<Float> = flow {
         if (!file.exists()) throw Exception("File does not exist")
@@ -67,7 +66,7 @@ class InstallManager @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
-    override suspend fun checkPrivilegedPermission(): ShizukuPermission {
+    suspend fun checkPrivilegedPermission(): ShizukuPermission {
         val shizukuInstaller = ShizukuInstaller(context)
         shizukuInstaller.init()
         val res = shizukuInstaller.checkPermission()
@@ -75,7 +74,7 @@ class InstallManager @Inject constructor(
         return res
     }
 
-    override suspend fun uninstallPackage(packageName: String) {
+    suspend fun uninstallPackage(packageName: String) {
         if (useShizuku.value) {
             val shizukuInstaller = ShizukuInstaller(context)
             shizukuInstaller.init()
@@ -86,7 +85,7 @@ class InstallManager @Inject constructor(
         }
     }
 
-    override fun isPackageInstalled(packageName: String): Boolean {
+    fun isPackageInstalled(packageName: String): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(
@@ -101,7 +100,7 @@ class InstallManager @Inject constructor(
         }
     }
 
-    override fun getAppIcon(packageName: String): Drawable? {
+    fun getAppIcon(packageName: String): Drawable? {
         return try {
             context.packageManager.getApplicationIcon(packageName)
         } catch (_: PackageManager.NameNotFoundException) {
