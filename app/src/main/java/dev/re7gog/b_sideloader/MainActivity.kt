@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -88,6 +89,14 @@ fun NotificationPermissionHandler() {
                 }
             )
         }
+    }
+}
+
+/** Clears the back stack and returns to the apps list (used after a successful install). */
+private fun NavController.navigateToAppsList() {
+    navigate(AppsListRoute) {
+        popUpTo(AppsListRoute) { inclusive = true }
+        launchSingleTop = true
     }
 }
 
@@ -169,22 +178,26 @@ fun BSideLoaderApp() {
             }
             composable<AppGhDetailsFromDbRoute> {
                 AppGhDetailsScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onInstalledExit = { navController.popBackStack() }
                 )
             }
             composable<AppGhDetailsFromSearchRoute> {
                 AppGhDetailsScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onInstalledExit = { navController.navigateToAppsList() }
                 )
             }
             composable<AppTgDetailsFromDbRoute> {
                 AppTgDetailsScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onInstalledExit = { navController.popBackStack() }
                 )
             }
             composable<AppTgDetailsFromSearchRoute> {
                 AppTgDetailsScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onInstalledExit = { navController.navigateToAppsList() }
                 )
             }
             composable<TgLoginRoute> {

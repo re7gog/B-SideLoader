@@ -17,9 +17,9 @@ interface AppsRepository {
     fun getAppStream(id: Long): Flow<AppWithDetails?>
 
     /**
-     * Insert app in the data source
+     * Insert app in the data source, returning the new app id.
      */
-    suspend fun addApp(app: AppType)
+    suspend fun addApp(app: AppType): Long
 
     /**
      * Update app in the data source

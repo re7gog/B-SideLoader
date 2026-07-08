@@ -43,13 +43,22 @@ class AppGhDetailsViewModel @Inject constructor(
     private val _shouldUpdate = MutableStateFlow(false)
     val shouldUpdate = _shouldUpdate.asStateFlow()
 
+    private val _shouldSave = MutableStateFlow(false)
+    val shouldSave = _shouldSave.asStateFlow()
+
     private val _isInstalling = MutableStateFlow(false)
     val isInstalling = _isInstalling.asStateFlow()
 
     private val _installProgress = MutableStateFlow(0f)
     val installProgress = _installProgress.asStateFlow()
 
+    // Becomes true once this screen's own install completes successfully; drives
+    // where the back button goes (apps list on success vs. search on failure)
+    private val _installSucceeded = MutableStateFlow(false)
+    val installSucceeded = _installSucceeded.asStateFlow()
+
     private val installEvents = InstallEventManager.installEvents
+    private val uninstallEvents = InstallEventManager.uninstallEvents
 
     // Install events are a global bus shared by every detail screen, so we only react
     // to one after THIS screen actually started an install (avoids saving an app to the
@@ -88,19 +97,35 @@ class AppGhDetailsViewModel @Inject constructor(
                 if (!installRequested) return@collect  // Not our install, ignore
                 installRequested = false
                 if (installRes.succeeded) {
-                    _uiState.update { it?.copy(version = newVersion) }
-                    if (installRes.packageName != null) {
-                        _uiState.update { it?.copy(packageName = installRes.packageName) }
+                    _uiState.update {
+                        it?.copy(
+                            version = newVersion,
+                            installed = true,
+                            packageName = installRes.packageName ?: it.packageName
+                        )
                     }
-                    if (_shouldUpdate.value) _shouldUpdate.value = false
-
-                    if (_uiState.value?.isFromDb ?: false) {
+                    _shouldUpdate.value = false
+                    _shouldSave.value = false
+                    if (_uiState.value?.isFromDb == true) {
                         repository.updateApp(genGhApp())
                     } else {
-                        repository.addApp(genGhApp())
+                        // First install of a searched app: persist it and turn this
+                        // page into a saved, installed one so the button shows "Open"
+                        val newId = repository.addApp(genGhApp())
+                        _uiState.update { it?.copy(id = newId, isFromDb = true) }
                     }
+                    _installSucceeded.value = true
                 } else {
                     _snackbarEvents.emit(installRes.errorMessage ?: "Installation error")
+                }
+            }
+        }
+        viewModelScope.launch {
+            uninstallEvents.collect { uninstallRes ->
+                if (uninstallRes.succeeded) {
+                    _uiState.update { it?.copy(installed = false) }
+                } else {
+                    _snackbarEvents.emit(uninstallRes.errorMessage ?: "Uninstall failed")
                 }
             }
         }
@@ -108,6 +133,7 @@ class AppGhDetailsViewModel @Inject constructor(
 
     private fun genGhApp(): AppType.GithubApp {
         val app = AppEntity(
+            id = _uiState.value?.id ?: 0L,
             sourceType = 1,
             packageName = _uiState.value?.packageName ?: "",
             name = _uiState.value?.name ?: "",
@@ -160,23 +186,58 @@ class AppGhDetailsViewModel @Inject constructor(
         return installManager.getAppIcon(packageName)
     }
 
+    fun uninstallApp() {
+        viewModelScope.launch(Dispatchers.IO) {
+            installManager.uninstallPackage(_uiState.value?.packageName ?: return@launch)
+        }
+    }
+
+    /** Opens the installed app. */
+    fun openApp() {
+        val pkg = _uiState.value?.packageName
+        if (pkg.isNullOrEmpty() || !installManager.openApp(pkg)) {
+            viewModelScope.launch { _snackbarEvents.emit("Unable to open the app") }
+        }
+    }
+
+    /** Persists edited fields to the database. */
+    fun saveToDb() {
+        viewModelScope.launch {
+            repository.updateApp(genGhApp())
+            _shouldSave.value = false
+        }
+    }
+
+    /** Removes the app from the database (does not uninstall it). */
+    fun deleteApp(onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            repository.deleteApp(genGhApp().app)
+            onDeleted()
+        }
+    }
+
     fun onAutoUpdateChange(enabled: Boolean) {
         _uiState.update { it?.copy(autoupdate = enabled) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 
     fun onFilterIncludeChange(filter: String) {
         _uiState.update { it?.copy(filterInclude = filter) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 
     fun onFilterExcludeChange(filter: String) {
         _uiState.update { it?.copy(filterExclude = filter) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 
     fun onReleasesFilterIncludeChange(filter: String) {
         _uiState.update { it?.copy(releasesInclude = filter) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 
     fun onReleasesFilterExcludeChange(filter: String) {
         _uiState.update { it?.copy(releasesExclude = filter) }
+        if (!_shouldSave.value) _shouldSave.value = true
     }
 }

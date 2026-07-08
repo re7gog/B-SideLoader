@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.data.installer
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -108,5 +109,13 @@ class InstallManager @Inject constructor(
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
+    }
+
+    /** Launches the installed app. Returns false if it has no launchable activity. */
+    fun openApp(packageName: String): Boolean {
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        return true
     }
 }

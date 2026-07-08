@@ -17,18 +17,18 @@ class RoomAppsRepository @Inject constructor(
     override fun getAllAppsStream(): Flow<List<AppWithDetails>> = appsDao.getAllApps()
     override fun getAppStream(id: Long): Flow<AppWithDetails?> = appsDao.getApp(id)
 
-    override suspend fun addApp(app: AppType) {
-        appsDatabase.withTransaction {  // Atomic transaction
+    override suspend fun addApp(app: AppType): Long {
+        return appsDatabase.withTransaction {  // Atomic transaction
             when (app) {
                 is AppType.GithubApp -> {
                     val id = appsDao.insertApp(app.app)
-                    val details = app.details.copy(id = id)
-                    appsDao.insertGithubDetails(details)
+                    appsDao.insertGithubDetails(app.details.copy(id = id))
+                    id
                 }
                 is AppType.TelegramApp -> {
                     val id = appsDao.insertApp(app.app)
-                    val details = app.details.copy(id = id)
-                    appsDao.insertTelegramDetails(details)
+                    appsDao.insertTelegramDetails(app.details.copy(id = id))
+                    id
                 }
             }
         }

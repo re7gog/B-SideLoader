@@ -1,53 +1,54 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppGhDetailsScreen(
-    onBackClick: () -> Unit,
+    onBack: () -> Unit,
+    onInstalledExit: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AppGhDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+    val installSucceeded by viewModel.installSucceeded.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -56,21 +57,30 @@ fun AppGhDetailsScreen(
         }
     }
 
-    if (uiState != null) {
+    // After a successful install, back goes to the apps list; otherwise to search
+    val handleBack: () -> Unit = { if (installSucceeded) onInstalledExit() else onBack() }
+    BackHandler(onBack = handleBack)
+
+    val state = uiState
+    if (state != null) {
         Scaffold(
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
-                AppGhDetailsTopBar(
-                    onBackClick = onBackClick,
-                    onAutoupdateChange = viewModel::onAutoUpdateChange,
-                    autoupdateEnabled = uiState!!.autoupdate
+                TopAppBar(
+                    title = { Text(state.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = {
+                        IconButton(onClick = handleBack) {
+                            Icon(painterResource(R.drawable.arrow_back_24px), "Back")
+                        }
+                    }
                 )
             },
             modifier = modifier
         ) { paddingValues ->
             AppGhDetailsContent(
-                uiState = uiState!!,
+                uiState = state,
                 viewModel = viewModel,
+                onDeleted = onBack,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -81,173 +91,124 @@ fun AppGhDetailsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppGhDetailsTopBar(
-    onBackClick: () -> Unit,
-    onAutoupdateChange: (Boolean) -> Unit,
-    autoupdateEnabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    TopAppBar(
-        modifier = modifier,
-        title = { },
-        navigationIcon = {
-            IconButton(onClick = { onBackClick() }) {
-                Icon(
-                    painterResource(R.drawable.arrow_back_24px),
-                    "Back"
-                )
-            }
-        },
-        actions = {
-            Text("Autoupdate", modifier = Modifier.padding(8.dp))
-            Switch(
-                checked = autoupdateEnabled,
-                onCheckedChange = onAutoupdateChange,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-    )
-}
-
 @Composable
 fun AppGhDetailsContent(
     uiState: AppGhDetailsUiState,
     viewModel: AppGhDetailsViewModel,
+    onDeleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
+    val shouldSave by viewModel.shouldSave.collectAsStateWithLifecycle()
     val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
     val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
 
-    val isAppInstalled = uiState.installed
-    var imageModifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp))
-    if (!isAppInstalled) imageModifier = imageModifier.alpha(0.5f)
-    val packageName = uiState.packageName
-    val appIcon = remember(isAppInstalled, packageName) {
-        if (isAppInstalled && packageName != "") viewModel.getAppIcon(uiState.packageName) else null
+    val isInstalled = uiState.installed
+    val appIcon = remember(isInstalled, uiState.packageName) {
+        if (isInstalled && uiState.packageName != "") viewModel.getAppIcon(uiState.packageName) else null
+    }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val primaryLabel: String
+    val primaryOnClick: () -> Unit
+    when {
+        !uiState.isFromDb -> {
+            primaryLabel = "Save & install"; primaryOnClick = viewModel::installAppGh
+        }
+        shouldSave -> {
+            primaryLabel = "Save changes"; primaryOnClick = viewModel::saveToDb
+        }
+        shouldUpdate -> {
+            primaryLabel = "Update"; primaryOnClick = viewModel::installAppGh
+        }
+        !isInstalled -> {
+            primaryLabel = "Install"; primaryOnClick = viewModel::installAppGh
+        }
+        else -> {
+            primaryLabel = "Open"; primaryOnClick = viewModel::openApp
+        }
     }
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
         ) {
             AsyncImage(
                 model = appIcon ?: uiState.iconUrl,
                 placeholder = painterResource(R.drawable.circle_24px),
                 error = painterResource(R.drawable.x_circle_24px),
                 contentDescription = null,
-                modifier = imageModifier
+                modifier = Modifier.size(96.dp).clip(RoundedCornerShape(24.dp))
             )
             Column {
-                Text(uiState.name, style = MaterialTheme.typography.headlineMedium)
-                Text(uiState.owner, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = uiState.stars.toString() + " ⭐",
-                    style = MaterialTheme.typography.bodyMedium,
+                    uiState.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    uiState.owner,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text("${uiState.stars} ⭐", style = MaterialTheme.typography.bodyMedium)
                 if (uiState.version.isNotEmpty()) {
-                    Text(
-                        text = "Version: " + uiState.version,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Text("Version: ${uiState.version}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
+
         Text(
             text = uiState.description ?: "No description",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            style = MaterialTheme.typography.bodyMedium
         )
 
-        OutlinedTextField(
-            value = uiState.releasesInclude,
-            onValueChange = viewModel::onReleasesFilterIncludeChange,
-            label = { Text("Release name must contain (use space to divide key words):") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = uiState.releasesExclude,
-            onValueChange = viewModel::onReleasesFilterExcludeChange,
-            label = { Text("Release name must not contain:") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = uiState.filterInclude,
-            onValueChange = viewModel::onFilterIncludeChange,
-            label = { Text("APK file name must contain:") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = uiState.filterExclude,
-            onValueChange = viewModel::onFilterExcludeChange,
-            label = { Text("APK file name must not contain:") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp)
-        )
-
-        GhInstallButton(
-            state = uiState,
-            onInstallClick = viewModel::installAppGh,
-            shouldUpdate = shouldUpdate,
+        DetailActionArea(
+            label = primaryLabel,
+            enabled = true,
             isInstalling = isInstalling,
-            installProgress = installProgress,
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            progress = installProgress,
+            onClick = primaryOnClick
         )
-    }
-}
+        DetailSecondaryActions(
+            showUninstall = isInstalled,
+            showDelete = uiState.isFromDb,
+            onUninstall = viewModel::uninstallApp,
+            onDelete = { showDeleteDialog = true }
+        )
 
-@Composable
-fun GhInstallButton(
-    state: AppGhDetailsUiState,
-    onInstallClick: () -> Unit,
-    shouldUpdate: Boolean,
-    isInstalling: Boolean,
-    installProgress: Float,
-    modifier: Modifier = Modifier
-) {
-    if (isInstalling) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = modifier
-        ) {
-            LinearProgressIndicator(
-                progress = { installProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-            Text(
-                text = "Load: ${(installProgress * 100).toInt()}%",
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-    } else{
-        Button(
-            onClick = onInstallClick,
-            modifier = modifier
-        ) {
-            Text(
-                if (!state.isFromDb){
-                    "Save and install"
-                } else if (shouldUpdate) {
-                    "Update"
-                } else if (state.installed){
-                    "Open"
-                } else {
-                    "Install"
-                }
-            )
-        }
+        DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange)
+
+        DetailSectionLabel("Release filters")
+        DetailFilterField(uiState.releasesInclude, viewModel::onReleasesFilterIncludeChange,
+            "Release name must contain (space-separated)")
+        DetailFilterField(uiState.releasesExclude, viewModel::onReleasesFilterExcludeChange,
+            "Release name must not contain")
+
+        DetailSectionLabel("APK filters")
+        DetailFilterField(uiState.filterInclude, viewModel::onFilterIncludeChange,
+            "APK file name must contain")
+        DetailFilterField(uiState.filterExclude, viewModel::onFilterExcludeChange,
+            "APK file name must not contain")
+    }
+
+    if (showDeleteDialog) {
+        DeleteConfirmDialog(
+            appName = uiState.name,
+            onConfirm = {
+                showDeleteDialog = false
+                viewModel.deleteApp(onDeleted)
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
     }
 }

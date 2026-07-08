@@ -1,41 +1,38 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,14 +43,16 @@ import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.ui.components.TelegramAvatar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTgDetailsScreen(
-    onBackClick: () -> Unit,
+    onBack: () -> Unit,
+    onInstalledExit: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AppTgDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+    val installSucceeded by viewModel.installSucceeded.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -62,20 +61,30 @@ fun AppTgDetailsScreen(
         }
     }
 
-    if (uiState != null) {
+    // After a successful install, back goes to the apps list; otherwise to search
+    val handleBack: () -> Unit = { if (installSucceeded) onInstalledExit() else onBack() }
+    BackHandler(onBack = handleBack)
+
+    val state = uiState
+    if (state != null) {
         Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
-                AppTgDetailsTopBar(
-                    onBackClick = onBackClick,
-                    onAutoupdateChange = viewModel::onAutoUpdateChange,
-                    autoupdateEnabled = uiState!!.autoupdate
+                TopAppBar(
+                    title = { Text(state.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = {
+                        IconButton(onClick = handleBack) {
+                            Icon(painterResource(R.drawable.arrow_back_24px), "Back")
+                        }
+                    }
                 )
             },
             modifier = modifier
         ) { paddingValues ->
             AppTgDetailsContent(
-                uiState = uiState!!,
+                uiState = state,
                 viewModel = viewModel,
+                onDeleted = onBack,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -86,219 +95,202 @@ fun AppTgDetailsScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppTgDetailsTopBar(
-    onBackClick: () -> Unit,
-    onAutoupdateChange: (Boolean) -> Unit,
-    autoupdateEnabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    TopAppBar(
-        modifier = modifier,
-        title = { },
-        navigationIcon = {
-            IconButton(onClick = { onBackClick() }) {
-                Icon(
-                    painterResource(R.drawable.arrow_back_24px),
-                    "Back"
-                )
-            }
-        },
-        actions = {
-            Text("Autoupdate", modifier = Modifier.padding(8.dp))
-            Switch(
-                checked = autoupdateEnabled,
-                onCheckedChange = onAutoupdateChange,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-    )
-}
-
 @Composable
 fun AppTgDetailsContent(
     uiState: AppTgDetailsUiState,
     viewModel: AppTgDetailsViewModel,
+    onDeleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val filteredMessages by viewModel.filteredApkMessages.collectAsStateWithLifecycle()
     val targetApkMessage by viewModel.targetApkMessage.collectAsStateWithLifecycle()
-    val channelPhotoFileId by viewModel.channelPhotoFileId.collectAsStateWithLifecycle()
-
     val includeFilter by viewModel.includeFilter.collectAsStateWithLifecycle()
     val excludeFilter by viewModel.excludeFilter.collectAsStateWithLifecycle()
     val msgIncludeFilter by viewModel.msgIncludeFilter.collectAsStateWithLifecycle()
     val msgExcludeFilter by viewModel.msgExcludeFilter.collectAsStateWithLifecycle()
-
-    val isAppInstalled = uiState.installed
-    val packageName = uiState.packageName
-    val appIcon = remember(isAppInstalled, packageName) {
-        if (isAppInstalled && packageName != "") viewModel.getAppIcon(uiState.packageName) else null
-    }
-
-    val targetApkName = remember(targetApkMessage?.id) {
-        targetApkMessage?.file?.fileName ?: ""
-    }
-
-    Column(modifier = modifier) {
-        Row(
-            Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (appIcon != null) {
-                var imageModifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp))
-                if (!isAppInstalled) imageModifier = imageModifier.alpha(0.5f)
-                AsyncImage(
-                    model = appIcon,
-                    contentDescription = null,
-                    modifier = imageModifier
-                )
-            } else {
-                TelegramAvatar(
-                    fallbackText = uiState.name.take(1).uppercase().ifEmpty { "?" },
-                    photoFileId = channelPhotoFileId,
-                    downloadPhoto = viewModel::downloadPhoto,
-                    modifier = Modifier.size(120.dp),
-                    textStyle = MaterialTheme.typography.displaySmall
-                )
-            }
-            Column {
-                Text(uiState.name, style = MaterialTheme.typography.headlineMedium)
-                if (uiState.version.isNotEmpty()) {
-                    Text(
-                        text = "Version (message id): " + uiState.version,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-        }
-        OutlinedTextField(
-            value = includeFilter,
-            onValueChange = viewModel::onIncludeFilterChange,
-            label = { Text("Apk file name must contain (use space to divide):") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = excludeFilter,
-            onValueChange = viewModel::onExcludeFilterChange,
-            label = { Text("Apk file name must not contain:") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = msgIncludeFilter,
-            onValueChange = viewModel::onMsgIncludeFilterChange,
-            label = { Text("Message text must contain:") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = msgExcludeFilter,
-            onValueChange = viewModel::onMsgExcludeFilterChange,
-            label = { Text("Message text must not contain:") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        )
-
-        TgInstallButton(
-            state = uiState,
-            viewModel = viewModel,
-            targetApkName = targetApkName,
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
-        )
-        if (isAppInstalled) {
-            OutlinedButton(onClick = viewModel::uninstallApp) {
-                Text("Uninstall")
-            }
-        }
-
-        Text(
-            "Available APKs",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(filteredMessages, key = { it.id }) { message ->
-                val isTarget = message.id == targetApkMessage?.id
-                ApkMessageStaticRow(message, isTarget)
-            }
-        }
-    }
-}
-
-@Composable
-fun TgInstallButton(
-    state: AppTgDetailsUiState,
-    viewModel: AppTgDetailsViewModel,
-    targetApkName: String?,
-    modifier: Modifier = Modifier
-) {
     val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
     val shouldSave by viewModel.shouldSave.collectAsStateWithLifecycle()
     val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
     val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
+    val channelPhotoFileId by viewModel.channelPhotoFileId.collectAsStateWithLifecycle()
 
-    if (isInstalling) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = modifier
-        ) {
-            LinearProgressIndicator(
-                progress = { installProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-            Text(
-                text = "Load: ${(installProgress * 100).toInt()}%",
-                style = MaterialTheme.typography.labelSmall
-            )
+    val isInstalled = uiState.installed
+    val appIcon = remember(isInstalled, uiState.packageName) {
+        if (isInstalled && uiState.packageName != "") viewModel.getAppIcon(uiState.packageName) else null
+    }
+    val hasTarget = targetApkMessage != null
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Decide the primary action. Order matters: a fresh (from-search) app always
+    // installs on the first tap (its edited fields are saved on install success).
+    val primaryLabel: String
+    val primaryEnabled: Boolean
+    val primaryOnClick: () -> Unit
+    when {
+        !uiState.isFromDb -> {
+            primaryLabel = "Save & install"; primaryEnabled = hasTarget
+            primaryOnClick = viewModel::installAppTg
         }
-    } else{
-        Button(
-            onClick = { if (shouldSave) viewModel.saveToDb() else viewModel.installAppTg() },
-            enabled = targetApkName != null,
-            modifier = modifier
-        ) {
-            Text(
-                if (!state.isFromDb){
-                    "Save and install $targetApkName"
-                } else if (shouldSave) {
-                    "Save"
-                } else if (shouldUpdate) {
-                    "Update $targetApkName"
-                } else if (!state.installed) {
-                    "Install $targetApkName"
+        shouldSave -> {
+            primaryLabel = "Save changes"; primaryEnabled = true
+            primaryOnClick = viewModel::saveToDb
+        }
+        shouldUpdate -> {
+            primaryLabel = "Update"; primaryEnabled = hasTarget
+            primaryOnClick = viewModel::installAppTg
+        }
+        !isInstalled -> {
+            primaryLabel = "Install"; primaryEnabled = hasTarget
+            primaryOnClick = viewModel::installAppTg
+        }
+        else -> {
+            primaryLabel = "Open"; primaryEnabled = true
+            primaryOnClick = viewModel::openApp
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (appIcon != null) {
+                    AsyncImage(
+                        model = appIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(96.dp).clip(RoundedCornerShape(24.dp))
+                    )
                 } else {
-                    "Open"
+                    TelegramAvatar(
+                        fallbackText = uiState.name.take(1).uppercase().ifEmpty { "?" },
+                        photoFileId = channelPhotoFileId,
+                        downloadPhoto = viewModel::downloadPhoto,
+                        modifier = Modifier.size(96.dp),
+                        textStyle = MaterialTheme.typography.headlineMedium
+                    )
                 }
+                Column {
+                    Text(
+                        uiState.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Telegram channel",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (uiState.version.isNotEmpty()) {
+                        Text(
+                            "Installed message id: ${uiState.version}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            DetailActionArea(
+                label = primaryLabel,
+                enabled = primaryEnabled,
+                isInstalling = isInstalling,
+                progress = installProgress,
+                onClick = primaryOnClick
             )
         }
+        item {
+            DetailSecondaryActions(
+                showUninstall = isInstalled,
+                showDelete = uiState.isFromDb,
+                onUninstall = viewModel::uninstallApp,
+                onDelete = { showDeleteDialog = true }
+            )
+        }
+
+        item { DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange) }
+
+        item { DetailSectionLabel("Filters") }
+        item {
+            DetailFilterField(includeFilter, viewModel::onIncludeFilterChange,
+                "APK name must contain (space-separated)")
+        }
+        item {
+            DetailFilterField(excludeFilter, viewModel::onExcludeFilterChange,
+                "APK name must not contain")
+        }
+        item {
+            DetailFilterField(msgIncludeFilter, viewModel::onMsgIncludeFilterChange,
+                "Message text must contain")
+        }
+        item {
+            DetailFilterField(msgExcludeFilter, viewModel::onMsgExcludeFilterChange,
+                "Message text must not contain")
+        }
+
+        item { DetailSectionLabel("Available APKs") }
+        if (filteredMessages.isEmpty()) {
+            item {
+                Text(
+                    "No matching APKs found",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        items(filteredMessages, key = { it.id }) { message ->
+            ApkMessageStaticRow(message, message.id == targetApkMessage?.id)
+        }
+    }
+
+    if (showDeleteDialog) {
+        DeleteConfirmDialog(
+            appName = uiState.name,
+            onConfirm = {
+                showDeleteDialog = false
+                viewModel.deleteApp(onDeleted)
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
     }
 }
 
 @Composable
 fun ApkMessageStaticRow(message: ApkTgMessage, isTarget: Boolean) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = if (isTarget) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isTarget) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceContainer,
         border = if (isTarget) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(message.file.fileName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                message.file.fileName,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (message.msgText.isNotEmpty()) {
-                Text(message.msgText, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(
+                    message.msgText,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text("${message.file.document.size / 1024 / 1024} MB", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "${message.file.document.size / 1024 / 1024} MB",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

@@ -97,6 +97,11 @@ class AppTgDetailsViewModel @Inject constructor(
     private val _icon = MutableStateFlow<Drawable?>(null)
     val icon = _icon.asStateFlow()
 
+    // Becomes true once this screen's own install completes successfully; drives
+    // where the back button goes (apps list on success vs. search on failure)
+    private val _installSucceeded = MutableStateFlow(false)
+    val installSucceeded = _installSucceeded.asStateFlow()
+
     // Small photo file id of the source channel, used for the header avatar
     private val _channelPhotoFileId = MutableStateFlow<Int?>(null)
     val channelPhotoFileId = _channelPhotoFileId.asStateFlow()
@@ -236,17 +241,24 @@ class AppTgDetailsViewModel @Inject constructor(
                 if (!installRequested) return@collect  // Not our install, ignore
                 installRequested = false
                 if (installRes.succeeded) {
-                    _uiState.update { it?.copy(version = newVersion) }
-                    if (installRes.packageName != null) {
-                        _uiState.update { it?.copy(packageName = installRes.packageName) }
+                    _uiState.update {
+                        it?.copy(
+                            version = newVersion,
+                            installed = true,
+                            packageName = installRes.packageName ?: it.packageName
+                        )
                     }
-                    if (_shouldUpdate.value) _shouldUpdate.value = false
-
-                    if (_uiState.value?.isFromDb ?: false) {
+                    _shouldUpdate.value = false
+                    _shouldSave.value = false
+                    if (_uiState.value?.isFromDb == true) {
                         repository.updateApp(genTgApp())
                     } else {
-                        repository.addApp(genTgApp())
+                        // First install of a searched app: persist it and turn this
+                        // page into a saved, installed one so the button shows "Open"
+                        val newId = repository.addApp(genTgApp())
+                        _uiState.update { it?.copy(id = newId, isFromDb = true) }
                     }
+                    _installSucceeded.value = true
                 } else {
                     _snackbarEvents.emit(installRes.errorMessage ?: "Installation error")
                 }
@@ -326,6 +338,22 @@ class AppTgDetailsViewModel @Inject constructor(
     fun uninstallApp() {
         viewModelScope.launch(Dispatchers.IO) {
             installManager.uninstallPackage(_uiState.value?.packageName ?: return@launch)
+        }
+    }
+
+    /** Opens the installed app. */
+    fun openApp() {
+        val pkg = _uiState.value?.packageName
+        if (pkg.isNullOrEmpty() || !installManager.openApp(pkg)) {
+            viewModelScope.launch { _snackbarEvents.emit("Unable to open the app") }
+        }
+    }
+
+    /** Removes the app from the database (does not uninstall it). */
+    fun deleteApp(onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            repository.deleteApp(genTgApp().app)
+            onDeleted()
         }
     }
 
