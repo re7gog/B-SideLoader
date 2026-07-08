@@ -9,15 +9,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -25,8 +27,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.data.installer.InstallerMode
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,23 +50,19 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val useShizuku by viewModel.useShizuku.collectAsStateWithLifecycle()
-    val shizukuIcon by viewModel.shizukuIcon.collectAsStateWithLifecycle()
+    val installerMode by viewModel.installerMode.collectAsStateWithLifecycle()
     val useAutoupdates by viewModel.useAutoupdates.collectAsStateWithLifecycle()
     val useMobileData by viewModel.useMobileData.collectAsStateWithLifecycle()
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.snackbarEvents.collect { message ->
-            snackbarHostState.showSnackbar(message)
+        viewModel.toastEvents.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
         }
     }
 
-    viewModel.updateShizuku()
-
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = { SettingsTopBar() },
         modifier = modifier
     ) { paddingValues ->
@@ -76,12 +77,9 @@ fun SettingsScreen(
                 )
             }
             item {
-                SettingsSwitchItem(
-                    title = "Use privileged installer",
-                    subtitle = "Use Shizuku, Sui or Dhizuku",
-                    thumbIcon = shizukuIcon,
-                    checked = useShizuku,
-                    onCheckedChange = { viewModel.updateShizuku(true) }
+                InstallerModeSetting(
+                    selectedMode = installerMode,
+                    onModeSelected = { viewModel.selectInstallerMode(it) }
                 )
             }
             item {
@@ -153,6 +151,46 @@ fun SettingsTopBar(
         title = { Text(stringResource(R.string.settings)) },
         modifier = modifier
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InstallerModeSetting(
+    selectedMode: InstallerMode,
+    onModeSelected: (InstallerMode) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth().padding(16.dp)
+    ) {
+        OutlinedTextField(
+            value = selectedMode.displayName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Installation method") },
+            supportingText = { Text("Session, or a privileged installer (Shizuku/Sui, Dhizuku)") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            InstallerMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.displayName) },
+                    onClick = {
+                        expanded = false
+                        onModeSelected(mode)
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -47,7 +47,10 @@ enum class ShizukuPermission {
 
 const val SHELL_PACKAGE = "com.android.shell"
 
-class ShizukuInstaller(private val context: Context) : ApkInstaller {
+class ShizukuInstaller(
+    private val context: Context,
+    private val useDhizuku: Boolean
+) : ApkInstaller {
     private var isBinderAvailable = false
     private val requestPermissionCode by lazy { (1000..2000).random() }
     private val requestPermissionMutex by lazy { Mutex(locked = true) }
@@ -81,8 +84,9 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
     fun init() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             HiddenApiBypass.addHiddenApiExemptions("Landroid/content", "Landroid/os")
-        dInitSucceeded = Dhizuku.init(context)
-        if (!dInitSucceeded) {
+        if (useDhizuku) {
+            dInitSucceeded = Dhizuku.init(context)
+        } else {
             /*
             val isSui = Sui.init(context.packageName)
             if (!isSui) {
@@ -97,7 +101,7 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
     }
 
     fun exit() {
-        if (dInitSucceeded) return
+        if (useDhizuku) return
         Shizuku.removeBinderReceivedListener(binderReceivedListener)
         Shizuku.removeBinderDeadListener(binderDeadListener)
         Shizuku.removeRequestPermissionResultListener(requestPermissionResultListener)
@@ -124,12 +128,12 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
     }
 
     suspend fun checkPermission(): ShizukuPermission {
-        return if (!isBinderAvailable && !dInitSucceeded) {
-            ShizukuPermission.SERVICES_NOT_FOUND
-        } else if (dInitSucceeded) {
-            if (Dhizuku.isPermissionGranted())
+        return if (useDhizuku) {
+            if (!dInitSucceeded) {
+                ShizukuPermission.SERVICES_NOT_FOUND
+            } else if (Dhizuku.isPermissionGranted()) {
                 ShizukuPermission.GRANTED_OWNER
-            else {
+            } else {
                 Dhizuku.requestPermission(object : DhizukuRequestPermissionListener() {
                     @Throws(RemoteException::class)
                     override fun onRequestPermission(grantResult: Int) {
@@ -139,10 +143,12 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
                 })
                 dRequestPermissionMutex.lock()
                 if (dPermissionGranted) ShizukuPermission.GRANTED_OWNER
-                else if (isBinderAvailable) checkShizukuPermission()
                 else ShizukuPermission.DENIED
             }
-        } else checkShizukuPermission()
+        } else {
+            if (!isBinderAvailable) ShizukuPermission.SERVICES_NOT_FOUND
+            else checkShizukuPermission()
+        }
     }
 
     /**
@@ -234,7 +240,7 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
     }
 
     private fun createPackageInstallerSessionUniversal(): PackageInstaller.Session {
-        return if (dInitSucceeded) createPackageInstallerSessionD()
+        return if (useDhizuku) createPackageInstallerSessionD()
         else createPackageInstallerSession()
     }
 
@@ -309,7 +315,7 @@ class ShizukuInstaller(private val context: Context) : ApkInstaller {
                     cont.resume(Unit)
                 }
                 val intentSender = IntentSenderHelper.newIntentSender(adapter)
-                if (dInitSucceeded)
+                if (useDhizuku)
                     packageInstallerD.uninstall(packageName, intentSender)
                 else
                     packageInstaller.uninstall(packageName, intentSender)

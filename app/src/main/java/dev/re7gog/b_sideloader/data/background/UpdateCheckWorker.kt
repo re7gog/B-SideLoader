@@ -16,7 +16,7 @@ import dev.re7gog.b_sideloader.MainActivity
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.data.updater.UpdatesManager
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.first
 
 @HiltWorker
 class UpdateCheckWorker @AssistedInject constructor(
@@ -26,7 +26,8 @@ class UpdateCheckWorker @AssistedInject constructor(
     private val settingsManager: SettingsManager
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
-        val install = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S || settingsManager.useShizuku.firstOrNull() ?: false
+        val install = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
+                settingsManager.installerMode.first().isPrivileged
         if (install) {
             setForeground(updateProgressNotification(null, 0))
             updatesManager.checkAllAndInstall { string, i -> setForeground(updateProgressNotification(string, i))  }

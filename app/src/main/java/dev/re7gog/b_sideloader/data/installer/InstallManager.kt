@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.InputStream
 import javax.inject.Inject
 
 class InstallManager @Inject constructor(
@@ -25,9 +27,23 @@ class InstallManager @Inject constructor(
     settingsManager: SettingsManager
 ) {
     private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    val useShizuku = settingsManager.useShizuku.stateIn(
-        managerScope, SharingStarted.Eagerly, false
+    val installerMode = settingsManager.installerMode.stateIn(
+        managerScope, SharingStarted.Eagerly, InstallerMode.SESSION
     )
+
+    private suspend fun installApkWithMode(
+        stream: InputStream, lengthBytes: Long, collector: FlowCollector<Float>
+    ) {
+        val mode = installerMode.value
+        if (mode.isPrivileged) {
+            val shizukuInstaller = ShizukuInstaller(context, mode.useDhizuku)
+            shizukuInstaller.init()
+            shizukuInstaller.installApk(stream, lengthBytes, collector)
+            shizukuInstaller.exit()
+        } else {
+            SessionInstaller(context).installApk(stream, lengthBytes, collector)
+        }
+    }
 
     fun downloadAndInstall(
         url: String
@@ -38,15 +54,7 @@ class InstallManager @Inject constructor(
         response.use {
             val stream = it.body.byteStream()
             val lengthBytes = it.body.contentLength()
-
-            if (useShizuku.value) {
-                val shizukuInstaller = ShizukuInstaller(context)
-                shizukuInstaller.init()
-                shizukuInstaller.installApk(stream, lengthBytes, this@flow)
-                shizukuInstaller.exit()
-            } else {
-                SessionInstaller(context).installApk(stream, lengthBytes, this@flow)
-            }
+            installApkWithMode(stream, lengthBytes, this@flow)
         }
     }.flowOn(Dispatchers.IO)
 
@@ -55,19 +63,12 @@ class InstallManager @Inject constructor(
     ): Flow<Float> = flow {
         if (!file.exists()) throw Exception("File does not exist")
         file.inputStream().use {
-            if (useShizuku.value) {
-                val shizukuInstaller = ShizukuInstaller(context)
-                shizukuInstaller.init()
-                shizukuInstaller.installApk(it, lengthBytes, this@flow)
-                shizukuInstaller.exit()
-            } else {
-                SessionInstaller(context).installApk(it, lengthBytes, this@flow)
-            }
+            installApkWithMode(it, lengthBytes, this@flow)
         }
     }.flowOn(Dispatchers.IO)
 
-    suspend fun checkPrivilegedPermission(): ShizukuPermission {
-        val shizukuInstaller = ShizukuInstaller(context)
+    suspend fun checkPrivilegedPermission(useDhizuku: Boolean): ShizukuPermission {
+        val shizukuInstaller = ShizukuInstaller(context, useDhizuku)
         shizukuInstaller.init()
         val res = shizukuInstaller.checkPermission()
         shizukuInstaller.exit()
@@ -75,8 +76,9 @@ class InstallManager @Inject constructor(
     }
 
     suspend fun uninstallPackage(packageName: String) {
-        if (useShizuku.value) {
-            val shizukuInstaller = ShizukuInstaller(context)
+        val mode = installerMode.value
+        if (mode.isPrivileged) {
+            val shizukuInstaller = ShizukuInstaller(context, mode.useDhizuku)
             shizukuInstaller.init()
             shizukuInstaller.uninstallPackage(packageName)
             shizukuInstaller.exit()
