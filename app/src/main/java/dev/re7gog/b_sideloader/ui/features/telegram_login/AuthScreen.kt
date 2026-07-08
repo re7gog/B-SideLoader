@@ -1,17 +1,30 @@
 package dev.re7gog.b_sideloader.ui.features.telegram_login
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,108 +33,194 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.re7gog.b_sideloader.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
+    onExit: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var inputFieldValue by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.step) {
-        if (uiState.step is AuthStep.Ready) {
-            onAuthSuccess()
-        }
+        if (uiState.step is AuthStep.Ready) onAuthSuccess()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (uiState.isLoading) {
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(16.dp))
+    val canStepBack = uiState.step is AuthStep.CodeInput || uiState.step is AuthStep.PasswordInput
+    val handleBack: () -> Unit = { if (canStepBack) viewModel.goBackToPhone() else onExit() }
+    BackHandler(onBack = handleBack)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Log in to Telegram") },
+                navigationIcon = {
+                    IconButton(onClick = handleBack) {
+                        Icon(
+                            painter = painterResource(R.drawable.arrow_back_24px),
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
         }
-
-        when (val step = uiState.step) {
-            is AuthStep.Loading -> Text("Initializing Telegram...")
-
-            is AuthStep.PhoneInput -> {
-                AuthInputSection(
-                    title = "Your phone number",
-                    label = "+79990000000",
-                    value = inputFieldValue,
-                    onValueChange = { inputFieldValue = it },
-                    onConfirm = { viewModel.sendPhoneNumber(inputFieldValue); inputFieldValue = "" }
-                )
-            }
-
-            is AuthStep.CodeInput -> {
-                AuthInputSection(
-                    title = "Confirmation code",
-                    label = "12345",
-                    value = inputFieldValue,
-                    onValueChange = { inputFieldValue = it },
-                    onConfirm = { viewModel.sendCode(inputFieldValue); inputFieldValue = "" }
-                )
-            }
-
-            is AuthStep.PasswordInput -> {
-                AuthInputSection(
-                    title = "Cloud password (2FA)",
-                    label = "Enter your password",
-                    value = inputFieldValue,
-                    onValueChange = { inputFieldValue = it },
-                    onConfirm = { viewModel.sendPassword(inputFieldValue); inputFieldValue = "" },
-                    isPassword = true
-                )
-            }
-
-            is AuthStep.Error -> {
-                Text("Error: ${step.message}", color = MaterialTheme.colorScheme.error)
-                Button(onClick = { /* TODO: State reset */ }) {
-                    Text("Try again")
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(96.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.telegram),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
             }
-            else -> {}
+            Spacer(Modifier.height(32.dp))
+
+            when (uiState.step) {
+                is AuthStep.Loading -> {
+                    Text(
+                        text = "Initializing Telegram…",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    CircularProgressIndicator()
+                }
+
+                is AuthStep.PhoneInput -> AuthInputStep(
+                    title = "Your phone number",
+                    description = "Type your number with the country code in any format. We'll send you a code.",
+                    placeholder = "e.g. +1 (555) 000-0000",
+                    keyboardType = KeyboardType.Phone,
+                    isLoading = uiState.isLoading,
+                    errorMessage = uiState.errorMessage,
+                    onConfirm = { viewModel.sendPhoneNumber(it) }
+                )
+
+                is AuthStep.CodeInput -> AuthInputStep(
+                    title = "Enter the code",
+                    description = "We sent a code to your Telegram app or via SMS.",
+                    placeholder = "12345",
+                    keyboardType = KeyboardType.Number,
+                    isLoading = uiState.isLoading,
+                    errorMessage = uiState.errorMessage,
+                    onConfirm = { viewModel.sendCode(it) },
+                    showBackToPhone = true,
+                    onBackToPhone = { viewModel.goBackToPhone() }
+                )
+
+                is AuthStep.PasswordInput -> AuthInputStep(
+                    title = "Two-step verification",
+                    description = "Enter your cloud password (2FA) to finish signing in.",
+                    placeholder = "Password",
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    isLoading = uiState.isLoading,
+                    errorMessage = uiState.errorMessage,
+                    onConfirm = { viewModel.sendPassword(it) },
+                    showBackToPhone = true,
+                    onBackToPhone = { viewModel.goBackToPhone() }
+                )
+
+                else -> {}
+            }
         }
     }
 }
 
 @Composable
-fun AuthInputSection(
+fun AuthInputStep(
     title: String,
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    isPassword: Boolean = false
+    description: String,
+    placeholder: String,
+    onConfirm: (String) -> Unit,
+    isLoading: Boolean,
+    errorMessage: String?,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = false,
+    showBackToPhone: Boolean = false,
+    onBackToPhone: () -> Unit = {}
 ) {
-    Text(text = title, style = MaterialTheme.typography.headlineSmall)
-    Spacer(modifier = Modifier.height(16.dp))
+    var value by remember { mutableStateOf("") }
+
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineSmall,
+        textAlign = TextAlign.Center
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = description,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center
+    )
+    Spacer(Modifier.height(24.dp))
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
+        onValueChange = { value = it },
+        placeholder = { Text(placeholder) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None
+        enabled = !isLoading,
+        isError = errorMessage != null,
+        supportingText = errorMessage?.let { { Text(it) } },
+        visualTransformation =
+            if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { if (!isLoading && value.isNotBlank()) onConfirm(value) }
+        )
     )
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(Modifier.height(24.dp))
     Button(
-        onClick = onConfirm,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium
+        onClick = { onConfirm(value) },
+        enabled = !isLoading && value.isNotBlank(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = MaterialTheme.shapes.large
     ) {
-        Text("Continue")
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Text("Continue")
+        }
+    }
+    if (showBackToPhone) {
+        Spacer(Modifier.height(4.dp))
+        TextButton(onClick = onBackToPhone, enabled = !isLoading) {
+            Text("Change phone number")
+        }
     }
 }

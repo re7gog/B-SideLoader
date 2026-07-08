@@ -11,5 +11,6 @@ sealed class AuthStep {
 
 data class AuthUiState(
     val step: AuthStep = AuthStep.Loading,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )

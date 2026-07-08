@@ -12,21 +12,34 @@ import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.installer.InstallerMode
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.data.installer.ShizukuPermission
+import dev.re7gog.b_sideloader.data.telegram.TelegramManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
+
+/** Logged-in Telegram account shown on the settings page. */
+data class TgAccount(
+    val name: String,
+    val username: String?,
+    val avatarPath: String?
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsManager: SettingsManager,
     private val installManager: InstallManager,
-    private val secureStorage: SecureStorage
+    private val secureStorage: SecureStorage,
+    private val telegramManager: TelegramManager
 ) : ViewModel() {
     val installerMode = settingsManager.installerMode.stateIn(
         viewModelScope, SharingStarted.Eagerly, InstallerMode.SESSION
@@ -49,6 +62,30 @@ class SettingsViewModel @Inject constructor(
 
     private val _toastEvents = MutableSharedFlow<String>()
     val toastEvents = _toastEvents.asSharedFlow()
+
+    /** Current Telegram account, or null when not logged in. */
+    val tgAccount: StateFlow<TgAccount?> = telegramManager.authState
+        .map { it is TdApi.AuthorizationStateReady }
+        .distinctUntilChanged()
+        .map { loggedIn ->
+            if (!loggedIn) return@map null
+            val user = telegramManager.getMe() ?: return@map null
+            val name = listOfNotNull(user.firstName, user.lastName)
+                .joinToString(" ").trim().ifEmpty { "Telegram account" }
+            val username = user.usernames?.activeUsernames?.firstOrNull()
+            val avatarPath = user.profilePhoto?.small?.let { file ->
+                runCatching { telegramManager.downloadFile(file.id) }.getOrNull()
+            }
+            TgAccount(name = name, username = username, avatarPath = avatarPath)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun logoutTelegram() {
+        viewModelScope.launch {
+            telegramManager.logOut()
+            _toastEvents.emit("Logging out of Telegram…")
+        }
+    }
 
     /**
      * Applies the chosen installer mode. Session needs no privileges and is set

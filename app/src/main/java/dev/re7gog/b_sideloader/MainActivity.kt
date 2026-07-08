@@ -193,7 +193,8 @@ fun BSideLoaderApp() {
                         navController.navigate(SettingsRoute) {
                             popUpTo<SettingsRoute> { inclusive = true }
                         }
-                    }
+                    },
+                    onExit = { navController.popBackStack() }
                 )
             }
         }

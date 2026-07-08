@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -49,6 +50,10 @@ class TelegramManager @Inject constructor(
         )
 
     private val _fileUpdates = MutableSharedFlow<TdApi.UpdateFile>(extraBufferCapacity = 100)
+
+    // Auth action errors (bad phone/code/password), surfaced to the login UI
+    private val _authErrors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val authErrors = _authErrors.asSharedFlow()
 
     init {
         System.loadLibrary("tdjni")
@@ -119,6 +124,7 @@ class TelegramManager @Inject constructor(
         send(TdApi.SetAuthenticationPhoneNumber(phoneNumber, null)) { result ->
             if (result is TdApi.Error) {
                 Log.e("TDLib", "Phone number error: ${result.message}")
+                _authErrors.tryEmit(result.message)
             }
         }
     }
@@ -128,6 +134,7 @@ class TelegramManager @Inject constructor(
         send(TdApi.CheckAuthenticationCode(code)) { result ->
             if (result is TdApi.Error) {
                 Log.e("TDLib", "Authentication code error: ${result.message}")
+                _authErrors.tryEmit(result.message)
             }
         }
     }
@@ -136,8 +143,24 @@ class TelegramManager @Inject constructor(
         send(TdApi.CheckAuthenticationPassword(password)) { result ->
             if (result is TdApi.Error) {
                 Log.e("TDLib", "2FA error: ${result.message}")
-                // TODO: show error in UI
+                _authErrors.tryEmit(result.message)
             }
+        }
+    }
+
+    fun logOut() {
+        send(TdApi.LogOut()) { result ->
+            if (result is TdApi.Error) {
+                Log.e("TDLib", "Logout error: ${result.message}")
+                _authErrors.tryEmit(result.message)
+            }
+        }
+    }
+
+    suspend fun getMe(): TdApi.User? = suspendCancellableCoroutine { continuation ->
+        send(TdApi.GetMe()) { result ->
+            if (!continuation.isActive) return@send
+            continuation.resume(result as? TdApi.User)
         }
     }
 
