@@ -25,10 +25,6 @@ import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
-enum class SearchSource {
-    GitHub, Telegram
-}
-
 sealed class SelectionState {
     object ChatList : SelectionState()
     data class TopicList(val chatId: Long, val chatTitle: String) : SelectionState()
@@ -146,6 +142,11 @@ class SearchAppViewModel @Inject constructor(
     fun onSourceSelected(source: SearchSource) {
         if (_searchSource.value == source) return
         _searchSource.value = source
+        if (!source.isSearchable) {
+            _isLoading.value = false
+            _tgIsLoading.value = false
+            return
+        }
         // The reactive query collector only fires on query changes, so switching back to
         // GitHub with an existing query needs an explicit re-search. Telegram re-searches
         // automatically because its results flow also keys off the source.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-B-SideLoader is an Android app (Kotlin + Jetpack Compose) that downloads, installs, and auto-updates APKs sourced from **GitHub releases** and **Telegram channels** — an Obtainium-like app store built with Compose. Targets Android 8.0+ (minSdk 26).
+B-SideLoader is an Android app (Kotlin + Jetpack Compose) that downloads, installs, and auto-updates APKs sourced from **GitHub releases** and **Telegram channels** — an Obtainium-like app store built with Compose. Targets Android 8.0+ (minSdk 26). More sources may be added later
 
 ## Build & Run
 

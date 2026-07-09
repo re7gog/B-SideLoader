@@ -3,7 +3,6 @@ package dev.re7gog.b_sideloader.ui.features.search_app
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,9 +25,8 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -37,6 +35,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,13 +51,15 @@ import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.remote.dto.GithubRepoDto
 import dev.re7gog.b_sideloader.ui.components.TelegramAvatar
+import dev.re7gog.b_sideloader.ui.features.manual_install.ManualInstallPane
 import org.drinkless.tdlib.TdApi
 
 /**
- * Unified search screen. GitHub and Telegram share the exact same layout — a pill search
- * field, an explicit source toggle, and one result-row style — so switching source only
- * changes the data, never the shape of the screen. Selecting a Telegram forum channel
- * drills into a topic list rendered with the same rows.
+ * Unified search screen. Every source shares the same shape — a pill search field carrying a
+ * browser-style source picker, and one result-row style — so switching source only changes the
+ * data, never the layout. Sources that take no query (see [SearchSource.isSearchable]) swap the
+ * field for a plain source pill and render their own body instead of a result list. Selecting a
+ * Telegram forum channel drills into a topic list rendered with the same rows.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -85,10 +88,12 @@ fun SearchAppScreen(
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
     val inTopicList = selectionState is SelectionState.TopicList
     val isLoading = when (searchSource) {
         SearchSource.GitHub -> ghLoading
         SearchSource.Telegram -> tgLoading
+        SearchSource.LocalFile -> false
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -117,6 +122,9 @@ fun SearchAppScreen(
                         topics = topics,
                         onTopicClick = { viewModel.onTopicSelected(it.info.forumTopicId) }
                     )
+
+                    searchSource == SearchSource.LocalFile ->
+                        ManualInstallPane(snackbarHostState = snackbarHostState)
 
                     searchSource == SearchSource.GitHub -> {
                         if (ghResult.isEmpty() && !isLoading) {
@@ -151,11 +159,18 @@ fun SearchAppScreen(
                     }
                 }
             }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
 
-/** Persistent search field + source toggle shown for both GitHub and Telegram roots. */
+/**
+ * Header for every source root: the source picker plus, when the source searches, its query
+ * field. Non-searchable sources get the picker on its own so they stay one tap from a search.
+ */
 @Composable
 fun SearchHeader(
     query: String,
@@ -164,28 +179,42 @@ fun SearchHeader(
     source: SearchSource,
     onSourceSelected: (SearchSource) -> Unit
 ) {
+    var showPicker by remember { mutableStateOf(false) }
+
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(
             modifier = Modifier
                 .statusBarsPadding()
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            SearchInputField(
-                query = query,
-                onQueryChange = onQueryChange,
-                onClear = onClear,
-                placeholder = when (source) {
-                    SearchSource.GitHub -> "Search GitHub repositories"
-                    SearchSource.Telegram -> "Search Telegram channels"
-                }
-            )
-            SourceSegmentedToggle(
-                currentSource = source,
-                onSourceSelected = onSourceSelected
-            )
+            if (source.isSearchable) {
+                SearchInputField(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onClear = onClear,
+                    placeholder = source.searchPlaceholder.orEmpty(),
+                    source = source,
+                    onSourceClick = { showPicker = true }
+                )
+            } else {
+                SourceSelectorPill(
+                    source = source,
+                    onClick = { showPicker = true }
+                )
+            }
         }
+    }
+
+    if (showPicker) {
+        SourcePickerSheet(
+            currentSource = source,
+            onSourceSelected = {
+                showPicker = false
+                onSourceSelected(it)
+            },
+            onDismiss = { showPicker = false }
+        )
     }
 }
 
@@ -195,6 +224,8 @@ fun SearchInputField(
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
     placeholder: String,
+    source: SearchSource,
+    onSourceClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     TextField(
@@ -203,7 +234,7 @@ fun SearchInputField(
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text(placeholder) },
         leadingIcon = {
-            Icon(painterResource(R.drawable.search_24px), contentDescription = null)
+            SourceSelectorButton(source = source, onClick = onSourceClick)
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
@@ -223,46 +254,6 @@ fun SearchInputField(
             errorIndicatorColor = Color.Transparent
         )
     )
-}
-
-/** Explicit, always-visible source selector replacing the old hidden dropdown. */
-@Composable
-fun SourceSegmentedToggle(
-    currentSource: SearchSource,
-    onSourceSelected: (SearchSource) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isDark = isSystemInDarkTheme()
-    val sources = SearchSource.entries
-    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        sources.forEachIndexed { index, source ->
-            SegmentedButton(
-                selected = currentSource == source,
-                onClick = { onSourceSelected(source) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = sources.size),
-                icon = {
-                    val iconRes = when (source) {
-                        SearchSource.GitHub -> if (isDark) R.drawable.github_invertocat_white
-                                               else R.drawable.github_invertocat_black
-                        SearchSource.Telegram -> R.drawable.telegram
-                    }
-                    Image(
-                        painter = painterResource(iconRes),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                label = {
-                    Text(
-                        when (source) {
-                            SearchSource.GitHub -> "GitHub"
-                            SearchSource.Telegram -> "Telegram"
-                        }
-                    )
-                }
-            )
-        }
-    }
 }
 
 @Composable
