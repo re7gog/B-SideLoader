@@ -69,12 +69,11 @@ fun DetailAutoupdateRow(
         modifier = modifier.fillMaxWidth()
     ) {
         ListItem(
-            headlineContent = { Text("Autoupdate") },
             supportingContent = { Text("Keep this app up to date automatically") },
             trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable { onCheckedChange(!checked) }
-        )
+        ) { Text("Autoupdate") }
     }
 }
 

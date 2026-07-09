@@ -17,6 +17,12 @@ class RoomAppsRepository @Inject constructor(
     override fun getAllAppsStream(): Flow<List<AppWithDetails>> = appsDao.getAllApps()
     override fun getAppStream(id: Long): Flow<AppWithDetails?> = appsDao.getApp(id)
 
+    override suspend fun findGithubApp(owner: String, repo: String): AppWithDetails? =
+        appsDao.findGithubApp(owner, repo)
+
+    override suspend fun findTelegramApp(chatId: Long, topicId: Int): AppWithDetails? =
+        appsDao.findTelegramApp(chatId, topicId)
+
     override suspend fun addApp(app: AppType): Long {
         return appsDatabase.withTransaction {  // Atomic transaction
             when (app) {

@@ -87,7 +87,18 @@ class AppGhDetailsViewModel @Inject constructor(
                     )
                 }
             } else if (fromSearch != null) {
-                _uiState.value = fromSearch.toGhUiState()
+                // If this searched repo is already saved, open it as the stored app so the
+                // page behaves like it was launched from the apps list (Open/Update and a
+                // delete option, not "Save & install") instead of adding a duplicate.
+                val existing = repository.findGithubApp(fromSearch.owner, fromSearch.repo)
+                _uiState.value = if (existing?.githubDetails != null) {
+                    existing.toGhUiState(
+                        githubApi, secureStorage.getGithubToken(),
+                        installed = installManager.isPackageInstalled(existing.app.packageName)
+                    )
+                } else {
+                    fromSearch.toGhUiState()
+                }
             }
             if (_uiState.value?.installed ?: false) _icon.value = installManager.getAppIcon(_uiState.value!!.packageName)
             checkGhUpdate()

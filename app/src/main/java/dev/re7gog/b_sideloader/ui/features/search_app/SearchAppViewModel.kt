@@ -45,14 +45,17 @@ class SearchAppViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _isSearchExpanded = MutableStateFlow(false)
-    val isSearchExpanded = _isSearchExpanded.asStateFlow()
-
     private val _ghSearchResult = MutableStateFlow<List<GithubRepoDto>>(emptyList())
     val ghSearchResult = _ghSearchResult.asStateFlow()
 
+    // GitHub-search loading state
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+
+    // Telegram chat-search loading state, kept separate so both sources can share the
+    // same loading UI in the redesigned screen
+    private val _tgIsLoading = MutableStateFlow(false)
+    val tgIsLoading = _tgIsLoading.asStateFlow()
 
     private val _searchSource = MutableStateFlow(SearchSource.GitHub)
     val searchSource = _searchSource.asStateFlow()
@@ -65,10 +68,16 @@ class SearchAppViewModel @Inject constructor(
             .distinctUntilChanged()
             .mapLatest { (query, source) ->
                 if (source != SearchSource.Telegram || query.isBlank()) {
+                    _tgIsLoading.value = false
                     emptyList()
                 } else {
-                    telegramManager.searchChatsOnServer(query)
-                        .filter { it.type is TdApi.ChatTypeSupergroup }
+                    _tgIsLoading.value = true
+                    try {
+                        telegramManager.searchChatsOnServer(query)
+                            .filter { it.type is TdApi.ChatTypeSupergroup }
+                    } finally {
+                        _tgIsLoading.value = false
+                    }
                 }
             }
             .stateIn(
@@ -118,19 +127,32 @@ class SearchAppViewModel @Inject constructor(
 
     fun onQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
+        if (newQuery.isBlank()) {
+            // Clearing the field should immediately drop stale results / spinners so the
+            // empty state shows for whichever source is active
+            _ghSearchResult.value = emptyList()
+            _isLoading.value = false
+            _tgIsLoading.value = false
+        } else if (_searchSource.value == SearchSource.Telegram) {
+            // Give Telegram instant loading feedback ahead of the debounced server search
+            _tgIsLoading.value = true
+        }
     }
 
-    fun changeSearchExpanded(expanded: Boolean) {
-        _isSearchExpanded.value = expanded
-    }
-
-    fun closeSearch() {
-        _searchQuery.value = ""
-        _isSearchExpanded.value = false
+    fun clearQuery() {
+        onQueryChange("")
     }
 
     fun onSourceSelected(source: SearchSource) {
+        if (_searchSource.value == source) return
         _searchSource.value = source
+        // The reactive query collector only fires on query changes, so switching back to
+        // GitHub with an existing query needs an explicit re-search. Telegram re-searches
+        // automatically because its results flow also keys off the source.
+        val query = _searchQuery.value
+        if (source == SearchSource.GitHub && query.isNotBlank()) {
+            viewModelScope.launch { performGhSearch(query) }
+        }
     }
 
     /** Downloads a chat photo/avatar and returns its local path (null if none). */

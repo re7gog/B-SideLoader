@@ -193,7 +193,6 @@ fun SettingsSwitchItem(
     onCheckedChange: (Boolean) -> Unit
 ) {
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = if (subtitle != null) {
             { Text(subtitle) }
         } else null,
@@ -202,7 +201,7 @@ fun SettingsSwitchItem(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { onCheckedChange(!checked) }
-    )
+    ) { Text(title) }
 }
 
 @Composable
@@ -212,7 +211,6 @@ fun SettingsClickableItem(
     onClick: () -> Unit
 ) {
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = if (subtitle != null) {
             { Text(subtitle) }
         } else null,
@@ -224,7 +222,7 @@ fun SettingsClickableItem(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable(onClick = onClick)
-    )
+    ) { Text(title) }
 }
 
 @Composable
@@ -269,13 +267,12 @@ fun TelegramAccountSetting(
                 }
             },
             overlineContent = { Text("Telegram") },
-            headlineContent = { Text(account.name) },
             supportingContent = { Text(account.username?.let { "@$it" } ?: "Telegram account") },
             trailingContent = {
                 TextButton(onClick = onLogoutClick) { Text("Log out") }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
+        ) { Text(account.name) }
     }
 }
 
@@ -286,7 +283,6 @@ fun InstallerModeSetting(
 ) {
     var expanded by remember { mutableStateOf(false) }
     ListItem(
-        headlineContent = { Text("Installation method") },
         supportingContent = { Text(selectedMode.displayName) },
         trailingContent = {
             Icon(
@@ -310,7 +306,7 @@ fun InstallerModeSetting(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { expanded = true }
-    )
+    ) { Text("Installation method") }
 }
 
 @Composable

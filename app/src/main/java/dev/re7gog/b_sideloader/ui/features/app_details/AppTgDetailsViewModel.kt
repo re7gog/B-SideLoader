@@ -229,7 +229,21 @@ class AppTgDetailsViewModel @Inject constructor(
                     _msgExcludeFilter.value = app.telegramDetails.messageExclude
                 }
             } else if (fromSearch != null) {
-                _uiState.value = fromSearch.toTgUiState()
+                // If this searched channel/topic is already saved, open it as the stored app
+                // so the page behaves like it was launched from the apps list (Open/Update and
+                // a delete option, not "Save & install") instead of adding a duplicate.
+                val existing = repository.findTelegramApp(fromSearch.chatId, fromSearch.topicId ?: 0)
+                if (existing?.telegramDetails != null) {
+                    _uiState.value = existing.toTgUiState(
+                        installed = installManager.isPackageInstalled(existing.app.packageName)
+                    )
+                    _includeFilter.value = existing.app.filterInclude
+                    _excludeFilter.value = existing.app.filterExclude
+                    _msgIncludeFilter.value = existing.telegramDetails.messageInclude
+                    _msgExcludeFilter.value = existing.telegramDetails.messageExclude
+                } else {
+                    _uiState.value = fromSearch.toTgUiState()
+                }
             }
             loadApkMessages()
             _uiState.value?.chatId?.let { chatId ->

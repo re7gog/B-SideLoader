@@ -17,6 +17,16 @@ interface AppsRepository {
     fun getAppStream(id: Long): Flow<AppWithDetails?>
 
     /**
+     * Find an already-saved GitHub app by its source [owner]/[repo], or null if not saved.
+     */
+    suspend fun findGithubApp(owner: String, repo: String): AppWithDetails?
+
+    /**
+     * Find an already-saved Telegram app by its source [chatId]/[topicId], or null if not saved.
+     */
+    suspend fun findTelegramApp(chatId: Long, topicId: Int): AppWithDetails?
+
+    /**
      * Insert app in the data source, returning the new app id.
      */
     suspend fun addApp(app: AppType): Long

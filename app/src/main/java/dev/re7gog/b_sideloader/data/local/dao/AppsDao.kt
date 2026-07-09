@@ -23,6 +23,24 @@ interface AppsDao {
     @Query("SELECT * from apps WHERE id = :id")
     fun getApp(id: Long): Flow<AppWithDetails?>
 
+    /** Finds an already-saved GitHub app by its source repo, if any. */
+    @Transaction
+    @Query(
+        "SELECT apps.* FROM apps " +
+            "INNER JOIN github_details ON apps.id = github_details.id " +
+            "WHERE github_details.owner = :owner AND github_details.repo = :repo LIMIT 1"
+    )
+    suspend fun findGithubApp(owner: String, repo: String): AppWithDetails?
+
+    /** Finds an already-saved Telegram app by its source chat/topic, if any. */
+    @Transaction
+    @Query(
+        "SELECT apps.* FROM apps " +
+            "INNER JOIN telegram_details ON apps.id = telegram_details.id " +
+            "WHERE telegram_details.chatId = :chatId AND telegram_details.topicId = :topicId LIMIT 1"
+    )
+    suspend fun findTelegramApp(chatId: Long, topicId: Int): AppWithDetails?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertApp(app: AppEntity): Long  // Returns id
 
