@@ -1,15 +1,29 @@
-*.iml
+# Gradle
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
 /build
 /captures
+
+# Kotlin
+.kotlin
+
+# Android native build
 .externalNativeBuild
 .cxx
+
+# Stray CMake configure artifacts (the real source is src/main/cpp/CMakeLists.txt)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Signed build outputs
+/app/release
+
+# Local config and secrets (sdk.dir, ID_SECRET, MASK_SECRET, HASH_SECRET)
 local.properties
+
+# IDE
+*.iml
+/.idea
+
+# OS
+.DS_Store
