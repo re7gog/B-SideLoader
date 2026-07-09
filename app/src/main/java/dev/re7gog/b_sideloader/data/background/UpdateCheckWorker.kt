@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
@@ -70,6 +71,11 @@ class UpdateCheckWorker @AssistedInject constructor(
             .setOngoing(true)
             .setProgress(100, progress, false)
             .build()
-        return ForegroundInfo(app.hashCode(), notification)
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(app.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(app.hashCode(), notification)
+        }
     }
 }
