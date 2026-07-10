@@ -56,9 +56,11 @@ fun DetailFilterField(
     )
 }
 
-/** Tonal card row hosting the autoupdate toggle. */
+/** Tonal card row hosting a labelled toggle. */
 @Composable
-fun DetailAutoupdateRow(
+fun DetailSwitchRow(
+    title: String,
+    description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
@@ -69,12 +71,28 @@ fun DetailAutoupdateRow(
         modifier = modifier.fillMaxWidth()
     ) {
         ListItem(
-            supportingContent = { Text("Keep this app up to date automatically") },
+            supportingContent = { Text(description) },
             trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable { onCheckedChange(!checked) }
-        ) { Text("Autoupdate") }
+        ) { Text(title) }
     }
+}
+
+/** Tonal card row hosting the autoupdate toggle. */
+@Composable
+fun DetailAutoupdateRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    DetailSwitchRow(
+        title = "Autoupdate",
+        description = "Keep this app up to date automatically",
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier
+    )
 }
 
 /** Large rounded primary action button, or a progress bar while installing. */

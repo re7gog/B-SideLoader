@@ -52,6 +52,11 @@ class AppGhDetailsViewModel @Inject constructor(
     private val _installProgress = MutableStateFlow(0f)
     val installProgress = _installProgress.asStateFlow()
 
+    // True while a release lookup is in flight; the primary action is disabled meanwhile so
+    // an install can't fire with a downloadUrl resolved under outdated release filters.
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate = _isCheckingUpdate.asStateFlow()
+
     // Becomes true once this screen's own install completes successfully; drives
     // where the back button goes (apps list on success vs. search on failure)
     private val _installSucceeded = MutableStateFlow(false)
@@ -164,19 +169,45 @@ class AppGhDetailsViewModel @Inject constructor(
         return AppType.GithubApp(app, details)
     }
 
+    /**
+     * Resolves the newest release matching the current release filters and prerelease setting.
+     * Safe to re-run whenever those inputs change: it fully recomputes the pending update state
+     * rather than only ever setting it.
+     */
     suspend fun checkGhUpdate() {
-        val res = updatesManager.checkGhUpdate(genGhApp()) ?: return
-        downloadUrl = res.downloadUrl
-        val resVer = res.version
-        val currVer = _uiState.value!!.version
-        if (currVer != resVer) {
-            newVersion = resVer
-            if (currVer != "") _shouldUpdate.value = true
+        val currVer = _uiState.value?.version ?: return
+        _isCheckingUpdate.value = true
+        val res = try {
+            updatesManager.checkGhUpdate(genGhApp())
+        } catch (e: Exception) {
+            // Network/API failure: keep whatever release we already resolved
+            _snackbarEvents.emit(e.message ?: "Failed to check for updates")
+            return
+        } finally {
+            _isCheckingUpdate.value = false
         }
+        if (res == null) {
+            // No release passes the filters anymore
+            downloadUrl = ""
+            newVersion = ""
+            _shouldUpdate.value = false
+            return
+        }
+        downloadUrl = res.downloadUrl
+        newVersion = res.version
+        _shouldUpdate.value = currVer != "" && currVer != res.version
+    }
+
+    private fun recheckGhUpdate() {
+        viewModelScope.launch { checkGhUpdate() }
     }
 
     fun installAppGh() {
         viewModelScope.launch(Dispatchers.IO) {
+            if (downloadUrl.isEmpty()) {
+                _snackbarEvents.emit("No release matches the current filters")
+                return@launch
+            }
             try {
                 _isInstalling.value = true
                 installRequested = true
@@ -216,6 +247,8 @@ class AppGhDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             repository.updateApp(genGhApp())
             _shouldSave.value = false
+            // Edited release filters may now select a different release
+            checkGhUpdate()
         }
     }
 
@@ -250,5 +283,13 @@ class AppGhDetailsViewModel @Inject constructor(
     fun onReleasesFilterExcludeChange(filter: String) {
         _uiState.update { it?.copy(releasesExclude = filter) }
         if (!_shouldSave.value) _shouldSave.value = true
+    }
+
+    fun onUsePrereleasesChange(enabled: Boolean) {
+        _uiState.update { it?.copy(usePrereleases = enabled) }
+        if (!_shouldSave.value) _shouldSave.value = true
+        // A discrete toggle (unlike the per-keystroke filter fields), so re-resolve the release
+        // right away: the version shown and the APK that "Save & install" downloads must reflect it.
+        recheckGhUpdate()
     }
 }

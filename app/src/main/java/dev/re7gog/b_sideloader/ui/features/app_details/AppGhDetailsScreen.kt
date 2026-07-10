@@ -102,6 +102,7 @@ fun AppGhDetailsContent(
     val shouldSave by viewModel.shouldSave.collectAsStateWithLifecycle()
     val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
     val installProgress by viewModel.installProgress.collectAsStateWithLifecycle()
+    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
 
     val isInstalled = uiState.installed
     val appIcon = remember(isInstalled, uiState.packageName) {
@@ -111,21 +112,28 @@ fun AppGhDetailsContent(
 
     val primaryLabel: String
     val primaryOnClick: () -> Unit
+    // Actions that download an APK must wait for the release lookup to settle
+    val primaryNeedsRelease: Boolean
     when {
         !uiState.isFromDb -> {
             primaryLabel = "Save & install"; primaryOnClick = viewModel::installAppGh
+            primaryNeedsRelease = true
         }
         shouldSave -> {
             primaryLabel = "Save changes"; primaryOnClick = viewModel::saveToDb
+            primaryNeedsRelease = false
         }
         shouldUpdate -> {
             primaryLabel = "Update"; primaryOnClick = viewModel::installAppGh
+            primaryNeedsRelease = true
         }
         !isInstalled -> {
             primaryLabel = "Install"; primaryOnClick = viewModel::installAppGh
+            primaryNeedsRelease = true
         }
         else -> {
             primaryLabel = "Open"; primaryOnClick = viewModel::openApp
+            primaryNeedsRelease = false
         }
     }
 
@@ -174,7 +182,7 @@ fun AppGhDetailsContent(
 
         DetailActionArea(
             label = primaryLabel,
-            enabled = true,
+            enabled = !(primaryNeedsRelease && isCheckingUpdate),
             isInstalling = isInstalling,
             progress = installProgress,
             onClick = primaryOnClick
@@ -189,6 +197,12 @@ fun AppGhDetailsContent(
         DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange)
 
         DetailSectionLabel("Release filters")
+        DetailSwitchRow(
+            title = "Prereleases",
+            description = "Also consider prereleases when looking for updates",
+            checked = uiState.usePrereleases,
+            onCheckedChange = viewModel::onUsePrereleasesChange
+        )
         DetailFilterField(uiState.releasesInclude, viewModel::onReleasesFilterIncludeChange,
             "Release name must contain (space-separated)")
         DetailFilterField(uiState.releasesExclude, viewModel::onReleasesFilterExcludeChange,

@@ -81,8 +81,8 @@ class UpdatesManager @Inject constructor(
         for (release in releases) {
             val matchesInc = incWords.all { release.name.contains(it.lowercase()) }
             val matchesExc = excWords.none { release.name.contains(it.lowercase()) }
-            val usesPre = release.prerelease == githubApp.details.usePrereleases
-            if (!matchesInc || !matchesExc || !usesPre) continue
+            val allowedPre = !release.prerelease || githubApp.details.usePrereleases
+            if (!matchesInc || !matchesExc || !allowedPre) continue
 
             val assets = release.assets.filter { asset ->
                 val matchesInc = incAssWords.all { asset.name.contains(it.lowercase()) }
