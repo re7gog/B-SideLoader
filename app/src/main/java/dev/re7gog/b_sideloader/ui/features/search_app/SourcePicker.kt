@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.re7gog.b_sideloader.R
 
@@ -61,7 +62,7 @@ fun SourceSelectorButton(
         SourceIcon(source, Modifier.size(20.dp))
         Icon(
             painter = painterResource(R.drawable.arrow_drop_down_24px),
-            contentDescription = "Change source",
+            contentDescription = stringResource(R.string.cd_change_source),
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -93,7 +94,7 @@ fun SourceSelectorPill(
         ) {
             SourceIcon(source, Modifier.size(20.dp))
             Text(
-                text = source.title,
+                text = stringResource(source.titleRes),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier
                     .weight(1f)
@@ -101,7 +102,7 @@ fun SourceSelectorPill(
             )
             Icon(
                 painter = painterResource(R.drawable.arrow_drop_down_24px),
-                contentDescription = "Change source",
+                contentDescription = stringResource(R.string.cd_change_source),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -119,7 +120,7 @@ fun SourcePickerSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             Text(
-                text = "App source",
+                text = stringResource(R.string.app_source),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
@@ -168,9 +169,9 @@ private fun SourceRow(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(source.title, style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(source.titleRes), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = source.description,
+                    text = stringResource(source.descriptionRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -178,7 +179,7 @@ private fun SourceRow(
             if (selected) {
                 Icon(
                     painter = painterResource(R.drawable.check_24px),
-                    contentDescription = "Selected"
+                    contentDescription = stringResource(R.string.cd_selected)
                 )
             }
         }

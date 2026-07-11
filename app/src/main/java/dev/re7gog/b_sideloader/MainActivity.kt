@@ -3,10 +3,10 @@ package dev.re7gog.b_sideloader
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,7 +48,7 @@ import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,13 +78,13 @@ fun NotificationPermissionHandler() {
         if (permissionState.status.shouldShowRationale) {
             AlertDialog(
                 onDismissRequest = { },
-                title = { Text("Enable Notifications") },
-                text = { Text("This app needs notification permission for the autoupdate feature. Please allow it on the next screen.") },
+                title = { Text(stringResource(R.string.enable_notifications)) },
+                text = { Text(stringResource(R.string.notifications_rationale)) },
                 confirmButton = {
                     TextButton(
                         onClick = { permissionState.launchPermissionRequest() }
                     ) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )

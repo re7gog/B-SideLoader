@@ -23,26 +23,26 @@ object NotificationHelper {
 
         val updateChannel = NotificationChannel(
             UPDATE_ALERT_CHANNEL_ID,
-            "Updates available notifications",
+            context.getString(R.string.notif_channel_alerts_name),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Notifies when there are apps updates"
+            description = context.getString(R.string.notif_channel_alerts_desc)
         }
 
         val updateWithProgressChannel = NotificationChannel(
             UPDATE_PROGRESS_CHANNEL_ID,
-            "Updates in progress notifications",
+            context.getString(R.string.notif_channel_progress_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Notifies when there are apps updates in progress"
+            description = context.getString(R.string.notif_channel_progress_desc)
         }
 
         val monitorChannel = NotificationChannel(
             UPDATE_MONITOR_CHANNEL_ID,
-            "Background update monitoring",
+            context.getString(R.string.notif_channel_monitor_name),
             NotificationManager.IMPORTANCE_MIN
         ).apply {
-            description = "Persistent notification shown while the app watches for updates in the background"
+            description = context.getString(R.string.notif_channel_monitor_desc)
         }
 
         notificationManager.createNotificationChannel(updateChannel)
@@ -66,7 +66,7 @@ object NotificationHelper {
     fun buildMonitorNotification(context: Context, text: String): Notification {
         return NotificationCompat.Builder(context, UPDATE_MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.update_24px)
-            .setContentTitle("Watching for app updates")
+            .setContentTitle(context.getString(R.string.notif_monitor_watching))
             .setContentText(text)
             .setContentIntent(contentIntent(context, 0, doUpdate = false))
             .setOngoing(true)
@@ -77,10 +77,11 @@ object NotificationHelper {
 
     /** Determinate-progress notification shown while an update is downloading/installing. */
     fun buildProgressNotification(context: Context, app: String?, progress: Int): Notification {
+        val appName = app ?: context.getString(R.string.notif_apps_generic)
         return NotificationCompat.Builder(context, UPDATE_PROGRESS_CHANNEL_ID)
             .setSmallIcon(R.drawable.update_24px)
-            .setContentTitle("Updates in progress")
-            .setContentText("Updating ${app ?: "apps"}")
+            .setContentTitle(context.getString(R.string.notif_progress_title))
+            .setContentText(context.getString(R.string.notif_progress_text, appName))
             .setOngoing(true)
             .setProgress(100, progress, false)
             .build()
@@ -91,8 +92,8 @@ object NotificationHelper {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification = NotificationCompat.Builder(context, UPDATE_ALERT_CHANNEL_ID)
             .setSmallIcon(R.drawable.update_24px)
-            .setContentTitle("Updates available")
-            .setContentText("New version of$apps available")
+            .setContentTitle(context.getString(R.string.notif_update_available_title))
+            .setContentText(context.getString(R.string.notif_update_available_text, apps))
             .setContentIntent(contentIntent(context, apps.hashCode(), doUpdate = true))
             .setAutoCancel(true)
             .build()

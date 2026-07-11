@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -64,12 +65,12 @@ fun AuthScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Log in to Telegram") },
+                title = { Text(stringResource(R.string.login_to_telegram)) },
                 navigationIcon = {
                     IconButton(onClick = handleBack) {
                         Icon(
                             painter = painterResource(R.drawable.arrow_back_24px),
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_back)
                         )
                     }
                 }
@@ -103,7 +104,7 @@ fun AuthScreen(
             when (uiState.step) {
                 is AuthStep.Loading -> {
                     Text(
-                        text = "Initializing Telegram…",
+                        text = stringResource(R.string.initializing_telegram),
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(Modifier.height(24.dp))
@@ -111,9 +112,9 @@ fun AuthScreen(
                 }
 
                 is AuthStep.PhoneInput -> AuthInputStep(
-                    title = "Your phone number",
-                    description = "Type your number with the country code in any format. We'll send you a code.",
-                    placeholder = "e.g. +1 (555) 000-0000",
+                    title = stringResource(R.string.auth_phone_title),
+                    description = stringResource(R.string.auth_phone_description),
+                    placeholder = stringResource(R.string.auth_phone_placeholder),
                     keyboardType = KeyboardType.Phone,
                     isLoading = uiState.isLoading,
                     errorMessage = uiState.errorMessage,
@@ -121,9 +122,9 @@ fun AuthScreen(
                 )
 
                 is AuthStep.CodeInput -> AuthInputStep(
-                    title = "Enter the code",
-                    description = "We sent a code to your Telegram app or via SMS.",
-                    placeholder = "12345",
+                    title = stringResource(R.string.auth_code_title),
+                    description = stringResource(R.string.auth_code_description),
+                    placeholder = stringResource(R.string.auth_code_placeholder),
                     keyboardType = KeyboardType.Number,
                     isLoading = uiState.isLoading,
                     errorMessage = uiState.errorMessage,
@@ -133,9 +134,9 @@ fun AuthScreen(
                 )
 
                 is AuthStep.PasswordInput -> AuthInputStep(
-                    title = "Two-step verification",
-                    description = "Enter your cloud password (2FA) to finish signing in.",
-                    placeholder = "Password",
+                    title = stringResource(R.string.auth_password_title),
+                    description = stringResource(R.string.auth_password_description),
+                    placeholder = stringResource(R.string.auth_password_placeholder),
                     keyboardType = KeyboardType.Password,
                     isPassword = true,
                     isLoading = uiState.isLoading,
@@ -214,13 +215,13 @@ fun AuthInputStep(
                 color = MaterialTheme.colorScheme.onPrimary
             )
         } else {
-            Text("Continue")
+            Text(stringResource(R.string.auth_continue))
         }
     }
     if (showBackToPhone) {
         Spacer(Modifier.height(4.dp))
         TextButton(onClick = onBackToPhone, enabled = !isLoading) {
-            Text("Change phone number")
+            Text(stringResource(R.string.auth_change_phone))
         }
     }
 }

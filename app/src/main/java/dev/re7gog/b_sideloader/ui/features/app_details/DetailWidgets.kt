@@ -25,8 +25,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.re7gog.b_sideloader.R
 
 /** Small primary-colored label used to separate sections on a details page. */
 @Composable
@@ -87,8 +89,8 @@ fun DetailAutoupdateRow(
     modifier: Modifier = Modifier
 ) {
     DetailSwitchRow(
-        title = "Autoupdate",
-        description = "Keep this app up to date automatically",
+        title = stringResource(R.string.autoupdate),
+        description = stringResource(R.string.autoupdate_description),
         checked = checked,
         onCheckedChange = onCheckedChange,
         modifier = modifier
@@ -119,7 +121,7 @@ fun DetailActionArea(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Downloading ${(progress * 100).toInt()}%",
+                text = stringResource(R.string.downloading_percent, (progress * 100).toInt()),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -158,7 +160,7 @@ fun DetailSecondaryActions(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Uninstall")
+                Text(stringResource(R.string.uninstall))
             }
         }
         if (showDelete) {
@@ -170,7 +172,7 @@ fun DetailSecondaryActions(
                 ),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Remove")
+                Text(stringResource(R.string.remove))
             }
         }
     }
@@ -185,11 +187,10 @@ fun DeleteConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Remove app") },
+        title = { Text(stringResource(R.string.remove_app_title)) },
         text = {
             Text(
-                "Remove \"$appName\" from your list? This only deletes it here and " +
-                        "does not uninstall it from your device.",
+                stringResource(R.string.remove_app_message, appName),
                 textAlign = TextAlign.Start
             )
         },
@@ -199,10 +200,10 @@ fun DeleteConfirmDialog(
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )
-            ) { Text("Remove") }
+            ) { Text(stringResource(R.string.remove)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

@@ -1,13 +1,16 @@
 package dev.re7gog.b_sideloader.data.installer
 
+import androidx.annotation.StringRes
+import dev.re7gog.b_sideloader.R
+
 /**
  * User-selectable APK installation method. Replaces the old auto-prioritizing
  * mechanism (Dhizuku > Shizuku > Session) with an explicit choice.
  */
-enum class InstallerMode(val displayName: String) {
-    SESSION("Session (default)"),
-    SHIZUKU("Shizuku / Sui"),
-    DHIZUKU("Dhizuku");
+enum class InstallerMode(@param:StringRes val displayNameRes: Int) {
+    SESSION(R.string.installer_session),
+    SHIZUKU(R.string.installer_shizuku),
+    DHIZUKU(R.string.installer_dhizuku);
 
     /** Whether this mode needs privileged (Shizuku/Sui/Dhizuku) services. */
     val isPrivileged: Boolean get() = this != SESSION

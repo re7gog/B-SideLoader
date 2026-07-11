@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -130,10 +131,14 @@ fun SearchAppScreen(
                         if (ghResult.isEmpty() && !isLoading) {
                             SearchEmptyState(
                                 iconRes = githubIconRes(),
-                                title = if (searchQuery.isBlank()) "Search GitHub"
-                                        else "No repositories found",
-                                subtitle = if (searchQuery.isBlank()) "Find apps from public repositories"
-                                           else "Try a different name"
+                                title = stringResource(
+                                    if (searchQuery.isBlank()) R.string.search_github_empty_title
+                                    else R.string.no_repositories_found
+                                ),
+                                subtitle = stringResource(
+                                    if (searchQuery.isBlank()) R.string.search_github_empty_subtitle
+                                    else R.string.try_different_name
+                                )
                             )
                         } else {
                             GithubResultsList(ghResult, onGhSearchResClick)
@@ -144,10 +149,14 @@ fun SearchAppScreen(
                         if (tgResults.isEmpty() && !isLoading) {
                             SearchEmptyState(
                                 iconRes = R.drawable.telegram,
-                                title = if (searchQuery.isBlank()) "Search Telegram"
-                                        else "No channels found",
-                                subtitle = if (searchQuery.isBlank()) "Find channels that publish APKs"
-                                           else "Try a different name"
+                                title = stringResource(
+                                    if (searchQuery.isBlank()) R.string.search_telegram_empty_title
+                                    else R.string.no_channels_found
+                                ),
+                                subtitle = stringResource(
+                                    if (searchQuery.isBlank()) R.string.search_telegram_empty_subtitle
+                                    else R.string.try_different_name
+                                )
                             )
                         } else {
                             TelegramResultsList(
@@ -193,7 +202,7 @@ fun SearchHeader(
                     query = query,
                     onQueryChange = onQueryChange,
                     onClear = onClear,
-                    placeholder = source.searchPlaceholder.orEmpty(),
+                    placeholder = source.searchPlaceholderRes?.let { stringResource(it) }.orEmpty(),
                     source = source,
                     onSourceClick = { showPicker = true }
                 )
@@ -239,7 +248,7 @@ fun SearchInputField(
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClear) {
-                    Icon(painterResource(R.drawable.close_24px), contentDescription = "Clear")
+                    Icon(painterResource(R.drawable.close_24px), contentDescription = stringResource(R.string.cd_clear))
                 }
             }
         },
@@ -268,7 +277,11 @@ fun GithubResultsList(
         items(repos, key = { it.owner.login + "/" + it.name }) { repo ->
             SearchResultRow(
                 title = repo.name,
-                subtitle = "${repo.owner.login} · ${repo.description ?: "No description"}",
+                subtitle = stringResource(
+                    R.string.repo_subtitle,
+                    repo.owner.login,
+                    repo.description ?: stringResource(R.string.no_description)
+                ),
                 leadingContent = {
                     AsyncImage(
                         model = repo.owner.avatarUrl,
@@ -297,7 +310,7 @@ fun TelegramResultsList(
         items(chats, key = { it.id }) { chat ->
             SearchResultRow(
                 title = chat.title,
-                subtitle = "Channel",
+                subtitle = stringResource(R.string.channel),
                 leadingContent = {
                     TelegramAvatar(
                         fallbackText = chat.title.take(1).uppercase(),
@@ -397,7 +410,7 @@ fun TopicListHeader(
         title = { Text(title) },
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.arrow_back_24px), contentDescription = "Back")
+                Icon(painterResource(R.drawable.arrow_back_24px), contentDescription = stringResource(R.string.cd_back))
             }
         }
     )

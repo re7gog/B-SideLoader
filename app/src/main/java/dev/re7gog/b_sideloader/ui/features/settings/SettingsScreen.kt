@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.features.settings
 
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.os.LocaleListCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -87,7 +89,7 @@ fun SettingsScreen(
                 end = 16.dp
             )
         ) {
-            item { SettingsSectionHeader("General") }
+            item { SettingsSectionHeader(stringResource(R.string.settings_general)) }
             item {
                 SettingsGroup {
                     InstallerModeSetting(
@@ -95,47 +97,47 @@ fun SettingsScreen(
                         onModeSelected = { viewModel.selectInstallerMode(it) }
                     )
                     SettingsSwitchItem(
-                        title = "Autoupdates",
-                        subtitle = "Check for new versions periodically",
+                        title = stringResource(R.string.settings_autoupdates),
+                        subtitle = stringResource(R.string.settings_autoupdates_subtitle),
                         checked = useAutoupdates,
                         onCheckedChange = { viewModel.switchAutoupdates(it) }
                     )
                     if (useAutoupdates) {
                         SettingsSwitchItem(
-                            title = "Update over limited data",
-                            subtitle = "Allow updates on metered networks",
+                            title = stringResource(R.string.settings_metered),
+                            subtitle = stringResource(R.string.settings_metered_subtitle),
                             checked = useMobileData,
                             onCheckedChange = { viewModel.switchMobileData(it) }
                         )
                         SettingsSwitchItem(
-                            title = "Persistent update service",
-                            subtitle = "Keeps a permanent notification to reliably check for " +
-                                    "updates on phones that kill background apps. Increases battery usage.",
+                            title = stringResource(R.string.settings_persistent_service),
+                            subtitle = stringResource(R.string.settings_persistent_service_subtitle),
                             checked = useForegroundService,
                             onCheckedChange = { viewModel.switchForegroundService(it) }
                         )
                     }
                     SettingsClickableItem(
-                        title = "Allow background work",
-                        subtitle = "Battery and autostart settings",
+                        title = stringResource(R.string.settings_allow_background),
+                        subtitle = stringResource(R.string.settings_allow_background_subtitle),
                         onClick = viewModel::allowBackground
                     )
                 }
             }
 
-            item { SettingsSectionHeader("Appearance") }
+            item { SettingsSectionHeader(stringResource(R.string.settings_appearance)) }
             item {
                 SettingsGroup {
+                    LanguageSetting()
                     SettingsSwitchItem(
-                        title = "Dynamic color",
-                        subtitle = "Use colors from your wallpaper",
+                        title = stringResource(R.string.settings_dynamic_color),
+                        subtitle = stringResource(R.string.settings_dynamic_color_subtitle),
                         checked = useDynamicColor,
                         onCheckedChange = { viewModel.switchDynamicColor(it) }
                     )
                 }
             }
 
-            item { SettingsSectionHeader("Login & Accounts") }
+            item { SettingsSectionHeader(stringResource(R.string.settings_login_accounts)) }
             item {
                 SettingsGroup {
                     TelegramAccountSetting(
@@ -235,8 +237,8 @@ fun TelegramAccountSetting(
 ) {
     if (account == null) {
         SettingsClickableItem(
-            title = "Telegram",
-            subtitle = "Log in to install from channels",
+            title = stringResource(R.string.telegram),
+            subtitle = stringResource(R.string.telegram_login_subtitle),
             onClick = onLoginClick
         )
     } else {
@@ -268,10 +270,10 @@ fun TelegramAccountSetting(
                     }
                 }
             },
-            overlineContent = { Text("Telegram") },
-            supportingContent = { Text(account.username?.let { "@$it" } ?: "Telegram account") },
+            overlineContent = { Text(stringResource(R.string.telegram)) },
+            supportingContent = { Text(account.username?.let { "@$it" } ?: stringResource(R.string.telegram_account)) },
             trailingContent = {
-                TextButton(onClick = onLogoutClick) { Text("Log out") }
+                TextButton(onClick = onLogoutClick) { Text(stringResource(R.string.log_out)) }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         ) { Text(account.name) }
@@ -285,7 +287,7 @@ fun InstallerModeSetting(
 ) {
     var expanded by remember { mutableStateOf(false) }
     ListItem(
-        supportingContent = { Text(selectedMode.displayName) },
+        supportingContent = { Text(stringResource(selectedMode.displayNameRes)) },
         trailingContent = {
             Icon(
                 painter = painterResource(R.drawable.chevron_right_24px),
@@ -297,7 +299,7 @@ fun InstallerModeSetting(
             ) {
                 InstallerMode.entries.forEach { mode ->
                     DropdownMenuItem(
-                        text = { Text(mode.displayName) },
+                        text = { Text(stringResource(mode.displayNameRes)) },
                         onClick = {
                             expanded = false
                             onModeSelected(mode)
@@ -308,7 +310,61 @@ fun InstallerModeSetting(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { expanded = true }
-    ) { Text("Installation method") }
+    ) { Text(stringResource(R.string.settings_installation_method)) }
+}
+
+/** Languages the app can be forced to, independent of the system language. */
+enum class AppLanguage(val tag: String?, val endonym: String?) {
+    // Endonyms are intentionally shown in their own language, so they are not translated.
+    SYSTEM(tag = null, endonym = null),
+    ENGLISH(tag = "en", endonym = "English"),
+    RUSSIAN(tag = "ru", endonym = "Русский")
+}
+
+@Composable
+private fun AppLanguage.label(): String =
+    endonym ?: stringResource(R.string.language_system_default)
+
+/**
+ * Per-app language picker backed by AppCompat's per-app locales. Selecting an entry applies the
+ * locale immediately (AppCompat recreates the activity), persists it, and — on Android 13+ — also
+ * shows up under the system's per-app language settings.
+ */
+@Composable
+fun LanguageSetting() {
+    var expanded by remember { mutableStateOf(false) }
+    // Recomputed on recomposition; applying a language recreates the activity, so this
+    // always reflects the currently active locale.
+    val currentLang = AppCompatDelegate.getApplicationLocales().get(0)?.language
+    val selected = AppLanguage.entries.firstOrNull { it.tag == currentLang } ?: AppLanguage.SYSTEM
+
+    ListItem(
+        supportingContent = { Text(selected.label()) },
+        trailingContent = {
+            Icon(
+                painter = painterResource(R.drawable.chevron_right_24px),
+                contentDescription = null
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                AppLanguage.entries.forEach { lang ->
+                    DropdownMenuItem(
+                        text = { Text(lang.label()) },
+                        onClick = {
+                            expanded = false
+                            val locales = lang.tag?.let { LocaleListCompat.forLanguageTags(it) }
+                                ?: LocaleListCompat.getEmptyLocaleList()
+                            AppCompatDelegate.setApplicationLocales(locales)
+                        }
+                    )
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable { expanded = true }
+    ) { Text(stringResource(R.string.settings_language)) }
 }
 
 @Composable
@@ -322,8 +378,8 @@ fun GithubTokenSetting(viewModel: SettingsViewModel = hiltViewModel()) {
         value = token,
         onValueChange = { viewModel.updateGithubToken(it) },
         modifier = Modifier.fillMaxWidth().padding(16.dp),
-        label = { Text("GitHub token for increasing API limit") },
-        placeholder = { Text("github_pat_****************") },
+        label = { Text(stringResource(R.string.settings_github_token_label)) },
+        placeholder = { Text(stringResource(R.string.settings_github_token_placeholder)) },
         trailingIcon = {
             IconButton(onClick = {
                 scope.launch {
@@ -332,11 +388,11 @@ fun GithubTokenSetting(viewModel: SettingsViewModel = hiltViewModel()) {
 
                     if (!text.isNullOrBlank()) {
                         viewModel.updateGithubToken(text)
-                        Toast.makeText(context, "Pasted!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.pasted), Toast.LENGTH_SHORT).show()
                     }
                 }
             }) {
-                Icon(painter = painterResource(R.drawable.content_paste_24px), contentDescription = "Paste")
+                Icon(painter = painterResource(R.drawable.content_paste_24px), contentDescription = stringResource(R.string.cd_paste))
             }
         },
         visualTransformation = PasswordVisualTransformation(),

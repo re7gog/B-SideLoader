@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -70,7 +71,7 @@ fun AppGhDetailsScreen(
                     title = { Text(state.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = handleBack) {
-                            Icon(painterResource(R.drawable.arrow_back_24px), "Back")
+                            Icon(painterResource(R.drawable.arrow_back_24px), stringResource(R.string.cd_back))
                         }
                     }
                 )
@@ -116,23 +117,23 @@ fun AppGhDetailsContent(
     val primaryNeedsRelease: Boolean
     when {
         !uiState.isFromDb -> {
-            primaryLabel = "Save & install"; primaryOnClick = viewModel::installAppGh
+            primaryLabel = stringResource(R.string.save_and_install); primaryOnClick = viewModel::installAppGh
             primaryNeedsRelease = true
         }
         shouldSave -> {
-            primaryLabel = "Save changes"; primaryOnClick = viewModel::saveToDb
+            primaryLabel = stringResource(R.string.save_changes); primaryOnClick = viewModel::saveToDb
             primaryNeedsRelease = false
         }
         shouldUpdate -> {
-            primaryLabel = "Update"; primaryOnClick = viewModel::installAppGh
+            primaryLabel = stringResource(R.string.update); primaryOnClick = viewModel::installAppGh
             primaryNeedsRelease = true
         }
         !isInstalled -> {
-            primaryLabel = "Install"; primaryOnClick = viewModel::installAppGh
+            primaryLabel = stringResource(R.string.install); primaryOnClick = viewModel::installAppGh
             primaryNeedsRelease = true
         }
         else -> {
-            primaryLabel = "Open"; primaryOnClick = viewModel::openApp
+            primaryLabel = stringResource(R.string.open); primaryOnClick = viewModel::openApp
             primaryNeedsRelease = false
         }
     }
@@ -168,15 +169,15 @@ fun AppGhDetailsContent(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text("${uiState.stars} ⭐", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.stars_count, uiState.stars), style = MaterialTheme.typography.bodyMedium)
                 if (uiState.version.isNotEmpty()) {
-                    Text("Version: ${uiState.version}", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.version_label, uiState.version), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
 
         Text(
-            text = uiState.description ?: "No description",
+            text = uiState.description ?: stringResource(R.string.no_description),
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -196,23 +197,23 @@ fun AppGhDetailsContent(
 
         DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange)
 
-        DetailSectionLabel("Release filters")
+        DetailSectionLabel(stringResource(R.string.release_filters))
         DetailSwitchRow(
-            title = "Prereleases",
-            description = "Also consider prereleases when looking for updates",
+            title = stringResource(R.string.prereleases),
+            description = stringResource(R.string.prereleases_description),
             checked = uiState.usePrereleases,
             onCheckedChange = viewModel::onUsePrereleasesChange
         )
         DetailFilterField(uiState.releasesInclude, viewModel::onReleasesFilterIncludeChange,
-            "Release name must contain (space-separated)")
+            stringResource(R.string.release_must_contain))
         DetailFilterField(uiState.releasesExclude, viewModel::onReleasesFilterExcludeChange,
-            "Release name must not contain")
+            stringResource(R.string.release_must_not_contain))
 
-        DetailSectionLabel("APK filters")
+        DetailSectionLabel(stringResource(R.string.apk_filters))
         DetailFilterField(uiState.filterInclude, viewModel::onFilterIncludeChange,
-            "APK file name must contain")
+            stringResource(R.string.apk_must_contain))
         DetailFilterField(uiState.filterExclude, viewModel::onFilterExcludeChange,
-            "APK file name must not contain")
+            stringResource(R.string.apk_must_not_contain))
     }
 
     if (showDeleteDialog) {

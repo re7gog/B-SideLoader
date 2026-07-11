@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.BSideLoader" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- AppCompat descendant is required by AppCompatActivity (used for per-app language).
+         All actual UI is drawn by Compose; this window theme only affects the launch window. -->
+    <style name="Theme.BSideLoader" parent="Theme.AppCompat.DayNight.NoActionBar" />
 </resources>

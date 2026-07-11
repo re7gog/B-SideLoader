@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -80,7 +81,7 @@ fun ManualInstallPane(
         ManualInstallTip()
 
         when (val current = state) {
-            is ManualInstallState.Reading -> ManualInstallBusy("Reading the APK…")
+            is ManualInstallState.Reading -> ManualInstallBusy(stringResource(R.string.reading_apk))
 
             is ManualInstallState.Installing -> InstallProgress(current.progress)
 
@@ -97,7 +98,7 @@ fun ManualInstallPane(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.size(8.dp))
-                Text("Choose an APK file", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.choose_apk_file), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -132,14 +133,14 @@ private fun ManualInstallTip(modifier: Modifier = Modifier) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Install from a file",
+                    text = stringResource(R.string.install_from_file),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            TipLine("Pick any APK on this device and it installs with your current installer mode — silently, when you use Shizuku or Dhizuku.")
-            TipLine("The app is not added to your list and will never be checked for updates. Add it from GitHub or Telegram if you want that.")
-            TipLine("Only install APKs you trust. Check the package name on the next step.")
+            TipLine(stringResource(R.string.manual_tip_installer))
+            TipLine(stringResource(R.string.manual_tip_not_tracked))
+            TipLine(stringResource(R.string.manual_tip_trust))
         }
     }
 }
@@ -185,8 +186,8 @@ private fun InstallProgress(progress: Float) {
         Text(
             // The bytes are copied long before PackageInstaller reports back, so past 100%
             // the wait is on the system dialog or the privileged service
-            text = if (progress < 1f) "Installing ${(progress * 100).toInt()}%"
-                   else "Finishing the install…",
+            text = if (progress < 1f) stringResource(R.string.installing_percent, (progress * 100).toInt())
+                   else stringResource(R.string.finishing_install),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -221,23 +222,21 @@ private fun ApkConfirmDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ApkInfoRow("Package", apk.packageName)
-                ApkInfoRow("Version", "${apk.versionName} (${apk.versionCode})")
-                ApkInfoRow("Size", size)
+                ApkInfoRow(stringResource(R.string.apk_info_package), apk.packageName)
+                ApkInfoRow(
+                    stringResource(R.string.apk_info_version),
+                    stringResource(R.string.apk_version_format, apk.versionName, apk.versionCode.toString())
+                )
+                ApkInfoRow(stringResource(R.string.apk_info_size), size)
                 if (apk.installedVersionName != null) {
-                    ApkInfoRow("Installed", apk.installedVersionName)
+                    ApkInfoRow(stringResource(R.string.apk_info_installed), apk.installedVersionName)
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = when {
-                        apk.isDowngrade ->
-                            "This is older than the installed version. Android will refuse the " +
-                                    "install unless you uninstall the current app first."
-                        apk.installedVersionName != null ->
-                            "This will replace the installed app. Its data is kept only if both " +
-                                    "APKs are signed with the same key."
-                        else ->
-                            "This app won't be added to your list and won't receive updates."
+                        apk.isDowngrade -> stringResource(R.string.apk_downgrade_warning)
+                        apk.installedVersionName != null -> stringResource(R.string.apk_replace_warning)
+                        else -> stringResource(R.string.apk_not_tracked_warning)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (apk.isDowngrade) MaterialTheme.colorScheme.error
@@ -245,8 +244,8 @@ private fun ApkConfirmDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Install") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.install)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 

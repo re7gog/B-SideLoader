@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
+import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.settings.SettingsManager
 import dev.re7gog.b_sideloader.data.updater.UpdatesManager
 import kotlinx.coroutines.CancellationException
@@ -46,7 +47,7 @@ class UpdateForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startAsForeground("Watching for app updates")
+        startAsForeground(getString(R.string.notif_monitor_watching))
         // Guard against re-delivered START_STICKY restarts spawning multiple loops.
         if (loopJob?.isActive != true) {
             loopJob = scope.launch { monitorLoop() }
@@ -63,18 +64,18 @@ class UpdateForegroundService : Service() {
             } catch (e: Exception) {
                 Log.e(TAG, "Update check failed: ${e.message}")
             }
-            updateNotification("Watching for app updates")
+            updateNotification(getString(R.string.notif_monitor_watching))
             delay(CHECK_INTERVAL_MS.milliseconds)
         }
     }
 
     private suspend fun runCheck() {
-        updateNotification("Checking for updates…")
+        updateNotification(getString(R.string.notif_monitor_checking))
         val canInstall = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
                 settingsManager.installerMode.first().isPrivileged
         if (canInstall) {
             updatesManager.checkAllAndInstall { app, _ ->
-                updateNotification("Updating $app…")
+                updateNotification(getString(R.string.notif_monitor_updating, app))
             }
         } else {
             updatesManager.checkAllUpdates { apps ->

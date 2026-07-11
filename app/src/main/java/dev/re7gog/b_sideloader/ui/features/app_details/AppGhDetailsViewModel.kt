@@ -1,11 +1,14 @@
 package dev.re7gog.b_sideloader.ui.features.app_details
 
+import android.content.Context
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
 import dev.re7gog.b_sideloader.data.installer.InstallEventManager
 import dev.re7gog.b_sideloader.data.installer.InstallManager
@@ -30,6 +33,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AppGhDetailsViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
     private val repository: AppsRepository,
     private val githubApi: GithubApi,
@@ -132,7 +136,7 @@ class AppGhDetailsViewModel @Inject constructor(
                     }
                     _installSucceeded.value = true
                 } else {
-                    _snackbarEvents.emit(installRes.errorMessage ?: "Installation error")
+                    _snackbarEvents.emit(installRes.errorMessage ?: context.getString(R.string.installation_error))
                 }
             }
         }
@@ -141,7 +145,7 @@ class AppGhDetailsViewModel @Inject constructor(
                 if (uninstallRes.succeeded) {
                     _uiState.update { it?.copy(installed = false) }
                 } else {
-                    _snackbarEvents.emit(uninstallRes.errorMessage ?: "Uninstall failed")
+                    _snackbarEvents.emit(uninstallRes.errorMessage ?: context.getString(R.string.uninstall_failed))
                 }
             }
         }
@@ -181,7 +185,7 @@ class AppGhDetailsViewModel @Inject constructor(
             updatesManager.checkGhUpdate(genGhApp())
         } catch (e: Exception) {
             // Network/API failure: keep whatever release we already resolved
-            _snackbarEvents.emit(e.message ?: "Failed to check for updates")
+            _snackbarEvents.emit(e.message ?: context.getString(R.string.failed_to_check_updates))
             return
         } finally {
             _isCheckingUpdate.value = false
@@ -205,7 +209,7 @@ class AppGhDetailsViewModel @Inject constructor(
     fun installAppGh() {
         viewModelScope.launch(Dispatchers.IO) {
             if (downloadUrl.isEmpty()) {
-                _snackbarEvents.emit("No release matches the current filters")
+                _snackbarEvents.emit(context.getString(R.string.no_release_matches))
                 return@launch
             }
             try {
@@ -216,7 +220,7 @@ class AppGhDetailsViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 installRequested = false  // No install event will arrive on download failure
-                _snackbarEvents.emit(e.message ?: "Installation error")
+                _snackbarEvents.emit(e.message ?: context.getString(R.string.installation_error))
             } finally {
                 _installProgress.value = 0f
                 _isInstalling.value = false
@@ -238,7 +242,7 @@ class AppGhDetailsViewModel @Inject constructor(
     fun openApp() {
         val pkg = _uiState.value?.packageName
         if (pkg.isNullOrEmpty() || !installManager.openApp(pkg)) {
-            viewModelScope.launch { _snackbarEvents.emit("Unable to open the app") }
+            viewModelScope.launch { _snackbarEvents.emit(context.getString(R.string.unable_to_open_app)) }
         }
     }
 

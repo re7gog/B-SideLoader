@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -74,7 +75,7 @@ fun AppTgDetailsScreen(
                     title = { Text(state.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = handleBack) {
-                            Icon(painterResource(R.drawable.arrow_back_24px), "Back")
+                            Icon(painterResource(R.drawable.arrow_back_24px), stringResource(R.string.cd_back))
                         }
                     }
                 )
@@ -128,23 +129,23 @@ fun AppTgDetailsContent(
     val primaryOnClick: () -> Unit
     when {
         !uiState.isFromDb -> {
-            primaryLabel = "Save & install"; primaryEnabled = hasTarget
+            primaryLabel = stringResource(R.string.save_and_install); primaryEnabled = hasTarget
             primaryOnClick = viewModel::installAppTg
         }
         shouldSave -> {
-            primaryLabel = "Save changes"; primaryEnabled = true
+            primaryLabel = stringResource(R.string.save_changes); primaryEnabled = true
             primaryOnClick = viewModel::saveToDb
         }
         shouldUpdate -> {
-            primaryLabel = "Update"; primaryEnabled = hasTarget
+            primaryLabel = stringResource(R.string.update); primaryEnabled = hasTarget
             primaryOnClick = viewModel::installAppTg
         }
         !isInstalled -> {
-            primaryLabel = "Install"; primaryEnabled = hasTarget
+            primaryLabel = stringResource(R.string.install); primaryEnabled = hasTarget
             primaryOnClick = viewModel::installAppTg
         }
         else -> {
-            primaryLabel = "Open"; primaryEnabled = true
+            primaryLabel = stringResource(R.string.open); primaryEnabled = true
             primaryOnClick = viewModel::openApp
         }
     }
@@ -183,13 +184,13 @@ fun AppTgDetailsContent(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Telegram channel",
+                        stringResource(R.string.telegram_channel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (uiState.version.isNotEmpty()) {
                         Text(
-                            "Installed message id: ${uiState.version}",
+                            stringResource(R.string.installed_message_id, uiState.version),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -217,29 +218,29 @@ fun AppTgDetailsContent(
 
         item { DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange) }
 
-        item { DetailSectionLabel("Filters") }
+        item { DetailSectionLabel(stringResource(R.string.filters)) }
         item {
             DetailFilterField(includeFilter, viewModel::onIncludeFilterChange,
-                "APK name must contain (space-separated)")
+                stringResource(R.string.tg_apk_must_contain))
         }
         item {
             DetailFilterField(excludeFilter, viewModel::onExcludeFilterChange,
-                "APK name must not contain")
+                stringResource(R.string.tg_apk_must_not_contain))
         }
         item {
             DetailFilterField(msgIncludeFilter, viewModel::onMsgIncludeFilterChange,
-                "Message text must contain")
+                stringResource(R.string.message_must_contain))
         }
         item {
             DetailFilterField(msgExcludeFilter, viewModel::onMsgExcludeFilterChange,
-                "Message text must not contain")
+                stringResource(R.string.message_must_not_contain))
         }
 
-        item { DetailSectionLabel("Available APKs") }
+        item { DetailSectionLabel(stringResource(R.string.available_apks)) }
         if (filteredMessages.isEmpty()) {
             item {
                 Text(
-                    "No matching APKs found",
+                    stringResource(R.string.no_matching_apks),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -287,7 +288,7 @@ fun ApkMessageStaticRow(message: ApkTgMessage, isTarget: Boolean) {
                 )
             }
             Text(
-                "${message.file.document.size / 1024 / 1024} MB",
+                stringResource(R.string.size_mb, message.file.document.size / 1024 / 1024),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

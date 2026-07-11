@@ -203,7 +203,7 @@ fun AppItemCard(
         ) {
             AsyncImage(
                 model = appIcon,
-                contentDescription = "Icon of ${appItem.app.name} app",
+                contentDescription = stringResource(R.string.cd_app_icon, appItem.app.name),
                 modifier = Modifier
                     .size(48.dp)
                     .alpha(if (isAppInstalled) 1f else 0.5f),

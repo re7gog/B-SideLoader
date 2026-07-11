@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.background.UpdateScheduler
 import dev.re7gog.b_sideloader.data.background.openAutostartSettings
 import dev.re7gog.b_sideloader.data.background.requestBatteryOptimizationExemption
@@ -89,7 +90,7 @@ class SettingsViewModel @Inject constructor(
     fun logoutTelegram() {
         viewModelScope.launch {
             telegramManager.logOut()
-            _toastEvents.emit("Logging out of Telegram…")
+            _toastEvents.emit(context.getString(R.string.logging_out_telegram))
         }
     }
 
@@ -105,27 +106,25 @@ class SettingsViewModel @Inject constructor(
                 settingsManager.setInstallerMode(mode)
                 return@launch
             }
+            val modeName = context.getString(mode.displayNameRes)
             when (installManager.checkPrivilegedPermission(mode.useDhizuku)) {
                 ShizukuPermission.GRANTED_ADB,
                 ShizukuPermission.GRANTED_OWNER,
                 ShizukuPermission.GRANTED_ROOT -> {
                     settingsManager.setInstallerMode(mode)
-                    _toastEvents.emit("${mode.displayName} installer enabled")
+                    _toastEvents.emit(context.getString(R.string.installer_enabled, modeName))
                 }
                 ShizukuPermission.DENIED ->
-                    _toastEvents.emit("${mode.displayName} permission denied")
+                    _toastEvents.emit(context.getString(R.string.installer_permission_denied, modeName))
                 ShizukuPermission.SERVICES_NOT_FOUND ->
                     _toastEvents.emit(
-                        if (mode.useDhizuku) "Dhizuku not found, not installed or not running"
-                        else "Shizuku/Sui not found, not installed or not running"
+                        if (mode.useDhizuku) context.getString(R.string.dhizuku_not_found)
+                        else context.getString(R.string.shizuku_not_found)
                     )
                 ShizukuPermission.OLD_SHIZUKU ->
-                    _toastEvents.emit("Please update Shizuku")
+                    _toastEvents.emit(context.getString(R.string.please_update_shizuku))
                 ShizukuPermission.OLD_ANDROID_WITH_ADB ->
-                    _toastEvents.emit(
-                        "Android 8.1 or newer is required for Shizuku over ADB," +
-                                " use Sui (Root) or Dhizuku instead"
-                    )
+                    _toastEvents.emit(context.getString(R.string.shizuku_old_android))
             }
         }
     }

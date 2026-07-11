@@ -1,9 +1,12 @@
 package dev.re7gog.b_sideloader.ui.features.manual_install
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.data.installer.ApkStager
 import dev.re7gog.b_sideloader.data.installer.InstallEventManager
 import dev.re7gog.b_sideloader.data.installer.InstallManager
@@ -35,6 +38,7 @@ sealed interface ManualInstallState {
  */
 @HiltViewModel
 class ManualInstallViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val apkStager: ApkStager,
     private val installManager: InstallManager
 ) : ViewModel() {
@@ -56,9 +60,9 @@ class ManualInstallViewModel @Inject constructor(
                 reset()
                 _snackbarEvents.emit(
                     when {
-                        !result.succeeded -> result.errorMessage ?: "Installation error"
-                        apk != null -> "Installed ${apk.label}"
-                        else -> "Installed"
+                        !result.succeeded -> result.errorMessage ?: context.getString(R.string.installation_error)
+                        apk != null -> context.getString(R.string.installed_app, apk.label)
+                        else -> context.getString(R.string.installed)
                     }
                 )
             }
@@ -72,7 +76,7 @@ class ManualInstallViewModel @Inject constructor(
                 _state.value = ManualInstallState.Confirming(apkStager.stage(uri))
             } catch (e: Exception) {
                 _state.value = ManualInstallState.Idle
-                _snackbarEvents.emit(e.message ?: "Can't read the selected APK")
+                _snackbarEvents.emit(e.message ?: context.getString(R.string.cant_read_apk))
             }
         }
     }
@@ -96,7 +100,7 @@ class ManualInstallViewModel @Inject constructor(
             } catch (e: Exception) {
                 installRequested = false  // No install event arrives when the session never commits
                 reset()
-                _snackbarEvents.emit(e.message ?: "Installation error")
+                _snackbarEvents.emit(e.message ?: context.getString(R.string.installation_error))
             }
         }
     }

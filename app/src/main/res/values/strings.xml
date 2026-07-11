@@ -1,23 +1,194 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">B-SideLoader</string>
+
+    <!-- Navigation / common -->
     <string name="apps">Apps</string>
     <string name="add">Add</string>
     <string name="settings">Settings</string>
     <string name="search">Search</string>
+    <string name="cancel">Cancel</string>
+    <string name="remove">Remove</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="install">Install</string>
+    <string name="open">Open</string>
+    <string name="update">Update</string>
+    <string name="save_and_install">Save &amp; install</string>
+    <string name="save_changes">Save changes</string>
+    <string name="ok">OK</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_clear">Clear</string>
+    <string name="cd_selected">Selected</string>
+
+    <!-- Apps list -->
     <string name="selection_count">%1$d selected</string>
     <string name="clear_selection">Clear selection</string>
     <string name="select_all">Select all</string>
     <string name="more_actions">More actions</string>
     <string name="remove_from_list">Remove from list</string>
     <string name="uninstall_from_device">Uninstall from device</string>
-    <string name="cancel">Cancel</string>
-    <string name="remove">Remove</string>
-    <string name="uninstall">Uninstall</string>
     <string name="remove_apps_title">Remove apps</string>
     <string name="remove_apps_message">Remove %1$d app(s) from your list? This only deletes them here and does not uninstall them from your device.</string>
     <string name="uninstall_apps_title">Uninstall apps</string>
     <string name="uninstall_apps_message">Uninstall the selected app(s) from your device? You may be asked to confirm each one.</string>
     <string name="no_apps_title">No apps yet</string>
     <string name="no_apps_subtitle">Apps you add from GitHub or Telegram will show up here.</string>
+    <string name="cd_app_icon">Icon of %1$s app</string>
+
+    <!-- App details (shared) -->
+    <string name="no_description">No description</string>
+    <string name="version_label">Version: %1$s</string>
+    <string name="stars_count">%1$d ⭐</string>
+    <string name="downloading_percent">Downloading %1$d%%</string>
+    <string name="autoupdate">Autoupdate</string>
+    <string name="autoupdate_description">Keep this app up to date automatically</string>
+    <string name="remove_app_title">Remove app</string>
+    <string name="remove_app_message">Remove \"%1$s\" from your list? This only deletes it here and does not uninstall it from your device.</string>
+
+    <!-- GitHub app details -->
+    <string name="release_filters">Release filters</string>
+    <string name="prereleases">Prereleases</string>
+    <string name="prereleases_description">Also consider prereleases when looking for updates</string>
+    <string name="release_must_contain">Release name must contain (space-separated)</string>
+    <string name="release_must_not_contain">Release name must not contain</string>
+    <string name="apk_filters">APK filters</string>
+    <string name="apk_must_contain">APK file name must contain</string>
+    <string name="apk_must_not_contain">APK file name must not contain</string>
+
+    <!-- Telegram app details -->
+    <string name="telegram_channel">Telegram channel</string>
+    <string name="installed_message_id">Installed message id: %1$s</string>
+    <string name="filters">Filters</string>
+    <string name="tg_apk_must_contain">APK name must contain (space-separated)</string>
+    <string name="tg_apk_must_not_contain">APK name must not contain</string>
+    <string name="message_must_contain">Message text must contain</string>
+    <string name="message_must_not_contain">Message text must not contain</string>
+    <string name="available_apks">Available APKs</string>
+    <string name="no_matching_apks">No matching APKs found</string>
+    <string name="size_mb">%1$d MB</string>
+
+    <!-- App details snackbars -->
+    <string name="installation_error">Installation error</string>
+    <string name="uninstall_failed">Uninstall failed</string>
+    <string name="unable_to_open_app">Unable to open the app</string>
+    <string name="no_release_matches">No release matches the current filters</string>
+    <string name="failed_to_check_updates">Failed to check for updates</string>
+
+    <!-- Settings -->
+    <string name="settings_general">General</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_login_accounts">Login &amp; Accounts</string>
+    <string name="settings_autoupdates">Autoupdates</string>
+    <string name="settings_autoupdates_subtitle">Check for new versions periodically</string>
+    <string name="settings_metered">Update over limited data</string>
+    <string name="settings_metered_subtitle">Allow updates on metered networks</string>
+    <string name="settings_persistent_service">Persistent update service</string>
+    <string name="settings_persistent_service_subtitle">Keeps a permanent notification to reliably check for updates on phones that kill background apps. Increases battery usage.</string>
+    <string name="settings_allow_background">Allow background work</string>
+    <string name="settings_allow_background_subtitle">Battery and autostart settings</string>
+    <string name="settings_dynamic_color">Dynamic color</string>
+    <string name="settings_dynamic_color_subtitle">Use colors from your wallpaper</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system_default">System default</string>
+    <string name="settings_installation_method">Installation method</string>
+    <string name="settings_github_token_label">GitHub token for increasing API limit</string>
+    <string name="settings_github_token_placeholder">github_pat_****************</string>
+    <string name="cd_paste">Paste</string>
+    <string name="pasted">Pasted!</string>
+    <string name="log_out">Log out</string>
+    <string name="telegram">Telegram</string>
+    <string name="telegram_account">Telegram account</string>
+    <string name="telegram_login_subtitle">Log in to install from channels</string>
+    <string name="logging_out_telegram">Logging out of Telegram…</string>
+
+    <!-- Installer modes -->
+    <string name="installer_session">Session (default)</string>
+    <string name="installer_shizuku">Shizuku / Sui</string>
+    <string name="installer_dhizuku">Dhizuku</string>
+    <string name="installer_enabled">%1$s installer enabled</string>
+    <string name="installer_permission_denied">%1$s permission denied</string>
+    <string name="dhizuku_not_found">Dhizuku not found, not installed or not running</string>
+    <string name="shizuku_not_found">Shizuku/Sui not found, not installed or not running</string>
+    <string name="please_update_shizuku">Please update Shizuku</string>
+    <string name="shizuku_old_android">Android 8.1 or newer is required for Shizuku over ADB, use Sui (Root) or Dhizuku instead</string>
+
+    <!-- Search -->
+    <string name="source_github_title">GitHub</string>
+    <string name="source_github_description">Releases from public repositories</string>
+    <string name="source_github_placeholder">Search GitHub repositories</string>
+    <string name="source_telegram_title">Telegram</string>
+    <string name="source_telegram_description">APKs posted in channels</string>
+    <string name="source_telegram_placeholder">Search Telegram channels</string>
+    <string name="source_localfile_title">Local file</string>
+    <string name="source_localfile_description">Install an APK stored on this device</string>
+    <string name="search_github_empty_title">Search GitHub</string>
+    <string name="search_github_empty_subtitle">Find apps from public repositories</string>
+    <string name="no_repositories_found">No repositories found</string>
+    <string name="search_telegram_empty_title">Search Telegram</string>
+    <string name="search_telegram_empty_subtitle">Find channels that publish APKs</string>
+    <string name="no_channels_found">No channels found</string>
+    <string name="try_different_name">Try a different name</string>
+    <string name="channel">Channel</string>
+    <string name="app_source">App source</string>
+    <string name="repo_subtitle">%1$s · %2$s</string>
+    <string name="cd_change_source">Change source</string>
+    <string name="search_request_error">Search request error</string>
+
+    <!-- Manual install -->
+    <string name="reading_apk">Reading the APK…</string>
+    <string name="choose_apk_file">Choose an APK file</string>
+    <string name="install_from_file">Install from a file</string>
+    <string name="manual_tip_installer">Pick any APK on this device and it installs with your current installer mode — silently, when you use Shizuku or Dhizuku.</string>
+    <string name="manual_tip_not_tracked">The app is not added to your list and will never be checked for updates. Add it from GitHub or Telegram if you want that.</string>
+    <string name="manual_tip_trust">Only install APKs you trust. Check the package name on the next step.</string>
+    <string name="installing_percent">Installing %1$d%%</string>
+    <string name="finishing_install">Finishing the install…</string>
+    <string name="apk_info_package">Package</string>
+    <string name="apk_info_version">Version</string>
+    <string name="apk_info_size">Size</string>
+    <string name="apk_info_installed">Installed</string>
+    <string name="apk_version_format">%1$s (%2$s)</string>
+    <string name="apk_downgrade_warning">This is older than the installed version. Android will refuse the install unless you uninstall the current app first.</string>
+    <string name="apk_replace_warning">This will replace the installed app. Its data is kept only if both APKs are signed with the same key.</string>
+    <string name="apk_not_tracked_warning">This app won\'t be added to your list and won\'t receive updates.</string>
+    <string name="cant_read_apk">Can\'t read the selected APK</string>
+    <string name="installed_app">Installed %1$s</string>
+    <string name="installed">Installed</string>
+
+    <!-- Telegram login -->
+    <string name="login_to_telegram">Log in to Telegram</string>
+    <string name="initializing_telegram">Initializing Telegram…</string>
+    <string name="auth_phone_title">Your phone number</string>
+    <string name="auth_phone_description">Type your number with the country code in any format. We\'ll send you a code.</string>
+    <string name="auth_phone_placeholder">e.g. +1 (555) 000-0000</string>
+    <string name="auth_code_title">Enter the code</string>
+    <string name="auth_code_description">We sent a code to your Telegram app or via SMS.</string>
+    <string name="auth_code_placeholder">12345</string>
+    <string name="auth_password_title">Two-step verification</string>
+    <string name="auth_password_description">Enter your cloud password (2FA) to finish signing in.</string>
+    <string name="auth_password_placeholder">Password</string>
+    <string name="auth_continue">Continue</string>
+    <string name="auth_change_phone">Change phone number</string>
+
+    <!-- Notification permission dialog -->
+    <string name="enable_notifications">Enable Notifications</string>
+    <string name="notifications_rationale">This app needs notification permission for the autoupdate feature. Please allow it on the next screen.</string>
+
+    <!-- Notification channels -->
+    <string name="notif_channel_alerts_name">Updates available notifications</string>
+    <string name="notif_channel_alerts_desc">Notifies when there are apps updates</string>
+    <string name="notif_channel_progress_name">Updates in progress notifications</string>
+    <string name="notif_channel_progress_desc">Notifies when there are apps updates in progress</string>
+    <string name="notif_channel_monitor_name">Background update monitoring</string>
+    <string name="notif_channel_monitor_desc">Persistent notification shown while the app watches for updates in the background</string>
+
+    <!-- Notifications -->
+    <string name="notif_apps_generic">apps</string>
+    <string name="notif_monitor_watching">Watching for app updates</string>
+    <string name="notif_monitor_checking">Checking for updates…</string>
+    <string name="notif_monitor_updating">Updating %1$s…</string>
+    <string name="notif_progress_title">Updates in progress</string>
+    <string name="notif_progress_text">Updating %1$s</string>
+    <string name="notif_update_available_title">Updates available</string>
+    <string name="notif_update_available_text">New version of%1$s available</string>
 </resources>
