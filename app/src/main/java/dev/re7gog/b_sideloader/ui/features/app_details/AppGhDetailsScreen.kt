@@ -197,6 +197,14 @@ fun AppGhDetailsContent(
 
         DetailAutoupdateRow(uiState.autoupdate, viewModel::onAutoUpdateChange)
 
+        val advanced = uiState.advancedMode
+        DetailSwitchRow(
+            title = stringResource(R.string.advanced_filters),
+            description = stringResource(R.string.advanced_filters_description),
+            checked = advanced,
+            onCheckedChange = viewModel::onAdvancedModeChange
+        )
+
         DetailSectionLabel(stringResource(R.string.release_filters))
         DetailSwitchRow(
             title = stringResource(R.string.prereleases),
@@ -205,15 +213,15 @@ fun AppGhDetailsContent(
             onCheckedChange = viewModel::onUsePrereleasesChange
         )
         DetailFilterField(uiState.releasesInclude, viewModel::onReleasesFilterIncludeChange,
-            stringResource(R.string.release_must_contain))
+            stringResource(if (advanced) R.string.release_regex_include else R.string.release_must_contain))
         DetailFilterField(uiState.releasesExclude, viewModel::onReleasesFilterExcludeChange,
-            stringResource(R.string.release_must_not_contain))
+            stringResource(if (advanced) R.string.release_regex_exclude else R.string.release_must_not_contain))
 
         DetailSectionLabel(stringResource(R.string.apk_filters))
         DetailFilterField(uiState.filterInclude, viewModel::onFilterIncludeChange,
-            stringResource(R.string.apk_must_contain))
+            stringResource(if (advanced) R.string.apk_regex_include else R.string.apk_must_contain))
         DetailFilterField(uiState.filterExclude, viewModel::onFilterExcludeChange,
-            stringResource(R.string.apk_must_not_contain))
+            stringResource(if (advanced) R.string.apk_regex_exclude else R.string.apk_must_not_contain))
     }
 
     if (showDeleteDialog) {

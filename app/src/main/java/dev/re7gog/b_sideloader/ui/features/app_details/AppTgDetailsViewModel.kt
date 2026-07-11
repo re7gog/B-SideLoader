@@ -2,9 +2,8 @@ package dev.re7gog.b_sideloader.ui.features.app_details
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.util.Log
-import android.util.LongSparseArray
-import androidx.core.util.size
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +16,7 @@ import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.local.entities.AppEntity
 import dev.re7gog.b_sideloader.data.local.entities.TelegramDetailsEntity
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
+import dev.re7gog.b_sideloader.data.telegram.TgApkSelector
 import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromDbRoute
@@ -37,20 +37,6 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
-
-data class ApkTgMessageTemp(
-    val foundFile: Boolean,
-    val foundMsgText: Boolean,
-    val file: TdApi.Document,
-    val msgText: String,
-    val id: Long
-)
-
-data class ApkTgMessage(
-    val file: TdApi.Document,
-    val msgText: String,
-    val id: Long
-)
 
 @HiltViewModel
 class AppTgDetailsViewModel @Inject constructor(
@@ -75,6 +61,9 @@ class AppTgDetailsViewModel @Inject constructor(
 
     val msgIncludeFilter = _msgIncludeFilter.asStateFlow()
     val msgExcludeFilter = _msgExcludeFilter.asStateFlow()
+
+    private val _advancedMode = MutableStateFlow(false)
+    val advancedMode = _advancedMode.asStateFlow()
 
     private val _shouldUpdate = MutableStateFlow(false)
     val shouldUpdate = _shouldUpdate.asStateFlow()
@@ -113,85 +102,17 @@ class AppTgDetailsViewModel @Inject constructor(
     private val _snackbarEvents = MutableSharedFlow<String>()
     val snackbarEvents = _snackbarEvents.asSharedFlow()
 
-    val filteredApkMessages = combine(
-        _apkMessages,
-        _includeFilter,
-        _excludeFilter,
-        _msgIncludeFilter,
-        _msgExcludeFilter
-    ) { messages, inc, exc, msgInc, msgExc ->
-        val incWords = inc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val excWords = exc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val msgIncWords = msgInc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val msgExcWords = msgExc.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+    // Bundled so the (>5-arg) combine below stays within Kotlin's typed combine overloads.
+    private data class Filters(
+        val inc: String, val exc: String, val msgInc: String, val msgExc: String, val advanced: Boolean
+    )
 
-        // albumId: foundFile, foundMsgText, file, msgText
-        val res = LongSparseArray<ApkTgMessageTemp>()
-        var latestId = 0L  // For inserting single messages in right order
+    private val filters = combine(
+        _includeFilter, _excludeFilter, _msgIncludeFilter, _msgExcludeFilter, _advancedMode
+    ) { inc, exc, msgInc, msgExc, advanced -> Filters(inc, exc, msgInc, msgExc, advanced) }
 
-        for (msg in messages) {
-            val content = (msg.content as? TdApi.MessageDocument) ?: continue
-            val document = content.document
-            val msgText = content.caption.text
-
-            // Check if matches filename, skip unneeded checks
-            val matchesFile by lazy {
-                var fileName = document.fileName.lowercase()
-                var matchesFile = fileName.endsWith(".apk")
-                if (matchesFile) {
-                    fileName = fileName.dropLast(4)
-                    matchesFile = incWords.all { fileName.contains(it.lowercase()) } &&
-                            excWords.none { fileName.contains(it.lowercase()) }
-                }
-                matchesFile
-            }
-
-            // Same, but for message text
-            val matchesText by lazy {
-                msgIncWords.all { msgText.contains(it.lowercase()) } &&
-                        msgExcWords.none { msgText.contains(it.lowercase()) }
-            }
-
-            val albumId = msg.mediaAlbumId
-            if (albumId == 0L) {  // Single message, insert after latest. Only if everything matches
-                if (matchesFile && matchesText) {
-                    latestId += 1
-                    res.put(latestId, ApkTgMessageTemp(
-                        foundFile = true, foundMsgText = true,
-                        file = document, msgText = msgText, id = msg.id
-                    ))
-                }
-            } else {
-                var album = res.get(albumId)
-                if (album == null) {
-                    res.put(albumId, ApkTgMessageTemp(
-                        foundFile = matchesFile, foundMsgText = matchesText,
-                        file = document, msgText = msgText, id = msg.id
-                    ))
-                    if (albumId > latestId) latestId = albumId  // Remember latest groupId
-                } else {
-                    if (!album.foundFile && matchesFile) {  // Message with file is the main one
-                        res.put(albumId, album.copy(foundFile = true, file = document, id = msg.id))
-                        album = res.get(albumId)
-                    }
-                    if (album.msgText == "" && msgText != "") {
-                        res.put(albumId, album.copy(foundMsgText = matchesText, msgText = msgText))
-                    }
-                }
-            }
-        }
-
-        // We need to filter albums with no matching filenames and convert it to simple list
-        val finalRes = mutableListOf<ApkTgMessage>()
-        for (i in res.size - 1 downTo 0) {
-            val value = res.valueAt(i)
-            if (value.foundFile && value.foundMsgText) {
-                finalRes.add(ApkTgMessage(
-                    file = value.file, msgText = value.msgText, id = value.id
-                ))
-            }
-        }
-        finalRes
+    val filteredApkMessages = combine(_apkMessages, filters) { messages, f ->
+        TgApkSelector.filter(messages, f.inc, f.exc, f.msgInc, f.msgExc, f.advanced)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -199,7 +120,7 @@ class AppTgDetailsViewModel @Inject constructor(
     )
 
     val targetApkMessage = filteredApkMessages
-        .map { it.firstOrNull() }
+        .map { TgApkSelector.pickTarget(it, Build.SUPPORTED_ABIS.toList()) }
         .also { msg -> // Switch state to show that update is available
             viewModelScope.launch {
                 val currMessageId = msg.firstOrNull()?.id?.toString() ?: return@launch
@@ -231,6 +152,7 @@ class AppTgDetailsViewModel @Inject constructor(
                     _excludeFilter.value = app.app.filterExclude
                     _msgIncludeFilter.value = app.telegramDetails.messageInclude
                     _msgExcludeFilter.value = app.telegramDetails.messageExclude
+                    _advancedMode.value = app.app.advancedMode
                 }
             } else if (fromSearch != null) {
                 // If this searched channel/topic is already saved, open it as the stored app
@@ -245,6 +167,7 @@ class AppTgDetailsViewModel @Inject constructor(
                     _excludeFilter.value = existing.app.filterExclude
                     _msgIncludeFilter.value = existing.telegramDetails.messageInclude
                     _msgExcludeFilter.value = existing.telegramDetails.messageExclude
+                    _advancedMode.value = existing.app.advancedMode
                 } else {
                     _uiState.value = fromSearch.toTgUiState()
                 }
@@ -303,6 +226,7 @@ class AppTgDetailsViewModel @Inject constructor(
             autoupdate = _uiState.value?.autoupdate ?: true,
             filterInclude = _includeFilter.value,
             filterExclude = _excludeFilter.value,
+            advancedMode = _advancedMode.value,
         )
         val details = TelegramDetailsEntity(
             id = _uiState.value?.id ?: 0L,
@@ -409,6 +333,11 @@ class AppTgDetailsViewModel @Inject constructor(
     }
     fun onMsgExcludeFilterChange(text: String) {
         _msgExcludeFilter.value = text
+        if (!_shouldSave.value) _shouldSave.value = true
+    }
+
+    fun onAdvancedModeChange(enabled: Boolean) {
+        _advancedMode.value = enabled
         if (!_shouldSave.value) _shouldSave.value = true
     }
 }

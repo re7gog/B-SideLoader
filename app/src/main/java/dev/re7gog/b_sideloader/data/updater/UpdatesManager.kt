@@ -3,14 +3,15 @@ package dev.re7gog.b_sideloader.data.updater
 import android.os.Build
 import android.util.Log
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
+import dev.re7gog.b_sideloader.data.filter.NameFilter
 import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
+import dev.re7gog.b_sideloader.data.telegram.TgApkSelector
 import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
-import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
 
@@ -83,11 +84,7 @@ class UpdatesManager @Inject constructor(
     }
 
     suspend fun checkGhUpdate(githubApp: AppType.GithubApp): GhUpdateRes? {
-        val incWords = githubApp.app.filterInclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val excWords = githubApp.app.filterExclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val incAssWords = githubApp.details.releasesInclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val excAssWords = githubApp.details.releasesExclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-
+        val advanced = githubApp.app.advancedMode
         val deviceAbi = Build.SUPPORTED_ABIS.firstOrNull()!!
 
         val releases = githubApi.getReleases(
@@ -96,16 +93,14 @@ class UpdatesManager @Inject constructor(
         )
 
         for (release in releases) {
-            val matchesInc = incWords.all { release.name.contains(it, ignoreCase = true) }
-            val matchesExc = excWords.none { release.name.contains(it, ignoreCase = true) }
+            val matchesRelease = NameFilter.matches(
+                release.name, githubApp.details.releasesInclude, githubApp.details.releasesExclude, advanced)
             val allowedPre = !release.prerelease || githubApp.details.usePrereleases
-            if (!matchesInc || !matchesExc || !allowedPre) continue
+            if (!matchesRelease || !allowedPre) continue
 
             val assets = release.assets.filter { asset ->
-                val matchesInc = incAssWords.all { asset.name.contains(it, ignoreCase = true) }
-                val matchesExc = excAssWords.none { asset.name.contains(it, ignoreCase = true) }
-                val isApk = asset.name.endsWith(".apk", ignoreCase = true)
-                matchesInc && matchesExc && isApk
+                asset.name.endsWith(".apk", ignoreCase = true) && NameFilter.matches(
+                    asset.name, githubApp.app.filterInclude, githubApp.app.filterExclude, advanced)
             }
             if (assets.isEmpty()) continue
             val bestMatch = assets.find { it.name.contains(deviceAbi, ignoreCase = true) }
@@ -119,27 +114,21 @@ class UpdatesManager @Inject constructor(
         val messages = telegramManager.searchApkMessages(
             telegramApp.details.chatId, telegramApp.details.topicId
         )?.messages?.toList() ?: return false
-        val incWords = telegramApp.app.filterInclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val excWords = telegramApp.app.filterExclude.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        var resDoc: TdApi.Document? = null
-        var messageId = ""
-        for (message in messages) {
-            val doc = (message.content as? TdApi.MessageDocument)?.document ?: continue
-            val fileName = doc.fileName.lowercase()
-            val isApk = fileName.endsWith(".apk")
-            if (!isApk) continue
-
-            val matchesInc = incWords.all { fileName.contains(it.lowercase()) }
-            val matchesExc = excWords.none { fileName.contains(it.lowercase()) }
-            if (matchesInc && matchesExc) {
-                messageId = message.id.toString()
-                if (messageId == telegramApp.app.version) return false
-                resDoc = doc
-                break
-            }
-        }
-        if (resDoc == null) return false
+        // Same selection the details screen uses: file-name filters + message-text filters +
+        // album grouping, then the device-architecture-preferred target.
+        val candidates = TgApkSelector.filter(
+            messages = messages,
+            filterInclude = telegramApp.app.filterInclude,
+            filterExclude = telegramApp.app.filterExclude,
+            messageInclude = telegramApp.details.messageInclude,
+            messageExclude = telegramApp.details.messageExclude,
+            advanced = telegramApp.app.advancedMode
+        )
+        val target = TgApkSelector.pickTarget(candidates, Build.SUPPORTED_ABIS.toList()) ?: return false
+        val messageId = target.id.toString()
+        if (messageId == telegramApp.app.version) return false
         if (!install) return true
+        val resDoc = target.file
         val fileId = resDoc.document.id
         var localFile: File? = null
         try {

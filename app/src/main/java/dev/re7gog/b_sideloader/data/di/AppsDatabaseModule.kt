@@ -20,7 +20,10 @@ object AppsDatabaseModule {
     @Singleton
     fun provideAppsDatabase(@ApplicationContext context: Context): AppsDatabase {
         return Room.databaseBuilder(context, AppsDatabase::class.java, "apps_database")
-            .fallbackToDestructiveMigration(true).build()  // TODO: Add migration support
+            // Not released yet: recreate the DB on schema change during development. Once released,
+            // add .addMigrations(AppsDatabase.MIGRATION_1_2, ...) here so real user data survives.
+            .fallbackToDestructiveMigration(true)
+            .build()
     }
 
     @Provides

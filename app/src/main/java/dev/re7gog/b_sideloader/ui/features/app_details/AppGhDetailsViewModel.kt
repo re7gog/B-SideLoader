@@ -161,6 +161,7 @@ class AppGhDetailsViewModel @Inject constructor(
             autoupdate = _uiState.value?.autoupdate ?: true,
             filterInclude = _uiState.value?.filterInclude ?: "",
             filterExclude = _uiState.value?.filterExclude ?: "",
+            advancedMode = _uiState.value?.advancedMode ?: false,
         )
         val details = GithubDetailsEntity(
             id = _uiState.value?.id ?: 0L,
@@ -294,6 +295,13 @@ class AppGhDetailsViewModel @Inject constructor(
         if (!_shouldSave.value) _shouldSave.value = true
         // A discrete toggle (unlike the per-keystroke filter fields), so re-resolve the release
         // right away: the version shown and the APK that "Save & install" downloads must reflect it.
+        recheckGhUpdate()
+    }
+
+    fun onAdvancedModeChange(enabled: Boolean) {
+        _uiState.update { it?.copy(advancedMode = enabled) }
+        if (!_shouldSave.value) _shouldSave.value = true
+        // Changes how the existing filter text is interpreted, so re-resolve the release now.
         recheckGhUpdate()
     }
 }

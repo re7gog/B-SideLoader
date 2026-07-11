@@ -45,15 +45,23 @@
     <string name="remove_app_title">Убрать приложение</string>
     <string name="remove_app_message">Убрать \"%1$s\" из списка? Это удаляет его только отсюда и не удаляет с устройства.</string>
 
+    <!-- Advanced (regex) filtering -->
+    <string name="advanced_filters">Продвинутые фильтры</string>
+    <string name="advanced_filters_description">Сопоставлять имена регулярными выражениями вместо списков слов</string>
+
     <!-- GitHub app details -->
     <string name="release_filters">Фильтры релизов</string>
     <string name="prereleases">Предрелизы</string>
     <string name="prereleases_description">Учитывать также предрелизы при поиске обновлений</string>
     <string name="release_must_contain">Название релиза должно содержать (через пробел)</string>
     <string name="release_must_not_contain">Название релиза не должно содержать</string>
+    <string name="release_regex_include">Регэксп названия релиза (должно совпадать)</string>
+    <string name="release_regex_exclude">Регэксп названия релиза (не должно совпадать)</string>
     <string name="apk_filters">Фильтры APK</string>
     <string name="apk_must_contain">Имя файла APK должно содержать</string>
     <string name="apk_must_not_contain">Имя файла APK не должно содержать</string>
+    <string name="apk_regex_include">Регэксп имени файла APK (должно совпадать)</string>
+    <string name="apk_regex_exclude">Регэксп имени файла APK (не должно совпадать)</string>
 
     <!-- Telegram app details -->
     <string name="telegram_channel">Канал Telegram</string>
@@ -61,8 +69,12 @@
     <string name="filters">Фильтры</string>
     <string name="tg_apk_must_contain">Имя APK должно содержать (через пробел)</string>
     <string name="tg_apk_must_not_contain">Имя APK не должно содержать</string>
+    <string name="tg_apk_regex_include">Регэксп имени APK (должно совпадать)</string>
+    <string name="tg_apk_regex_exclude">Регэксп имени APK (не должно совпадать)</string>
     <string name="message_must_contain">Текст сообщения должен содержать</string>
     <string name="message_must_not_contain">Текст сообщения не должен содержать</string>
+    <string name="message_regex_include">Регэксп текста сообщения (должно совпадать)</string>
+    <string name="message_regex_exclude">Регэксп текста сообщения (не должно совпадать)</string>
     <string name="available_apks">Доступные APK</string>
     <string name="no_matching_apks">Подходящие APK не найдены</string>
     <string name="size_mb">%1$d МБ</string>

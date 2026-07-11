@@ -45,15 +45,23 @@
     <string name="remove_app_title">Remove app</string>
     <string name="remove_app_message">Remove \"%1$s\" from your list? This only deletes it here and does not uninstall it from your device.</string>
 
+    <!-- Advanced (regex) filtering -->
+    <string name="advanced_filters">Advanced filters</string>
+    <string name="advanced_filters_description">Match names with regular expressions instead of word lists</string>
+
     <!-- GitHub app details -->
     <string name="release_filters">Release filters</string>
     <string name="prereleases">Prereleases</string>
     <string name="prereleases_description">Also consider prereleases when looking for updates</string>
     <string name="release_must_contain">Release name must contain (space-separated)</string>
     <string name="release_must_not_contain">Release name must not contain</string>
+    <string name="release_regex_include">Release name regex (must match)</string>
+    <string name="release_regex_exclude">Release name regex (must not match)</string>
     <string name="apk_filters">APK filters</string>
     <string name="apk_must_contain">APK file name must contain</string>
     <string name="apk_must_not_contain">APK file name must not contain</string>
+    <string name="apk_regex_include">APK file name regex (must match)</string>
+    <string name="apk_regex_exclude">APK file name regex (must not match)</string>
 
     <!-- Telegram app details -->
     <string name="telegram_channel">Telegram channel</string>
@@ -61,8 +69,12 @@
     <string name="filters">Filters</string>
     <string name="tg_apk_must_contain">APK name must contain (space-separated)</string>
     <string name="tg_apk_must_not_contain">APK name must not contain</string>
+    <string name="tg_apk_regex_include">APK name regex (must match)</string>
+    <string name="tg_apk_regex_exclude">APK name regex (must not match)</string>
     <string name="message_must_contain">Message text must contain</string>
     <string name="message_must_not_contain">Message text must not contain</string>
+    <string name="message_regex_include">Message text regex (must match)</string>
+    <string name="message_regex_exclude">Message text regex (must not match)</string>
     <string name="available_apks">Available APKs</string>
     <string name="no_matching_apks">No matching APKs found</string>
     <string name="size_mb">%1$d MB</string>

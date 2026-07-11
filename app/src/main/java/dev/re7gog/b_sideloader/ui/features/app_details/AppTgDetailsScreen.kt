@@ -42,6 +42,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.data.telegram.TgApkCandidate
 import dev.re7gog.b_sideloader.ui.components.TelegramAvatar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,6 +110,7 @@ fun AppTgDetailsContent(
     val excludeFilter by viewModel.excludeFilter.collectAsStateWithLifecycle()
     val msgIncludeFilter by viewModel.msgIncludeFilter.collectAsStateWithLifecycle()
     val msgExcludeFilter by viewModel.msgExcludeFilter.collectAsStateWithLifecycle()
+    val advancedMode by viewModel.advancedMode.collectAsStateWithLifecycle()
     val shouldUpdate by viewModel.shouldUpdate.collectAsStateWithLifecycle()
     val shouldSave by viewModel.shouldSave.collectAsStateWithLifecycle()
     val isInstalling by viewModel.isInstalling.collectAsStateWithLifecycle()
@@ -220,20 +222,28 @@ fun AppTgDetailsContent(
 
         item { DetailSectionLabel(stringResource(R.string.filters)) }
         item {
+            DetailSwitchRow(
+                title = stringResource(R.string.advanced_filters),
+                description = stringResource(R.string.advanced_filters_description),
+                checked = advancedMode,
+                onCheckedChange = viewModel::onAdvancedModeChange
+            )
+        }
+        item {
             DetailFilterField(includeFilter, viewModel::onIncludeFilterChange,
-                stringResource(R.string.tg_apk_must_contain))
+                stringResource(if (advancedMode) R.string.tg_apk_regex_include else R.string.tg_apk_must_contain))
         }
         item {
             DetailFilterField(excludeFilter, viewModel::onExcludeFilterChange,
-                stringResource(R.string.tg_apk_must_not_contain))
+                stringResource(if (advancedMode) R.string.tg_apk_regex_exclude else R.string.tg_apk_must_not_contain))
         }
         item {
             DetailFilterField(msgIncludeFilter, viewModel::onMsgIncludeFilterChange,
-                stringResource(R.string.message_must_contain))
+                stringResource(if (advancedMode) R.string.message_regex_include else R.string.message_must_contain))
         }
         item {
             DetailFilterField(msgExcludeFilter, viewModel::onMsgExcludeFilterChange,
-                stringResource(R.string.message_must_not_contain))
+                stringResource(if (advancedMode) R.string.message_regex_exclude else R.string.message_must_not_contain))
         }
 
         item { DetailSectionLabel(stringResource(R.string.available_apks)) }
@@ -264,7 +274,7 @@ fun AppTgDetailsContent(
 }
 
 @Composable
-fun ApkMessageStaticRow(message: ApkTgMessage, isTarget: Boolean) {
+fun ApkMessageStaticRow(message: TgApkCandidate, isTarget: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),

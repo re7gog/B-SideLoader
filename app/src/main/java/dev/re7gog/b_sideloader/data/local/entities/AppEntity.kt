@@ -12,5 +12,8 @@ data class AppEntity(
     val version: String,
     val autoupdate: Boolean,
     val filterInclude: String,
-    val filterExclude: String
+    val filterExclude: String,
+    // When true, filterInclude/filterExclude (and the source-specific include/exclude fields) are
+    // interpreted as regular expressions instead of space-separated word lists. See NameFilter.
+    val advancedMode: Boolean = false
 )
