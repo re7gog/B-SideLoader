@@ -23,6 +23,7 @@ class SettingsManager @Inject constructor(
         val USE_AUTOUPDATES = booleanPreferencesKey("use_autoupdates")
         val USE_MOBILE_DATA = booleanPreferencesKey("use_mobile_data")
         val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
+        val USE_FOREGROUND_SERVICE = booleanPreferencesKey("use_foreground_service")
     }
 
     val installerMode: Flow<InstallerMode> = context.dataStore.data.map { preferences ->
@@ -39,6 +40,10 @@ class SettingsManager @Inject constructor(
 
     val useDynamicColor: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[Keys.USE_DYNAMIC_COLOR] ?: false
+    }
+
+    val useForegroundService: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[Keys.USE_FOREGROUND_SERVICE] ?: false
     }
 
     suspend fun setInstallerMode(mode: InstallerMode) {
@@ -62,6 +67,12 @@ class SettingsManager @Inject constructor(
     suspend fun setUseDynamicColor(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.USE_DYNAMIC_COLOR] = enabled
+        }
+    }
+
+    suspend fun setUseForegroundService(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.USE_FOREGROUND_SERVICE] = enabled
         }
     }
 }

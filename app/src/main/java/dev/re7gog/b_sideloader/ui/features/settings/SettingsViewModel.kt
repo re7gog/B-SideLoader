@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.re7gog.b_sideloader.data.background.UpdateScheduler
 import dev.re7gog.b_sideloader.data.background.openAutostartSettings
 import dev.re7gog.b_sideloader.data.background.requestBatteryOptimizationExemption
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
@@ -39,7 +40,8 @@ class SettingsViewModel @Inject constructor(
     private val settingsManager: SettingsManager,
     private val installManager: InstallManager,
     private val secureStorage: SecureStorage,
-    private val telegramManager: TelegramManager
+    private val telegramManager: TelegramManager,
+    private val updateScheduler: UpdateScheduler
 ) : ViewModel() {
     val installerMode = settingsManager.installerMode.stateIn(
         viewModelScope, SharingStarted.Eagerly, InstallerMode.SESSION
@@ -54,6 +56,10 @@ class SettingsViewModel @Inject constructor(
     )
 
     val useDynamicColor = settingsManager.useDynamicColor.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    val useForegroundService = settingsManager.useForegroundService.stateIn(
         viewModelScope, SharingStarted.Eagerly, false
     )
 
@@ -127,12 +133,21 @@ class SettingsViewModel @Inject constructor(
     fun switchAutoupdates(enable: Boolean) {
         viewModelScope.launch {
             settingsManager.setUseAutoupdates(enable)
+            updateScheduler.sync()
         }
     }
 
     fun switchMobileData(enable: Boolean) {
         viewModelScope.launch {
             settingsManager.setUseMobileData(enable)
+            updateScheduler.sync()
+        }
+    }
+
+    fun switchForegroundService(enable: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setUseForegroundService(enable)
+            updateScheduler.sync()
         }
     }
 

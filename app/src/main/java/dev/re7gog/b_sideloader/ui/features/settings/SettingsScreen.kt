@@ -18,7 +18,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -28,8 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -66,10 +63,10 @@ fun SettingsScreen(
     val installerMode by viewModel.installerMode.collectAsStateWithLifecycle()
     val useAutoupdates by viewModel.useAutoupdates.collectAsStateWithLifecycle()
     val useMobileData by viewModel.useMobileData.collectAsStateWithLifecycle()
+    val useForegroundService by viewModel.useForegroundService.collectAsStateWithLifecycle()
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
     val tgAccount by viewModel.tgAccount.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     LaunchedEffect(Unit) {
         viewModel.toastEvents.collect { message ->
@@ -78,8 +75,8 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        topBar = { SettingsTopBar(scrollBehavior) },
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+        topBar = { SettingsTopBar() },
+        modifier = modifier
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -109,6 +106,13 @@ fun SettingsScreen(
                             subtitle = "Allow updates on metered networks",
                             checked = useMobileData,
                             onCheckedChange = { viewModel.switchMobileData(it) }
+                        )
+                        SettingsSwitchItem(
+                            title = "Persistent update service",
+                            subtitle = "Keeps a permanent notification to reliably check for " +
+                                    "updates on phones that kill background apps. Increases battery usage.",
+                            checked = useForegroundService,
+                            onCheckedChange = { viewModel.switchForegroundService(it) }
                         )
                     }
                     SettingsClickableItem(
@@ -149,12 +153,10 @@ fun SettingsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsTopBar(
-    scrollBehavior: TopAppBarScrollBehavior,
     modifier: Modifier = Modifier
 ) {
-    LargeTopAppBar(
+    TopAppBar(
         title = { Text(stringResource(R.string.settings)) },
-        scrollBehavior = scrollBehavior,
         modifier = modifier
     )
 }

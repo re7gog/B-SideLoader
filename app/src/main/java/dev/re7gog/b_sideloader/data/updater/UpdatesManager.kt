@@ -8,10 +8,13 @@ import dev.re7gog.b_sideloader.data.remote.GithubApi
 import dev.re7gog.b_sideloader.data.telegram.TelegramManager
 import dev.re7gog.b_sideloader.domain.model.AppType
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
+
+private const val TAG = "UpdatesManager"
 
 data class GhUpdateRes(
     var version: String,
@@ -29,15 +32,22 @@ class UpdatesManager @Inject constructor(
         val apps = appsRepository.getAllAppsStream().firstOrNull() ?: return
         var updates = ""
         for (app in apps) {
-            if (app.githubDetails != null) {
-                val ghApp = AppType.GithubApp(app = app.app, details = app.githubDetails)
-                val res = checkGhUpdate(ghApp) ?: continue
-                if (res.version != ghApp.app.version) {
-                    updates += " " + ghApp.app.name
+            // Isolate each app: a network/API failure for one must not abort the whole sweep.
+            try {
+                if (app.githubDetails != null) {
+                    val ghApp = AppType.GithubApp(app = app.app, details = app.githubDetails)
+                    val res = checkGhUpdate(ghApp) ?: continue
+                    if (res.version != ghApp.app.version) {
+                        updates += " " + ghApp.app.name
+                    }
+                } else if (app.telegramDetails != null) {
+                    val tgApp = AppType.TelegramApp(app = app.app, details = app.telegramDetails)
+                    if (doTgUpdate(tgApp, false) {}) updates += " " + tgApp.app.name
                 }
-            } else if (app.telegramDetails != null) {
-                val tgApp = AppType.TelegramApp(app = app.app, details = app.telegramDetails)
-                if (doTgUpdate(tgApp, false) {}) updates += " " + tgApp.app.name
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Update check failed for ${app.app.name}: ${e.message}")
             }
         }
         if (updates != "") showUpdateNotification(updates)
@@ -46,21 +56,28 @@ class UpdatesManager @Inject constructor(
     suspend fun checkAllAndInstall(updateProgressNotification: suspend (String, Int) -> Unit) {
         val apps = appsRepository.getAllAppsStream().firstOrNull() ?: return
         for (app in apps) {
-            if (app.githubDetails != null) {
-                val ghApp = AppType.GithubApp(app = app.app, details = app.githubDetails)
-                val res = checkGhUpdate(ghApp) ?: continue
-                if (res.version != ghApp.app.version) {
-                    installManager.downloadAndInstall(res.downloadUrl).collect {
-                        updateProgressNotification(app.app.name, (it * 100).toInt())
+            // Isolate each app: a failure to check/download/install one must not abort the rest.
+            try {
+                if (app.githubDetails != null) {
+                    val ghApp = AppType.GithubApp(app = app.app, details = app.githubDetails)
+                    val res = checkGhUpdate(ghApp) ?: continue
+                    if (res.version != ghApp.app.version) {
+                        installManager.downloadAndInstall(res.downloadUrl).collect {
+                            updateProgressNotification(app.app.name, (it * 100).toInt())
+                        }
+                        val updatedApp = ghApp.copy(app = ghApp.app.copy(version = res.version))
+                        appsRepository.updateApp(updatedApp)
                     }
-                    val updatedApp = ghApp.copy(app = ghApp.app.copy(version = res.version))
-                    appsRepository.updateApp(updatedApp)
+                } else if (app.telegramDetails != null) {
+                    val tgApp = AppType.TelegramApp(app = app.app, details = app.telegramDetails)
+                    doTgUpdate(tgApp, true) {
+                        updateProgressNotification(app.app.name, it)
+                    }
                 }
-            } else if (app.telegramDetails != null) {
-                val tgApp = AppType.TelegramApp(app = app.app, details = app.telegramDetails)
-                doTgUpdate(tgApp, true) {
-                    updateProgressNotification(app.app.name, it)
-                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Update install failed for ${app.app.name}: ${e.message}")
             }
         }
     }
@@ -79,15 +96,15 @@ class UpdatesManager @Inject constructor(
         )
 
         for (release in releases) {
-            val matchesInc = incWords.all { release.name.contains(it.lowercase()) }
-            val matchesExc = excWords.none { release.name.contains(it.lowercase()) }
+            val matchesInc = incWords.all { release.name.contains(it, ignoreCase = true) }
+            val matchesExc = excWords.none { release.name.contains(it, ignoreCase = true) }
             val allowedPre = !release.prerelease || githubApp.details.usePrereleases
             if (!matchesInc || !matchesExc || !allowedPre) continue
 
             val assets = release.assets.filter { asset ->
-                val matchesInc = incAssWords.all { asset.name.contains(it.lowercase()) }
-                val matchesExc = excAssWords.none { asset.name.contains(it.lowercase()) }
-                val isApk = asset.name.endsWith(".apk")
+                val matchesInc = incAssWords.all { asset.name.contains(it, ignoreCase = true) }
+                val matchesExc = excAssWords.none { asset.name.contains(it, ignoreCase = true) }
+                val isApk = asset.name.endsWith(".apk", ignoreCase = true)
                 matchesInc && matchesExc && isApk
             }
             if (assets.isEmpty()) continue
