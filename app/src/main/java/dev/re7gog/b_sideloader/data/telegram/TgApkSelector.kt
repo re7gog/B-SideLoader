@@ -2,6 +2,7 @@ package dev.re7gog.b_sideloader.data.telegram
 
 import android.util.LongSparseArray
 import androidx.core.util.size
+import dev.re7gog.b_sideloader.data.filter.AbiSelector
 import dev.re7gog.b_sideloader.data.filter.NameFilter
 import org.drinkless.tdlib.TdApi
 
@@ -116,21 +117,7 @@ object TgApkSelector {
      * release is split per ABI and its top file is for a different architecture. If nothing is
      * installable (e.g. no build for this device's ABIs at all) it falls back to the newest match.
      */
-    fun pickTarget(candidates: List<TgApkCandidate>, deviceAbis: List<String>): TgApkCandidate? {
-        val abis = deviceAbis.map { it.lowercase() }
-        return candidates.firstOrNull { it.file.fileName.runsOn(abis) }
+    fun pickTarget(candidates: List<TgApkCandidate>, deviceAbis: List<String>): TgApkCandidate? =
+        candidates.firstOrNull { AbiSelector.runsOn(it.file.fileName, deviceAbis) }
             ?: candidates.firstOrNull()
-    }
-
-    /** Known Android ABI markers, used to tell an architecture-specific file from a universal one. */
-    private val KNOWN_ABIS = listOf(
-        "arm64-v8a", "armeabi-v7a", "armeabi", "x86_64", "x86", "mips64", "mips", "riscv64"
-    )
-
-    /** True if a file with this name can be installed on a device with the given (lowercased) ABIs. */
-    private fun String.runsOn(deviceAbis: List<String>): Boolean {
-        val name = lowercase()
-        if (deviceAbis.any { name.contains(it) }) return true  // built for one of this device's ABIs
-        return KNOWN_ABIS.none { name.contains(it) }           // otherwise only if it is universal
-    }
 }

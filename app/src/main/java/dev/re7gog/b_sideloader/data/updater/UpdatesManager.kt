@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.data.updater
 import android.os.Build
 import android.util.Log
 import dev.re7gog.b_sideloader.data.encrypt.SecureStorage
+import dev.re7gog.b_sideloader.data.filter.AbiSelector
 import dev.re7gog.b_sideloader.data.filter.NameFilter
 import dev.re7gog.b_sideloader.data.installer.InstallManager
 import dev.re7gog.b_sideloader.data.remote.GithubApi
@@ -85,7 +86,7 @@ class UpdatesManager @Inject constructor(
 
     suspend fun checkGhUpdate(githubApp: AppType.GithubApp): GhUpdateRes? {
         val advanced = githubApp.app.advancedMode
-        val deviceAbi = Build.SUPPORTED_ABIS.firstOrNull()!!
+        val deviceAbis = Build.SUPPORTED_ABIS.toList()
 
         val releases = githubApi.getReleases(
             owner = githubApp.details.owner, repo = githubApp.details.repo,
@@ -103,9 +104,10 @@ class UpdatesManager @Inject constructor(
                     asset.name, githubApp.app.filterInclude, githubApp.app.filterExclude, advanced)
             }
             if (assets.isEmpty()) continue
-            val bestMatch = assets.find { it.name.contains(deviceAbi, ignoreCase = true) }
-            val downloadUrl = bestMatch?.browserDownloadUrl ?: assets[0].browserDownloadUrl
-            return GhUpdateRes(release.name, downloadUrl)
+            // Prefer an APK that can actually run on this device (matching-ABI split or universal),
+            // like the Telegram path does; only fall back to the first asset if none is installable.
+            val target = assets.firstOrNull { AbiSelector.runsOn(it.name, deviceAbis) } ?: assets.first()
+            return GhUpdateRes(release.name, target.browserDownloadUrl)
         }
         return null
     }

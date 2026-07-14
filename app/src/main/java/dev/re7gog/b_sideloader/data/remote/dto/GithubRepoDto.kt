@@ -24,10 +24,12 @@ data class GithubOwnerDto(
 
 @Serializable
 data class GithubReleaseDto(
-    val name: String,
-    val body: String,  // Description
-    val prerelease: Boolean,
-    val assets: List<GithubReleaseAssetDto>
+    // GitHub returns null for these when a release has no title/notes (only a tag). Defaults +
+    // coerceInputValues turn that null into "" instead of throwing and aborting the whole check.
+    val name: String = "",
+    val body: String = "",  // Description
+    val prerelease: Boolean = false,
+    val assets: List<GithubReleaseAssetDto> = emptyList()
 )
 
 @Serializable
