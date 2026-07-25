@@ -1,43 +1,42 @@
 package dev.re7gog.b_sideloader.domain.repository
 
-import dev.re7gog.b_sideloader.data.local.entities.AppEntity
-import dev.re7gog.b_sideloader.domain.model.AppType
-import dev.re7gog.b_sideloader.domain.model.AppWithDetails
+import dev.re7gog.b_sideloader.domain.model.AppSource
+import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The set of apps the user tracks.
+ *
+ * Speaks only [TrackedApp]; the Room entities and the `@Relation` join that back it are an
+ * implementation detail of `data/repository/RoomAppsRepository`.
+ *
+ * Suspending members throw [dev.re7gog.b_sideloader.domain.error.AppError] on failure. `Flow`
+ * members never throw for expected conditions — a missing row is `null`, an empty table is an
+ * empty list.
+ */
 interface AppsRepository {
-    /**
-     * Retrieve all the apps from the given data source.
-     */
-    fun getAllAppsStream(): Flow<List<AppWithDetails>>
 
-    /**
-     * Retrieve an app from the given data source that matches with the [id].
-     */
-    fun getAppStream(id: Long): Flow<AppWithDetails?>
+    /** Every tracked app, ordered by name, re-emitted whenever the table changes. */
+    fun observeApps(): Flow<List<TrackedApp>>
 
-    /**
-     * Find an already-saved GitHub app by its source [owner]/[repo], or null if not saved.
-     */
-    suspend fun findGithubApp(owner: String, repo: String): AppWithDetails?
+    /** One app by row id, or `null` once it is deleted. */
+    fun observeApp(id: Long): Flow<TrackedApp?>
 
-    /**
-     * Find an already-saved Telegram app by its source [chatId]/[topicId], or null if not saved.
-     */
-    suspend fun findTelegramApp(chatId: Long, topicId: Int): AppWithDetails?
+    /** Snapshot of every tracked app. Used by the background sweep, which must not subscribe. */
+    suspend fun getApps(): List<TrackedApp>
 
-    /**
-     * Insert app in the data source, returning the new app id.
-     */
-    suspend fun addApp(app: AppType): Long
+    /** The saved app for [source], or `null` when this source is not tracked yet. */
+    suspend fun findBySource(source: AppSource): TrackedApp?
 
-    /**
-     * Update app in the data source
-     */
-    suspend fun updateApp(app: AppType)
+    /** Inserts [app] and returns the assigned row id. */
+    suspend fun add(app: TrackedApp): Long
 
-    /**
-     * Delete app from the data source
-     */
-    suspend fun deleteApp(app: AppEntity)
+    /** Persists changes to an already-saved app. No-op for an unsaved one. */
+    suspend fun update(app: TrackedApp)
+
+    /** Forgets the app. Does not touch the installed package. */
+    suspend fun delete(app: TrackedApp)
+
+    /** Forgets several apps in one transaction. */
+    suspend fun deleteAll(apps: Collection<TrackedApp>)
 }

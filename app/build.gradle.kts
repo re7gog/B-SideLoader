@@ -22,18 +22,22 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "dev.re7gog.b_sideloader.HiltTestRunner"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // R8 keep rules live in `src/<sourceSet>/keepRules/**/*.keep` (AGP 9 source-set
+            // convention) instead of `proguardFiles`. The AOSP default optimize rules are
+            // pulled in automatically because `keepRules.includeDefault` defaults to true.
             //signingConfig = signingConfigs.getByName("debug")
+        }
+        debug {
+            // Keeps the two builds distinguishable in logs/crash reports without a suffix,
+            // which would break the Shizuku provider authority and the install receivers.
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -42,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     dependenciesInfo {
         includeInApk = false
@@ -56,11 +61,31 @@ android {
             isUniversalApk = true
         }
     }
+
+    // Room's exported schemas double as the input for automated migration tests.
+    sourceSets.getByName("androidTest") {
+        assets.directories.add(layout.projectDirectory.dir("schemas").asFile.path)
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources/manifest to inflate Compose content.
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
+
+ksp {
+    arg("room.schemaLocation", layout.projectDirectory.dir("schemas").asFile.path)
+    arg("room.generateKotlin", "true")
+}
+
 
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -72,11 +97,10 @@ dependencies {
     implementation(libs.androidx.material3)
     // AppCompat provides the per-app language (locale) backport for API < 33
     implementation(libs.androidx.appcompat)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    implementation(libs.kotlinx.coroutines.android)
+    // Immutable collections are Compose-stable, so UI models can hold lists without
+    // silently defeating recomposition skipping.
+    implementation(libs.kotlinx.collections.immutable)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
@@ -90,11 +114,13 @@ dependencies {
     ksp(libs.dagger.hilt.compiler)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.work)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
 
-    // Navigation
+    // Navigation 3
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
     // Retrofit
     implementation(libs.retrofit)
@@ -107,11 +133,10 @@ dependencies {
     // OkHttp
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
+    debugImplementation(libs.okhttp.logging)
 
     // Work
     implementation(libs.work.runtime)
-    androidTestImplementation(libs.work.testing)
 
     // Shizuku and Dhizuku
     implementation(libs.shizuku.api)
@@ -132,4 +157,27 @@ dependencies {
 
     // Notifications
     implementation(libs.accompanist.permissions)
+
+    // ---- Local (JVM) tests ----
+    //
+    // Everything that does not need the Android framework runs here: domain selection logic,
+    // mappers, use cases, ViewModels and the navigation state machine. Robolectric is deliberately
+    // absent — see `docs/testing.md` for why, and for how to re-enable it.
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.androidx.arch.core.testing)
+
+    // ---- Instrumented tests ----
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.work.testing)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.dagger.hilt.compiler)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }

@@ -1,0 +1,45 @@
+# R8 keep rules for :app
+#
+# AGP 9 picks every `src/<sourceSet>/keepRules/**/*.keep` file up automatically, so this file
+# needs no `proguardFiles` entry. The AOSP defaults (`proguard-android-optimize.txt`) are also
+# applied automatically because `optimization.keepRules.includeDefault` defaults to true.
+#
+# Rules that belong to a dependency live with that dependency: `:tdlib` ships its own
+# `consumer-rules.keep`, and Hilt/Room/Retrofit/kotlinx.serialization/OkHttp/Coil all ship
+# consumer rules inside their artifacts. Only keep here what R8 cannot infer from this module.
+#
+# Note: `android.r8.strictFullModeForKeepRules` is on by default in AGP 9 — `-keep class A` no
+# longer implies `-keep class A { <init>(); }`. Every rule below therefore names the members it
+# actually needs.
+
+# ---- Crash reporting -------------------------------------------------------------------------
+# Line numbers survive minification so release stack traces stay retraceable via mapping.txt.
+-keepattributes SourceFile,LineNumberTable
+
+# ---- Privileged installer (Shizuku / Dhizuku / Refine / hidden APIs) --------------------------
+# `IIntentSenderAdaptor` is handed to the platform as a Binder. The framework calls `send(...)`
+# reflectively over the binder boundary, so neither the class nor its methods may be renamed.
+-keep class dev.re7gog.b_sideloader.data.installer.privileged.IntentSenderHelper$IIntentSenderAdaptor {
+    <init>(...);
+    public int send(...);
+    public void send(...);
+}
+
+# `dev.rikka.hidden:stub` is `compileOnly`: these framework types exist on the device but not on
+# R8's classpath. Without this R8 aborts on the missing supertypes/return types.
+-dontwarn android.content.IIntentReceiver
+-dontwarn android.content.IIntentSender**
+-dontwarn android.content.pm.IPackageInstaller**
+-dontwarn android.content.pm.IPackageManager**
+-dontwarn android.content.pm.PackageInstallerHidden**
+-dontwarn android.content.pm.PackageManagerHidden**
+-dontwarn android.os.IInterface
+-dontwarn dev.rikka.tools.refine.**
+
+# Dhizuku talks to the owner app over AIDL; its stubs are resolved by name at runtime.
+-keep class com.rosan.dhizuku.aidl.** { *; }
+-keep class com.rosan.dhizuku.shared.** { *; }
+
+# ---- Kotlin -----------------------------------------------------------------------------------
+# Null-check messages are dead weight in release; the checks themselves stay.
+-processkotlinnullchecks remove_message

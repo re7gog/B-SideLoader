@@ -16,7 +16,8 @@ android {
         minSdk = 26
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
+        // Published to consumers so :app's R8 knows the JNI surface must survive.
+        consumerProguardFiles("consumer-rules.keep")
 
         @Suppress("UnstableApiUsage")
         externalNativeBuild {
@@ -33,11 +34,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // Deliberately off. :tdlib is only ever consumed by :app in this build, and :app's
+            // R8 pass already shrinks everything with the consumer rules above applied. Running
+            // R8 twice costs build time and risks obfuscating the JNI surface before the app's
+            // own rules are even seen.
+            isMinifyEnabled = false
         }
     }
     compileOptions {

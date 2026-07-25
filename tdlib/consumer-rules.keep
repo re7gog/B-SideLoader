@@ -1,0 +1,13 @@
+# Keep rules published to every consumer of :tdlib.
+#
+# TDLib's Java bindings are driven entirely from native code: `TdApi` request/response objects are
+# instantiated field-by-field by `libtdjni.so`, and `Client`'s handlers are invoked from the TDLib
+# thread. None of that is visible to R8, so the whole binding surface has to survive shrinking and
+# renaming. `**` (not `*`) so the thousands of `TdApi$...` nested classes are covered explicitly.
+-keep class org.drinkless.tdlib.** { *; }
+
+# `Client`, `NativeClient` and `Secrets` declare `external`/`native` members that the .so resolves
+# by their exact JNI signature.
+-keepclasseswithmembernames,includedescriptorclasses class org.drinkless.tdlib.** {
+    native <methods>;
+}

@@ -3,49 +3,42 @@ package dev.re7gog.b_sideloader.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import dev.re7gog.b_sideloader.data.local.dao.AppsDao
-import dev.re7gog.b_sideloader.data.local.entities.*
+import dev.re7gog.b_sideloader.data.local.entity.AppEntity
+import dev.re7gog.b_sideloader.data.local.entity.GithubDetailsEntity
+import dev.re7gog.b_sideloader.data.local.entity.TelegramDetailsEntity
 
-// TODO: Export schema for migration support
+/**
+ * The apps database.
+ *
+ * `exportSchema = true` writes `app/schemas/<version>.json` on every build. That file is checked
+ * in and copied into the instrumented-test assets (see `app/build.gradle.kts`), which is what lets
+ * `MigrationTest` open an old database and assert that the migration to the current version
+ * actually succeeds — the previous setup exported nothing and relied on destructive fallback, so a
+ * schema change would silently have wiped user data on the first release.
+ *
+ * ### Adding a schema change
+ * 1. Bump [DB_VERSION].
+ * 2. Add a `Migration(old, new)` to [MIGRATIONS].
+ * 3. Build once so the new `schemas/<version>.json` is generated, and commit it.
+ * 4. Add a case to `AppsDatabaseMigrationTest`.
+ */
 @Database(
     entities = [
         AppEntity::class,
         GithubDetailsEntity::class,
-        TelegramDetailsEntity::class
+        TelegramDetailsEntity::class,
     ],
-    version = 1,
-    exportSchema = false
+    version = AppsDatabase.DB_VERSION,
+    exportSchema = true,
 )
 abstract class AppsDatabase : RoomDatabase() {
     abstract fun appsDao(): AppsDao
 
-    // Not released yet, so the schema stays at version 1 and dev builds recreate the DB on change
-    // (fallbackToDestructiveMigration in AppsDatabaseModule). Once released, bump `version`, add a
-    // Migration here, and register it in the builder instead of wiping data. Template:
-    //
-    // companion object {
-    //     val MIGRATION_1_2 = object : Migration(1, 2) {
-    //         override fun migrate(db: SupportSQLiteDatabase) {
-    //             db.execSQL("ALTER TABLE apps ADD COLUMN advancedMode INTEGER NOT NULL DEFAULT 0")
-    //         }
-    //     }
-    // }
-    // (needs: androidx.room.migration.Migration, androidx.sqlite.db.SupportSQLiteDatabase)
-
-    // Not needed with Hilt
-    /*
     companion object {
-        @Volatile
-        private var Instance: AppsDatabase? = null
+        const val DB_VERSION = 1
+        const val DB_NAME = "apps_database"
 
-        fun getDatabase(context: Context): AppsDatabase {
-            // if the Instance is not null, return it, otherwise create a new database instance.
-            return Instance ?: synchronized(this) {
-                Room.databaseBuilder(context, AppsDatabase::class.java, "apps_database")
-                    .fallbackToDestructiveMigration(true)
-                    .build()
-                    .also { Instance = it }
-            }
-        }
+        /** Empty while the schema is still at its first version. */
+        val MIGRATIONS: Array<androidx.room.migration.Migration> = emptyArray()
     }
-    */
 }

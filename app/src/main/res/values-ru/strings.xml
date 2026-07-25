@@ -203,4 +203,82 @@
     <string name="notif_progress_text">Обновление %1$s</string>
     <string name="notif_update_available_title">Доступны обновления</string>
     <string name="notif_update_available_text">Доступна новая версия:%1$s</string>
+
+    <!-- Список приложений / детали -->
+    <string name="by_owner">от %1$s</string>
+    <string name="working">Выполняется…</string>
+    <string name="checking_for_updates">Проверка обновлений…</string>
+    <string name="message_filters">Фильтры сообщений</string>
+
+    <!-- Ошибки -->
+    <string name="error_network">Нет соединения. Проверьте сеть и повторите попытку.</string>
+    <string name="error_http">Сервер вернул ошибку (%1$d).</string>
+    <string name="error_unauthorized">GitHub отклонил запрос. Проверьте токен в настройках.</string>
+    <string name="error_rate_limited">Часовой лимит запросов GitHub исчерпан. Добавьте токен в настройках, чтобы увеличить его.</string>
+    <string name="error_rate_limited_until">Лимит запросов GitHub исчерпан до %1$s. Добавьте токен в настройках, чтобы увеличить его.</string>
+    <string name="error_not_found">Не найдено. Возможно, объект переименован или удалён.</string>
+    <string name="error_telegram">Telegram: %1$s</string>
+    <string name="error_telegram_signed_out">Сначала войдите в Telegram.</string>
+    <string name="error_no_release_matches">Ничего не подходит под текущие фильтры.</string>
+    <string name="error_install_aborted">Установка отменена.</string>
+    <string name="error_install_storage">Недостаточно свободного места для установки.</string>
+    <string name="error_install_bad_payload">Загрузка не завершилась. Попробуйте ещё раз.</string>
+    <string name="error_install_downgrade">Эта версия старее установленной. Сначала удалите текущее приложение.</string>
+    <string name="error_install_rejected">Android отклонил установку.</string>
+    <string name="error_install_rejected_detail">Android отклонил установку: %1$s</string>
+    <string name="error_privileged_not_found">Shizuku/Sui или Dhizuku не запущен.</string>
+    <string name="error_privileged_denied">Доступ запрещён. Выдайте разрешение в Shizuku или Dhizuku.</string>
+    <string name="error_privileged_outdated">Обновите Shizuku до версии 11 или новее.</string>
+    <string name="error_privileged_unsupported">Для Shizuku через ADB нужен Android 8.1 или новее. Используйте Sui (root) или Dhizuku.</string>
+    <string name="error_unexpected">Что-то пошло не так.</string>
+
+    <!-- Надёжность фоновой работы -->
+    <string name="settings_background_reliability">Надёжность фоновой работы</string>
+    <string name="settings_background_reliability_subtitle">Проверьте, могут ли обновления выполняться при закрытом приложении</string>
+    <string name="background_title">Фоновые обновления</string>
+    <string name="background_checklist">Проверка</string>
+    <string name="background_recommended">Рекомендуется для этого телефона</string>
+    <string name="background_summary_ok">Фоновые обновления должны работать</string>
+    <string name="background_summary_issues">Фоновые обновления могут не выполняться</string>
+    <string name="background_summary_device">Определено: %1$s</string>
+    <string name="background_could_not_open">Не удалось открыть этот экран настроек на этом устройстве.</string>
+    <string name="background_open_app_settings">Открыть настройки приложения</string>
+    <string name="background_battery_title">Оптимизация батареи</string>
+    <string name="background_battery_description">Android откладывает или пропускает фоновую работу оптимизируемых приложений.</string>
+    <string name="background_battery_action">Разрешить неограниченный расход батареи</string>
+    <string name="background_notifications_title">Уведомления</string>
+    <string name="background_notifications_description">Нужны для сообщений об обновлениях и обязательны для работы постоянной службы обновлений.</string>
+    <string name="background_notifications_action">Открыть настройки уведомлений</string>
+    <string name="background_restricted_title">Приложение ограничено</string>
+    <string name="background_restricted_description">Android перевёл приложение в ограниченный режим, в котором фоновая работа почти никогда не выполняется.</string>
+    <string name="background_autostart_title">Автозапуск / защищённые приложения</string>
+    <string name="background_autostart_description">%1$s ведёт собственный список, который приложения не могут ни прочитать, ни запросить. Включите B-SideLoader там вручную.</string>
+    <string name="background_autostart_action">Открыть настройки автозапуска</string>
+    <string name="background_persistent_title">Использовать постоянную службу</string>
+    <string name="background_persistent_description">Постоянное уведомление не даёт прошивке убить обновлятор. Немного расходует батарею.</string>
+    <string name="background_persistent_action">Переключиться на постоянную службу</string>
+
+    <!-- Производители -->
+    <string name="vendor_xiaomi">Xiaomi (MIUI / HyperOS)</string>
+    <string name="vendor_huawei">Huawei / Honor (EMUI)</string>
+    <string name="vendor_oppo">OPPO / realme / OnePlus (ColorOS)</string>
+    <string name="vendor_vivo">vivo / iQOO (OriginOS)</string>
+    <string name="vendor_meizu">Meizu (Flyme)</string>
+    <string name="vendor_transsion">Infinix / TECNO / itel</string>
+    <string name="vendor_asus">ASUS</string>
+    <string name="vendor_samsung">Samsung (One UI)</string>
+    <string name="vendor_generic">это устройство</string>
+
+    <!-- Инструкции для производителей -->
+    <string name="vendor_step_xiaomi_autostart">Безопасность → Разрешения → Автозапуск → включите B-SideLoader</string>
+    <string name="vendor_step_xiaomi_battery">Настройки → Приложения → B-SideLoader → Экономия батареи → Без ограничений</string>
+    <string name="vendor_step_xiaomi_lock">В списке недавних потяните карточку приложения вниз, чтобы закрепить её</string>
+    <string name="vendor_step_huawei_manage">Батарея → Запуск приложений → B-SideLoader → Управлять вручную</string>
+    <string name="vendor_step_huawei_launch">Включите автозапуск, косвенный запуск и работу в фоне</string>
+    <string name="vendor_step_oppo_autostart">Настройки → Приложения → Автозапуск → включите B-SideLoader</string>
+    <string name="vendor_step_oppo_battery">Батарея → Расход батареи приложениями → B-SideLoader → Разрешить фоновую активность</string>
+    <string name="vendor_step_vivo_autostart">i Менеджер → Управление приложениями → Автозапуск → включите B-SideLoader</string>
+    <string name="vendor_step_vivo_battery">Батарея → Высокий расход в фоне → разрешите B-SideLoader</string>
+    <string name="vendor_step_samsung_sleeping">Батарея → Ограничения фоновой работы → уберите B-SideLoader из спящих и глубоко спящих приложений</string>
+    <string name="vendor_step_generic">Найдите в системных настройках пункт «Автозапуск», «Защищённые приложения» или «Фоновая активность» и разрешите B-SideLoader.</string>
 </resources>

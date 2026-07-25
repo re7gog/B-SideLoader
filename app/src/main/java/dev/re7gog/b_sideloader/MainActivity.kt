@@ -1,215 +1,47 @@
 package dev.re7gog.b_sideloader
 
-import android.Manifest
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.shouldShowRationale
 import dagger.hilt.android.AndroidEntryPoint
-import dev.re7gog.b_sideloader.ui.features.app_details.AppGhDetailsScreen
-import dev.re7gog.b_sideloader.ui.features.app_details.AppTgDetailsScreen
-import dev.re7gog.b_sideloader.ui.features.apps_list.AppsListScreen
-import dev.re7gog.b_sideloader.ui.features.search_app.SearchAppScreen
-import dev.re7gog.b_sideloader.ui.features.settings.SettingsScreen
-import dev.re7gog.b_sideloader.ui.features.telegram_login.AuthScreen
-import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromDbRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppGhDetailsFromSearchRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromDbRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppTgDetailsFromSearchRoute
-import dev.re7gog.b_sideloader.ui.navigation.AppsListRoute
-import dev.re7gog.b_sideloader.ui.navigation.SearchAppRoute
-import dev.re7gog.b_sideloader.ui.navigation.SettingsRoute
-import dev.re7gog.b_sideloader.ui.navigation.TgLoginRoute
-import dev.re7gog.b_sideloader.ui.navigation.topLevelDestinations
+import dev.re7gog.b_sideloader.ui.BSideLoaderApp
+import dev.re7gog.b_sideloader.ui.common.permission.NotificationPermissionGate
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 
+/**
+ * The single activity.
+ *
+ * `AppCompatActivity` (rather than `ComponentActivity`) because AppCompat provides the per-app
+ * language backport below API 33, which the settings screen relies on.
+ */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (intent?.getBooleanExtra(EXTRA_RUN_UPDATE_CHECK, false) == true) {
+            viewModel.runUpdateCheckNow()
+        }
+
         setContent {
             val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
             BSideLoaderTheme(dynamicColor = useDynamicColor) {
+                NotificationPermissionGate()
                 BSideLoaderApp()
             }
         }
     }
-}
 
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-fun NotificationPermissionHandler() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        val permissionState = rememberPermissionState(
-            permission = Manifest.permission.POST_NOTIFICATIONS)
-
-        LaunchedEffect(key1 = true) {
-            if (!permissionState.status.isGranted && !permissionState.status.shouldShowRationale) {
-                permissionState.launchPermissionRequest()
-            }
-        }
-        if (permissionState.status.shouldShowRationale) {
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text(stringResource(R.string.enable_notifications)) },
-                text = { Text(stringResource(R.string.notifications_rationale)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = { permissionState.launchPermissionRequest() }
-                    ) {
-                        Text(stringResource(R.string.ok))
-                    }
-                }
-            )
-        }
-    }
-}
-
-/** Clears the back stack and returns to the apps list (used after a successful install). */
-private fun NavController.navigateToAppsList() {
-    navigate(AppsListRoute) {
-        popUpTo(AppsListRoute) { inclusive = true }
-        launchSingleTop = true
-    }
-}
-
-@Composable
-fun BSideLoaderApp() {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
-
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            topLevelDestinations.forEach {
-                item(
-                    selected = currentDestination?.hasRoute(it.route::class) == true,
-                    onClick = {
-                        navController.navigate(it.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true // Do not create copies of same screen
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(it.icon),
-                            contentDescription = stringResource(it.label)
-                        )
-                    },
-                    label = { Text(stringResource(it.label)) }
-                )
-            }
-        }
-    ) {
-        NotificationPermissionHandler()
-        NavHost(
-            navController = navController,
-            startDestination = AppsListRoute
-        ) {
-            composable<AppsListRoute> {
-                AppsListScreen(
-                    onGhAppClick = { id, installed  ->
-                        navController.navigate(AppGhDetailsFromDbRoute(appId = id, installed = installed))
-                    },
-                    onTgAppClick = { id, installed ->
-                        navController.navigate(AppTgDetailsFromDbRoute(appId = id, installed = installed))
-                    }
-                )
-            }
-            composable<SearchAppRoute> {
-                SearchAppScreen(
-                    onGhSearchResClick = { repo ->
-                        navController.navigate(
-                            AppGhDetailsFromSearchRoute(
-                                name = repo.name,
-                                owner = repo.owner.login,
-                                repo = repo.name,
-                                description = repo.description,
-                                stars = repo.stars,
-                                iconUrl = repo.owner.avatarUrl
-                            )
-                        )
-                    },
-                    onTgSearchResClick = { messageList ->
-                        navController.navigate(
-                            AppTgDetailsFromSearchRoute(
-                                chatId = messageList.chatId,
-                                chatTitle = messageList.chatTitle,
-                                topicId = messageList.topicId
-                            )
-                        )
-                    }
-                )
-            }
-            composable<SettingsRoute> {
-                SettingsScreen(
-                    onTgLoginClick = { navController.navigate(TgLoginRoute) }
-                )
-            }
-            composable<AppGhDetailsFromDbRoute> {
-                AppGhDetailsScreen(
-                    onBack = { navController.popBackStack() },
-                    onInstalledExit = { navController.popBackStack() }
-                )
-            }
-            composable<AppGhDetailsFromSearchRoute> {
-                AppGhDetailsScreen(
-                    onBack = { navController.popBackStack() },
-                    onInstalledExit = { navController.navigateToAppsList() }
-                )
-            }
-            composable<AppTgDetailsFromDbRoute> {
-                AppTgDetailsScreen(
-                    onBack = { navController.popBackStack() },
-                    onInstalledExit = { navController.popBackStack() }
-                )
-            }
-            composable<AppTgDetailsFromSearchRoute> {
-                AppTgDetailsScreen(
-                    onBack = { navController.popBackStack() },
-                    onInstalledExit = { navController.navigateToAppsList() }
-                )
-            }
-            composable<TgLoginRoute> {
-                AuthScreen(
-                    onAuthSuccess = {
-                        navController.navigate(SettingsRoute) {
-                            popUpTo<SettingsRoute> { inclusive = true }
-                        }
-                    },
-                    onExit = { navController.popBackStack() }
-                )
-            }
-        }
+    companion object {
+        /** Set by the "updates available" notification so opening it starts a check. */
+        const val EXTRA_RUN_UPDATE_CHECK = "dev.re7gog.b_sideloader.extra.RUN_UPDATE_CHECK"
     }
 }

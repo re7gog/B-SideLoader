@@ -34,18 +34,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--
+            PackageInstaller delivers its verdict to these. They are not exported: the only sender
+            is the system, acting on a PendingIntent this app created.
+        -->
         <receiver
-            android:name=".data.installer.InstallReceiver"
+            android:name=".data.installer.InstallResultReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="dev.re7gog.b_sideloader.INSTALL_COMPLETE" />
+                <action android:name="dev.re7gog.b_sideloader.INSTALL_RESULT" />
             </intent-filter>
         </receiver>
         <receiver
-            android:name=".data.installer.UninstallReceiver"
+            android:name=".data.installer.UninstallResultReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="dev.re7gog.b_sideloader.UNINSTALL_COMPLETE" />
+                <action android:name="dev.re7gog.b_sideloader.UNINSTALL_RESULT" />
             </intent-filter>
         </receiver>
         <provider
@@ -65,7 +69,7 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
         <service
-            android:name=".data.background.UpdateForegroundService"
+            android:name=".data.background.UpdateMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse|dataSync">
             <property

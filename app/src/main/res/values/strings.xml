@@ -203,4 +203,82 @@
     <string name="notif_progress_text">Updating %1$s</string>
     <string name="notif_update_available_title">Updates available</string>
     <string name="notif_update_available_text">New version of%1$s available</string>
+
+    <!-- Apps list / details (added) -->
+    <string name="by_owner">by %1$s</string>
+    <string name="working">Working…</string>
+    <string name="checking_for_updates">Checking for updates…</string>
+    <string name="message_filters">Message filters</string>
+
+    <!-- Errors. One string per domain failure, so the cause is always actionable. -->
+    <string name="error_network">No connection. Check your network and try again.</string>
+    <string name="error_http">The server returned an error (%1$d).</string>
+    <string name="error_unauthorized">GitHub rejected the request. Check your token in Settings.</string>
+    <string name="error_rate_limited">GitHub\'s hourly request limit is used up. Add a token in Settings to raise it.</string>
+    <string name="error_rate_limited_until">GitHub\'s request limit is used up until %1$s. Add a token in Settings to raise it.</string>
+    <string name="error_not_found">Not found. It may have been renamed or deleted.</string>
+    <string name="error_telegram">Telegram: %1$s</string>
+    <string name="error_telegram_signed_out">Sign in to Telegram first.</string>
+    <string name="error_no_release_matches">Nothing matches the current filters.</string>
+    <string name="error_install_aborted">Install cancelled.</string>
+    <string name="error_install_storage">Not enough free space to install.</string>
+    <string name="error_install_bad_payload">The download was incomplete. Try again.</string>
+    <string name="error_install_downgrade">This version is older than the installed one. Uninstall the current app first.</string>
+    <string name="error_install_rejected">Android refused the install.</string>
+    <string name="error_install_rejected_detail">Android refused the install: %1$s</string>
+    <string name="error_privileged_not_found">Shizuku/Sui or Dhizuku is not running.</string>
+    <string name="error_privileged_denied">Permission denied. Grant it in Shizuku or Dhizuku.</string>
+    <string name="error_privileged_outdated">Please update Shizuku to v11 or newer.</string>
+    <string name="error_privileged_unsupported">Android 8.1 or newer is required for Shizuku over ADB. Use Sui (root) or Dhizuku instead.</string>
+    <string name="error_unexpected">Something went wrong.</string>
+
+    <!-- Background reliability -->
+    <string name="settings_background_reliability">Background reliability</string>
+    <string name="settings_background_reliability_subtitle">Check whether updates can run while the app is closed</string>
+    <string name="background_title">Background updates</string>
+    <string name="background_checklist">Checklist</string>
+    <string name="background_recommended">Recommended for this phone</string>
+    <string name="background_summary_ok">Background updates should work</string>
+    <string name="background_summary_issues">Background updates may not run</string>
+    <string name="background_summary_device">Detected: %1$s</string>
+    <string name="background_could_not_open">Couldn\'t open that settings screen on this device.</string>
+    <string name="background_open_app_settings">Open app settings</string>
+    <string name="background_battery_title">Battery optimisation</string>
+    <string name="background_battery_description">Android delays or skips background work for optimised apps.</string>
+    <string name="background_battery_action">Allow unrestricted battery use</string>
+    <string name="background_notifications_title">Notifications</string>
+    <string name="background_notifications_description">Needed to report updates, and required for the persistent update service to run at all.</string>
+    <string name="background_notifications_action">Open notification settings</string>
+    <string name="background_restricted_title">App is restricted</string>
+    <string name="background_restricted_description">Android has put this app in the restricted state, where background work almost never runs.</string>
+    <string name="background_autostart_title">Autostart / protected apps</string>
+    <string name="background_autostart_description">%1$s keeps its own allowlist that apps cannot read or request. You have to enable B-SideLoader there yourself.</string>
+    <string name="background_autostart_action">Open autostart settings</string>
+    <string name="background_persistent_title">Use the persistent service</string>
+    <string name="background_persistent_description">A permanent notification keeps the updater alive on ROMs that kill scheduled jobs. Costs some battery.</string>
+    <string name="background_persistent_action">Switch to persistent service</string>
+
+    <!-- Device vendors -->
+    <string name="vendor_xiaomi">Xiaomi (MIUI / HyperOS)</string>
+    <string name="vendor_huawei">Huawei / Honor (EMUI)</string>
+    <string name="vendor_oppo">OPPO / realme / OnePlus (ColorOS)</string>
+    <string name="vendor_vivo">vivo / iQOO (OriginOS)</string>
+    <string name="vendor_meizu">Meizu (Flyme)</string>
+    <string name="vendor_transsion">Infinix / TECNO / itel</string>
+    <string name="vendor_asus">ASUS</string>
+    <string name="vendor_samsung">Samsung (One UI)</string>
+    <string name="vendor_generic">this device</string>
+
+    <!-- Vendor-specific manual steps -->
+    <string name="vendor_step_xiaomi_autostart">Security → Permissions → Autostart → enable B-SideLoader</string>
+    <string name="vendor_step_xiaomi_battery">Settings → Apps → B-SideLoader → Battery saver → No restrictions</string>
+    <string name="vendor_step_xiaomi_lock">In Recents, pull the app card down to lock it</string>
+    <string name="vendor_step_huawei_manage">Battery → App launch → B-SideLoader → Manage manually</string>
+    <string name="vendor_step_huawei_launch">Turn on Auto-launch, Secondary launch and Run in background</string>
+    <string name="vendor_step_oppo_autostart">Settings → Apps → Auto startup → enable B-SideLoader</string>
+    <string name="vendor_step_oppo_battery">Battery → App battery usage → B-SideLoader → Allow background activity</string>
+    <string name="vendor_step_vivo_autostart">i Manager → App manager → Autostart → enable B-SideLoader</string>
+    <string name="vendor_step_vivo_battery">Battery → High background power consumption → allow B-SideLoader</string>
+    <string name="vendor_step_samsung_sleeping">Battery → Background usage limits → remove B-SideLoader from Sleeping and Deep sleeping apps</string>
+    <string name="vendor_step_generic">Look for an “Autostart”, “Protected apps” or “Background activity” option in your system settings and allow B-SideLoader.</string>
 </resources>
