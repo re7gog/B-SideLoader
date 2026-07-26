@@ -50,6 +50,7 @@ import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
+import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.ui.common.component.NavigationRow
 import dev.re7gog.b_sideloader.ui.common.component.SectionLabel
 import dev.re7gog.b_sideloader.ui.common.component.SettingsGroup
@@ -115,6 +116,12 @@ fun SettingsScreen(
                             },
                         )
                     }
+                    SwitchRow(
+                        title = stringResource(R.string.settings_parallel_checks),
+                        subtitle = stringResource(R.string.settings_parallel_checks_subtitle),
+                        checked = uiState.settings.parallelUpdateChecks,
+                        onCheckedChange = viewModel::setParallelUpdateChecks,
+                    )
                     NavigationRow(
                         title = stringResource(R.string.settings_background_reliability),
                         subtitle = stringResource(R.string.settings_background_reliability_subtitle),
@@ -126,6 +133,10 @@ fun SettingsScreen(
             item { SectionLabel(stringResource(R.string.settings_appearance), Modifier.padding(top = 16.dp)) }
             item {
                 SettingsGroup {
+                    ThemeModeRow(
+                        selected = uiState.settings.themeMode,
+                        onSelect = viewModel::setThemeMode,
+                    )
                     LanguageRow()
                     SwitchRow(
                         title = stringResource(R.string.settings_dynamic_color),
@@ -179,6 +190,34 @@ private fun InstallerModeRow(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { expanded = true },
     ) { Text(stringResource(R.string.settings_installation_method)) }
+}
+
+/** Light / dark / follow-the-system, in the same dropdown shape as the installer picker. */
+@Composable
+private fun ThemeModeRow(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ListItem(
+        supportingContent = { Text(stringResource(selected.labelRes)) },
+        trailingContent = {
+            Icon(painterResource(R.drawable.chevron_right_24px), contentDescription = null)
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                ThemeMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(mode.labelRes)) },
+                        onClick = {
+                            expanded = false
+                            onSelect(mode)
+                        },
+                    )
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable { expanded = true },
+    ) { Text(stringResource(R.string.settings_theme)) }
 }
 
 @Composable
@@ -329,4 +368,11 @@ private val InstallerMode.labelRes: Int
         InstallerMode.Session -> R.string.installer_session
         InstallerMode.Shizuku -> R.string.installer_shizuku
         InstallerMode.Dhizuku -> R.string.installer_dhizuku
+    }
+
+private val ThemeMode.labelRes: Int
+    get() = when (this) {
+        ThemeMode.System -> R.string.theme_system
+        ThemeMode.Light -> R.string.theme_light
+        ThemeMode.Dark -> R.string.theme_dark
     }

@@ -125,7 +125,10 @@ fun NavigationRow(
     ) { Text(title) }
 }
 
-/** Rounded text field used for every include/exclude filter. */
+/**
+ * Rounded single-line text field. Used for every include/exclude filter, and for the editable app
+ * name on the details page — the styling is the same, so it is defined once.
+ */
 @Composable
 fun FilterField(
     value: String,

@@ -86,6 +86,19 @@ class ManualInstallViewModel @Inject constructor(
 
     fun onConfirm() {
         val apk = (_uiState.value as? ManualInstallUiState.Confirming)?.apk ?: return
+        // Nothing here ever sets INSTALL_ALLOW_DOWNGRADE, so a downgrade is not "likely to fail",
+        // it *will* fail — after streaming the whole archive into a session. Say so now, naming
+        // both versions, instead of spending the install and reporting a bare framework conflict.
+        if (apk.isDowngrade) {
+            _messages.tryEmit(
+                UiText.of(
+                    R.string.error_install_downgrade_versions,
+                    apk.versionName,
+                    apk.installedVersionName.orEmpty(),
+                )
+            )
+            return
+        }
         installJob = viewModelScope.launch {
             _uiState.value = ManualInstallUiState.Installing(apk, InstallProgress.Preparing)
             installerGateway.installLocal(apk).collect { progress ->

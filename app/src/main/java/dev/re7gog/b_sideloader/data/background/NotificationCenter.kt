@@ -1,13 +1,17 @@
 package dev.re7gog.b_sideloader.data.background
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.MainActivity
 import dev.re7gog.b_sideloader.R
@@ -99,9 +103,24 @@ class NotificationCenter @Inject constructor(
 
     fun cancelProgress() = cancel(ID_UPDATE_PROGRESS)
 
+    /**
+     * Posts a notification, or drops it when the app may not.
+     *
+     * Two separate failure modes, hence two guards. `POST_NOTIFICATIONS` is a runtime permission
+     * from Android 13 on, and posting without it is a silent no-op — worth a log line, because
+     * "the update notification never appeared" is otherwise indistinguishable from "the sweep
+     * never ran". Below Android 13 the permission is implicitly held. Separately, some OEM ROMs
+     * throw from `notify` even with the permission granted, which is why the call itself stays
+     * wrapped.
+     */
     fun notify(id: Int, notification: Notification) {
-        // POST_NOTIFICATIONS may be denied; posting then simply does nothing, but the platform
-        // still throws on some ROMs, so it is guarded rather than permission-checked.
+        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            logger.w(TAG) { "Notification $id dropped: POST_NOTIFICATIONS is not granted" }
+            return
+        }
         runCatchingCancellable { manager.notify(id, notification) }
             .onFailure { logger.w(TAG, it) { "Could not post notification $id" } }
     }

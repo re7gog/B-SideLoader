@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+    implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.material3)
     // AppCompat provides the per-app language (locale) backport for API < 33

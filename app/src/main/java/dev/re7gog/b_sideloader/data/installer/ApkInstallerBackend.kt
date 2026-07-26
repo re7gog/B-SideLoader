@@ -28,11 +28,39 @@ internal fun installFailureFor(status: Int, message: String?): AppError.Install 
         PackageInstaller.STATUS_FAILURE_ABORTED -> InstallFailure.Aborted
         PackageInstaller.STATUS_FAILURE_STORAGE -> InstallFailure.Storage
         PackageInstaller.STATUS_FAILURE_INVALID -> InstallFailure.BadPayload
-        PackageInstaller.STATUS_FAILURE_CONFLICT -> InstallFailure.Downgrade
+        PackageInstaller.STATUS_FAILURE_CONFLICT -> conflictFailureFor(message)
         else -> InstallFailure.Rejected
     }
     return AppError.Install(reason, message)
 }
+
+/**
+ * Splits `STATUS_FAILURE_CONFLICT` into the cases the user can actually act on.
+ *
+ * The public status is a single bucket, but the framework still puts the legacy
+ * `INSTALL_FAILED_*` name in `EXTRA_STATUS_MESSAGE`, which is the only signal available. It is a
+ * diagnostic string rather than an API, so this matches loosely and falls back to the generic
+ * [InstallFailure.Conflict] instead of guessing — previously *every* conflict was reported as a
+ * downgrade, which sent users to uninstall a perfectly current app whenever a signature differed.
+ */
+private fun conflictFailureFor(message: String?): InstallFailure {
+    val text = message.orEmpty().uppercase()
+    return when {
+        text.contains(DOWNGRADE_MARKER) -> InstallFailure.Downgrade
+        SIGNATURE_MARKERS.any { text.contains(it) } -> InstallFailure.SignatureMismatch
+        else -> InstallFailure.Conflict
+    }
+}
+
+/** Covers both `INSTALL_FAILED_VERSION_DOWNGRADE` and `INSTALL_FAILED_PERMISSION_MODEL_DOWNGRADE`. */
+private const val DOWNGRADE_MARKER = "DOWNGRADE"
+
+private val SIGNATURE_MARKERS = listOf(
+    "INSTALL_FAILED_UPDATE_INCOMPATIBLE",
+    "INSTALL_FAILED_SHARED_USER_INCOMPATIBLE",
+    "SIGNATURES DO NOT MATCH",
+    "INCONSISTENT CERTIFICATES",
+)
 
 /** Turns a received `PackageInstaller` verdict into an [InstallOutcome]. */
 internal fun PackageInstallerEvent.toInstallOutcome(): InstallOutcome =

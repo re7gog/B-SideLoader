@@ -5,6 +5,7 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
+import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import javax.inject.Inject
@@ -32,12 +33,19 @@ enum class SweepMode {
 
 /** Progress callbacks, so a worker or service can keep its notification honest. */
 sealed interface SweepProgress {
-    data class Checking(val appName: String, val index: Int, val total: Int) : SweepProgress
+    /**
+     * One app finished being checked. [appName] is the app that just settled — with parallel
+     * checks on, that is not necessarily the one that started last, so treat it as a label rather
+     * than as "the current app".
+     */
+    data class Checking(val appName: String, val done: Int, val total: Int) : SweepProgress
+
     data class Installing(val appName: String, val fraction: Float?) : SweepProgress
 }
 
 /** What one sweep did. */
 data class SweepReport(
+    /** Apps actually queried. Tracked apps that are not on the device are not counted. */
     val checked: Int = 0,
     val withUpdates: List<String> = emptyList(),
     val installed: List<String> = emptyList(),
@@ -51,6 +59,11 @@ data class SweepReport(
 /**
  * Checks every tracked app and, when allowed, installs what is new.
  *
+ * The check phase is delegated to [CheckUpdatesUseCase], which owns both the "skip apps that are
+ * not installed" rule and the sequential/parallel choice. The install phase stays strictly
+ * sequential no matter what that setting says: `PackageInstaller` sessions — and, on the
+ * unprivileged path, the confirmation dialogs they raise — do not overlap sanely.
+ *
  * Failure of one app never aborts the sweep — a rate-limited repository or a channel the user left
  * must not stop the other twenty apps from updating — but cancellation always propagates, so
  * WorkManager stopping the worker actually stops the work.
@@ -58,7 +71,7 @@ data class SweepReport(
 class RunUpdateSweepUseCase @Inject constructor(
     private val appsRepository: AppsRepository,
     private val settingsRepository: SettingsRepository,
-    private val resolveUpdate: ResolveUpdateUseCase,
+    private val checkUpdates: CheckUpdatesUseCase,
     private val installApp: InstallAppUseCase,
     private val deviceInfo: DeviceInfo,
     private val logger: Logger,
@@ -77,38 +90,34 @@ class RunUpdateSweepUseCase @Inject constructor(
         }
 
         val apps = appsRepository.getApps().filter { it.autoUpdate }
-        var report = SweepReport()
+        val outcomes = checkUpdates(apps) { app, done, total ->
+            onProgress(SweepProgress.Checking(app.name, done, total))
+        }
 
-        apps.forEachIndexed { index, app ->
-            onProgress(SweepProgress.Checking(app.name, index, apps.size))
-            report = try {
-                sweepOne(app, effectiveMode, report, onProgress)
-            } catch (e: Throwable) {
-                e.rethrowIfCancellation()
-                logger.w(TAG, e) { "Update check failed for ${app.name}" }
-                report.copy(
-                    checked = report.checked + 1,
-                    failed = report.failed + SweepReport.FailedApp(app.name, e.asAppError()),
-                )
-            }
+        val updatable = outcomes.filter { it.hasUpdate }
+        var report = SweepReport(
+            checked = outcomes.count { !it.skipped },
+            withUpdates = updatable.map { it.app.name },
+            failed = outcomes.mapNotNull { outcome ->
+                outcome.error?.let { SweepReport.FailedApp(outcome.app.name, it) }
+            },
+        )
+        if (effectiveMode == SweepMode.CheckOnly) return report
+
+        updatable.forEach { outcome ->
+            // hasUpdate implies a candidate, but read it defensively rather than asserting.
+            val candidate = outcome.check?.candidate ?: return@forEach
+            report = installOne(outcome.app, candidate, report, onProgress)
         }
         return report
     }
 
-    private suspend fun sweepOne(
+    private suspend fun installOne(
         app: TrackedApp,
-        mode: SweepMode,
+        candidate: UpdateCandidate,
         report: SweepReport,
         onProgress: suspend (SweepProgress) -> Unit,
-    ): SweepReport {
-        val check = resolveUpdate(app)
-        val checked = report.copy(checked = report.checked + 1)
-        if (!check.hasUpdate) return checked
-
-        val candidate = requireNotNull(check.candidate) // hasUpdate implies a candidate
-        val withUpdate = checked.copy(withUpdates = checked.withUpdates + app.name)
-        if (mode == SweepMode.CheckOnly) return withUpdate
-
+    ): SweepReport = try {
         var failure: AppError? = null
         installApp(app, candidate).collect { event ->
             when (event) {
@@ -119,10 +128,14 @@ class RunUpdateSweepUseCase @Inject constructor(
                 is AppInstallEvent.Failed -> failure = event.error
             }
         }
-        return when (val error = failure) {
-            null -> withUpdate.copy(installed = withUpdate.installed + app.name)
-            else -> withUpdate.copy(failed = withUpdate.failed + SweepReport.FailedApp(app.name, error))
+        when (val error = failure) {
+            null -> report.copy(installed = report.installed + app.name)
+            else -> report.copy(failed = report.failed + SweepReport.FailedApp(app.name, error))
         }
+    } catch (e: Throwable) {
+        e.rethrowIfCancellation()
+        logger.w(TAG, e) { "Update install failed for ${app.name}" }
+        report.copy(failed = report.failed + SweepReport.FailedApp(app.name, e.asAppError()))
     }
 
     private fun Throwable.asAppError(): AppError =

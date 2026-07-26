@@ -63,6 +63,16 @@ sealed class AppError(
     class Unexpected(cause: Throwable?) : AppError(cause?.message ?: "Unexpected error", cause)
 }
 
+/**
+ * Why an install was refused.
+ *
+ * [Downgrade], [SignatureMismatch] and [Conflict] all arrive from the framework as the same
+ * `PackageInstaller.STATUS_FAILURE_CONFLICT`, which is a bucket for half a dozen unrelated
+ * problems. They are separated here because the user's next move is completely different for each
+ * — uninstall to go back a version, versus "this APK is from a different signer and never will
+ * install over the current one" — and telling someone to uninstall their app to fix a signature
+ * mismatch loses their data for nothing.
+ */
 enum class InstallFailure {
     /** User dismissed the system install/uninstall confirmation. */
     Aborted,
@@ -75,6 +85,12 @@ enum class InstallFailure {
 
     /** Installing would downgrade the package; Android refuses this. */
     Downgrade,
+
+    /** The APK is signed with a different key than the installed app, so it cannot replace it. */
+    SignatureMismatch,
+
+    /** Conflicts with what is installed, for a reason that is neither of the two above. */
+    Conflict,
 
     /** `PackageInstaller` reported a failure with no more specific mapping. */
     Rejected,

@@ -41,6 +41,13 @@ fun AppError.toUiText(): UiText = when (this) {
         InstallFailure.Storage -> UiText.of(R.string.error_install_storage)
         InstallFailure.BadPayload -> UiText.of(R.string.error_install_bad_payload)
         InstallFailure.Downgrade -> UiText.of(R.string.error_install_downgrade)
+        InstallFailure.SignatureMismatch -> UiText.of(R.string.error_install_signature_mismatch)
+        // The framework's own wording is the only thing that distinguishes the remaining conflicts
+        // from each other, so show it rather than inventing a vaguer sentence.
+        InstallFailure.Conflict -> detail
+            ?.let { UiText.of(R.string.error_install_conflict_detail, it) }
+            ?: UiText.of(R.string.error_install_conflict)
+
         InstallFailure.Rejected -> detail
             ?.let { UiText.of(R.string.error_install_rejected_detail, it) }
             ?: UiText.of(R.string.error_install_rejected)

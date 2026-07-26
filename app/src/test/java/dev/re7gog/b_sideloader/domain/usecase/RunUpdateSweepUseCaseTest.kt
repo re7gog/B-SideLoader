@@ -9,6 +9,7 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
+import dev.re7gog.b_sideloader.testing.FakePackageInspector
 import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.asset
@@ -30,14 +31,28 @@ class RunUpdateSweepUseCaseTest {
     private val installer = FakeInstallerGateway()
     private val deviceInfo = FakeDeviceInfo()
 
+    /** Every fixture app uses `com.example`, so this is "the tracked app is on the device". */
+    private val packages = FakePackageInspector(installedPackages = setOf("com.example"))
+
     private fun sweep(
         apps: FakeAppsRepository,
         settings: FakeSettingsRepository = FakeSettingsRepository(),
-    ): RunUpdateSweepUseCase {
-        val resolve = ResolveUpdateUseCase(github, telegram, deviceInfo)
-        val install = InstallAppUseCase(installer, apps, telegram, NoopLogger)
-        return RunUpdateSweepUseCase(apps, settings, resolve, install, deviceInfo, NoopLogger)
-    }
+        github: dev.re7gog.b_sideloader.domain.repository.GithubRepository = this.github,
+        deviceInfo: FakeDeviceInfo = this.deviceInfo,
+        packages: FakePackageInspector = this.packages,
+    ): RunUpdateSweepUseCase = RunUpdateSweepUseCase(
+        appsRepository = apps,
+        settingsRepository = settings,
+        checkUpdates = CheckUpdatesUseCase(
+            resolveUpdate = ResolveUpdateUseCase(github, telegram, deviceInfo),
+            settingsRepository = settings,
+            packageInspector = packages,
+            logger = NoopLogger,
+        ),
+        installApp = InstallAppUseCase(installer, apps, telegram, NoopLogger),
+        deviceInfo = deviceInfo,
+        logger = NoopLogger,
+    )
 
     @Test
     fun `reports and installs an outdated app`() = runTest {
@@ -74,6 +89,47 @@ class RunUpdateSweepUseCaseTest {
     }
 
     /**
+     * A tracked app that is not on the device has nothing to update, so querying its source spends
+     * a request — and a slice of GitHub's hourly quota — to learn nothing. Asserting on the
+     * repository's call count rather than on the report is the point: the report being empty would
+     * also be true if the request had been made and its result discarded.
+     */
+    @Test
+    fun `apps that are not installed are never queried`() = runTest {
+        val apps = FakeAppsRepository(
+            listOf(
+                githubApp(id = 1, name = "Gone", packageName = "com.gone", version = AppVersion("v1.0")),
+                githubApp(id = 2, name = "Here", version = AppVersion("v1.0")),
+            ),
+        )
+
+        val report = sweep(apps)()
+
+        assertEquals(1, github.releaseCallCount)
+        assertEquals(1, report.checked)
+        assertEquals(listOf("Here"), report.withUpdates)
+    }
+
+    /** Checking several apps at once must reach the same verdict as checking them one by one. */
+    @Test
+    fun `parallel checks find the same updates`() = runTest {
+        val apps = FakeAppsRepository(
+            listOf(
+                githubApp(id = 1, name = "A", version = AppVersion("v1.0")),
+                githubApp(id = 2, name = "B", version = AppVersion("v1.0")),
+                githubApp(id = 3, name = "C", version = AppVersion("v2.0")),
+            ),
+        )
+        val settings = FakeSettingsRepository(AppSettings(parallelUpdateChecks = true))
+
+        val report = sweep(apps, settings)()
+
+        assertEquals(3, report.checked)
+        assertEquals(setOf("A", "B"), report.withUpdates.toSet())
+        assertEquals(setOf("A", "B"), report.installed.toSet())
+    }
+
+    /**
      * Without a privileged installer and without Android 12's silent self-update, committing a
      * session would throw a dialog at a user who is not looking at the phone — so the sweep may
      * only report.
@@ -81,13 +137,10 @@ class RunUpdateSweepUseCaseTest {
     @Test
     fun `falls back to check-only when silent installs are impossible`() = runTest {
         val apps = FakeAppsRepository(listOf(githubApp(id = 1, name = "A", version = AppVersion("v1.0"))))
-        val restricted = RunUpdateSweepUseCase(
-            apps,
-            FakeSettingsRepository(AppSettings(installerMode = InstallerMode.Session)),
-            ResolveUpdateUseCase(github, telegram, FakeDeviceInfo(supportsSilentSelfUpdates = false)),
-            InstallAppUseCase(installer, apps, telegram, NoopLogger),
-            FakeDeviceInfo(supportsSilentSelfUpdates = false),
-            NoopLogger,
+        val restricted = sweep(
+            apps = apps,
+            settings = FakeSettingsRepository(AppSettings(installerMode = InstallerMode.Session)),
+            deviceInfo = FakeDeviceInfo(supportsSilentSelfUpdates = false),
         )
 
         val report = restricted()
@@ -111,16 +164,8 @@ class RunUpdateSweepUseCaseTest {
             override suspend fun getReleases(owner: String, repo: String, page: Int?) =
                 if (call++ == 0) throw AppError.RateLimited() else super.getReleases(owner, repo, page)
         }
-        val useCase = RunUpdateSweepUseCase(
-            apps,
-            FakeSettingsRepository(),
-            ResolveUpdateUseCase(flaky, telegram, deviceInfo),
-            InstallAppUseCase(installer, apps, telegram, NoopLogger),
-            deviceInfo,
-            NoopLogger,
-        )
 
-        val report = useCase()
+        val report = sweep(apps, github = flaky)()
 
         assertEquals(2, report.checked)
         assertEquals(listOf("Fine"), report.installed)
@@ -139,14 +184,7 @@ class RunUpdateSweepUseCaseTest {
             override suspend fun getReleases(owner: String, repo: String, page: Int?): Nothing =
                 throw CancellationException("stopped")
         }
-        val useCase = RunUpdateSweepUseCase(
-            apps,
-            FakeSettingsRepository(),
-            ResolveUpdateUseCase(cancelling, telegram, deviceInfo),
-            InstallAppUseCase(installer, apps, telegram, NoopLogger),
-            deviceInfo,
-            NoopLogger,
-        )
+        val useCase = sweep(apps, github = cancelling)
 
         assertThrows(CancellationException::class.java) {
             kotlinx.coroutines.runBlocking { useCase() }

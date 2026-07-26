@@ -67,6 +67,12 @@ data class AppDetailsUiState(
     val isGithub: Boolean get() = app?.source is AppSource.GitHub
 
     /**
+     * The name is editable, so it can be emptied. A nameless row in the apps list is unusable, so
+     * the state reports it rather than letting a blank one be saved and dealt with later.
+     */
+    val isNameValid: Boolean get() = app?.name?.isNotBlank() == true
+
+    /**
      * The single primary button. Order matters: an app opened from search always installs on the
      * first tap (its edits are persisted as part of that install).
      */
@@ -81,7 +87,7 @@ data class AppDetailsUiState(
 
     /** Actions that download an APK need a resolved target and a settled lookup. */
     val isPrimaryEnabled: Boolean
-        get() = when (primaryAction) {
+        get() = isNameValid && when (primaryAction) {
             PrimaryAction.SaveChanges, PrimaryAction.Open -> true
             PrimaryAction.SaveAndInstall, PrimaryAction.Update, PrimaryAction.Install ->
                 target != null && !isResolving
@@ -90,14 +96,18 @@ data class AppDetailsUiState(
 
 enum class PrimaryAction { SaveAndInstall, SaveChanges, Update, Install, Open }
 
-/** The source-specific header. */
+/**
+ * The source-specific part of the header: the avatar and whatever only that source can say.
+ *
+ * Deliberately carries no title. The name is editable now, so it lives in exactly one place —
+ * [AppDetailsUiState.app]`.name` — and a copy here would go stale the moment the user renamed the
+ * app, leaving the heading showing the old name.
+ */
 @Immutable
 sealed interface HeadlineUi {
-    val title: String
 
     @Immutable
     data class GitHub(
-        override val title: String,
         val owner: String,
         val description: String? = null,
         val stars: Int = 0,
@@ -105,8 +115,5 @@ sealed interface HeadlineUi {
     ) : HeadlineUi
 
     @Immutable
-    data class Telegram(
-        override val title: String,
-        val photoFileId: Int? = null,
-    ) : HeadlineUi
+    data class Telegram(val photoFileId: Int? = null) : HeadlineUi
 }

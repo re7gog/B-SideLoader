@@ -1,8 +1,15 @@
 package dev.re7gog.b_sideloader.ui.feature.appdetails
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,20 +17,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +44,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -43,6 +63,7 @@ import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.ui.common.component.ConfirmDialog
 import dev.re7gog.b_sideloader.ui.common.component.FilterField
+import dev.re7gog.b_sideloader.ui.common.component.SectionDefaults
 import dev.re7gog.b_sideloader.ui.common.component.LoadingState
 import dev.re7gog.b_sideloader.ui.common.component.PrimaryActionArea
 import dev.re7gog.b_sideloader.ui.common.component.SecondaryActions
@@ -65,6 +86,12 @@ fun AppDetailsScreen(
     onBack: () -> Unit,
     onFinishedFromSearch: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * False when this screen is the detail pane of a two-pane layout: the list next to it is
+     * already the way "back", so a second one would be noise — and, more importantly, a
+     * `BackHandler` here would swallow the gesture that should leave the app.
+     */
+    showBackAffordance: Boolean = true,
     viewModel: AppDetailsViewModel = hiltViewModel<AppDetailsViewModel, AppDetailsViewModel.Factory>(
         creationCallback = { factory -> factory.create(args) },
     ),
@@ -82,6 +109,7 @@ fun AppDetailsScreen(
         onPrimaryAction = viewModel::onPrimaryAction,
         onUninstall = viewModel::onUninstall,
         onDelete = { viewModel.onDelete(onBack) },
+        onNameChange = viewModel::onNameChange,
         onAutoUpdateChange = viewModel::onAutoUpdateChange,
         onFilterModeChange = viewModel::onFilterModeChange,
         onAssetIncludeChange = viewModel::onAssetIncludeChange,
@@ -93,6 +121,7 @@ fun AppDetailsScreen(
         onMessageExcludeChange = viewModel::onMessageExcludeChange,
         downloadPhoto = viewModel::downloadPhoto,
         modifier = modifier,
+        showBackAffordance = showBackAffordance,
     )
 }
 
@@ -106,6 +135,7 @@ fun AppDetailsScreen(
     onPrimaryAction: () -> Unit,
     onUninstall: () -> Unit,
     onDelete: () -> Unit,
+    onNameChange: (String) -> Unit,
     onAutoUpdateChange: (Boolean) -> Unit,
     onFilterModeChange: (Boolean) -> Unit,
     onAssetIncludeChange: (String) -> Unit,
@@ -117,13 +147,14 @@ fun AppDetailsScreen(
     onMessageExcludeChange: (String) -> Unit,
     downloadPhoto: suspend (Int) -> String?,
     modifier: Modifier = Modifier,
+    showBackAffordance: Boolean = true,
 ) {
     // After a successful install started from search, back goes to the apps list — the search
     // results the user came from are a dead end once the app is tracked.
     val handleBack: () -> Unit = {
         if (uiState.installSucceeded) onFinishedFromSearch() else onBack()
     }
-    BackHandler(onBack = handleBack)
+    BackHandler(enabled = showBackAffordance, onBack = handleBack)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     val app = uiState.app
@@ -136,17 +167,23 @@ fun AppDetailsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(app.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    IconButton(onClick = handleBack) {
-                        Icon(
-                            painterResource(R.drawable.arrow_back_24px),
-                            contentDescription = stringResource(R.string.cd_back),
-                        )
-                    }
-                },
-            )
+            // No title here: the heading below already carries the app's name, in a size the page
+            // is actually built around. A bar with only a back button is all that is left, so on
+            // the detail pane of a two-pane layout — where there is nothing to go back to — the
+            // bar is dropped entirely rather than left as an empty strip.
+            if (showBackAffordance) {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = handleBack) {
+                            Icon(
+                                painterResource(R.drawable.arrow_back_24px),
+                                contentDescription = stringResource(R.string.cd_back),
+                            )
+                        }
+                    },
+                )
+            }
         },
         modifier = modifier,
     ) { padding ->
@@ -159,11 +196,13 @@ fun AppDetailsScreen(
         ) {
             item {
                 DetailsHeader(
+                    name = app.name,
                     headline = uiState.headline,
                     packageName = app.packageName,
                     isInstalled = uiState.isInstalled,
                     version = app.version.raw,
                     downloadPhoto = downloadPhoto,
+                    onNameChange = onNameChange,
                 )
             }
 
@@ -330,11 +369,13 @@ fun AppDetailsScreen(
 
 @Composable
 private fun DetailsHeader(
+    name: String,
     headline: HeadlineUi?,
     packageName: String,
     isInstalled: Boolean,
     version: String,
     downloadPhoto: suspend (Int) -> String?,
+    onNameChange: (String) -> Unit,
 ) {
     val installedIcon = rememberInstalledAppIcon(packageName, enabled = isInstalled)
 
@@ -364,7 +405,7 @@ private fun DetailsHeader(
             )
 
             headline is HeadlineUi.Telegram -> TelegramAvatar(
-                fallbackText = headline.title.take(1).uppercase().ifEmpty { "?" },
+                fallbackText = name.take(1).uppercase().ifEmpty { "?" },
                 photoFileId = headline.photoFileId,
                 downloadPhoto = downloadPhoto,
                 modifier = Modifier.size(96.dp),
@@ -374,13 +415,18 @@ private fun DetailsHeader(
             else -> Unit
         }
 
-        Column {
-            Text(
-                text = headline?.title.orEmpty(),
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+        // Weighted so a long name ellipsises instead of pushing the pencil off the edge.
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                RenameButton(name = name, onNameChange = onNameChange)
+            }
             when (headline) {
                 is HeadlineUi.GitHub -> {
                     Text(
@@ -411,6 +457,141 @@ private fun DetailsHeader(
         }
     }
 }
+
+/**
+ * Pencil beside the heading that opens a small rename flyout.
+ *
+ * A popup anchored to the button rather than a dialog: renaming is a one-field edit, and dimming
+ * the whole page for it overstates what is happening. The draft stays local until confirmed, so
+ * dismissing the flyout leaves the app untouched and never puts the page into "unsaved changes"
+ * by accident.
+ */
+@Composable
+private fun RenameButton(
+    name: String,
+    onNameChange: (String) -> Unit,
+) {
+    var editing by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { editing = true }) {
+            Icon(
+                painter = painterResource(R.drawable.edit_24px),
+                contentDescription = stringResource(R.string.cd_edit_name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (editing) {
+            RenameFlyout(
+                initialName = name,
+                onConfirm = {
+                    onNameChange(it)
+                    editing = false
+                },
+                onDismiss = { editing = false },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RenameFlyout(
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Keyed on the name it opened with, so reopening starts from what is on screen rather than
+    // from a stale draft left behind by a cancelled edit.
+    var draft by remember(initialName) { mutableStateOf(initialName) }
+    val isValid = draft.isNotBlank()
+    val focusRequester = remember { FocusRequester() }
+    val density = LocalDensity.current
+
+    // A popup window appears instantly, so the entrance is animated by a state that flips right
+    // after the first composition rather than by the popup itself.
+    val visibility = remember { MutableTransitionState(false) }
+    visibility.targetState = true
+
+    Popup(
+        alignment = Alignment.TopEnd,
+        offset = with(density) { IntOffset(x = 0, y = FLYOUT_ANCHOR_OFFSET.roundToPx()) },
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        AnimatedVisibility(
+            visibleState = visibility,
+            enter = fadeIn(tween(FLYOUT_ENTER_MILLIS)) +
+                scaleIn(tween(FLYOUT_ENTER_MILLIS), initialScale = 0.92f),
+            exit = fadeOut(),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(SectionDefaults.GroupCorner),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                tonalElevation = 3.dp,
+                shadowElevation = 6.dp,
+                modifier = Modifier.width(FLYOUT_WIDTH),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        singleLine = true,
+                        isError = !isValid,
+                        supportingText = if (isValid) {
+                            null
+                        } else {
+                            { Text(stringResource(R.string.app_name_required)) }
+                        },
+                        shape = RoundedCornerShape(SectionDefaults.FieldCorner),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { if (isValid) onConfirm(draft.trim()) },
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                        TextButton(
+                            onClick = { onConfirm(draft.trim()) },
+                            enabled = isValid,
+                        ) {
+                            Text(stringResource(R.string.save))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Only once the entrance has settled: the field lives inside the AnimatedVisibility above, and
+    // requesting focus on a requester that is not attached to a composed node yet throws.
+    LaunchedEffect(visibility.currentState) {
+        if (visibility.currentState) focusRequester.requestFocus()
+    }
+}
+
+private val FLYOUT_WIDTH = 288.dp
+
+/** Drops the flyout clear of the pencil it hangs from. */
+private val FLYOUT_ANCHOR_OFFSET = 44.dp
+
+private const val FLYOUT_ENTER_MILLIS = 160
 
 /** One matching APK. The one that would actually be installed is outlined. */
 @Composable

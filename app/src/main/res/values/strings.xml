@@ -16,7 +16,9 @@
     <string name="save_and_install">Save &amp; install</string>
     <string name="save_changes">Save changes</string>
     <string name="ok">OK</string>
+    <string name="save">Save</string>
     <string name="cd_back">Back</string>
+    <string name="cd_edit_name">Edit name</string>
     <string name="cd_clear">Clear</string>
     <string name="cd_selected">Selected</string>
 
@@ -34,8 +36,16 @@
     <string name="no_apps_title">No apps yet</string>
     <string name="no_apps_subtitle">Apps you add from GitHub or Telegram will show up here.</string>
     <string name="cd_app_icon">Icon of %1$s app</string>
+    <string name="update_all">Update all (%1$d)</string>
+    <string name="cd_update_app">Update %1$s</string>
+    <string name="hint_long_press">Tip: press and hold an app to select it, then remove or uninstall several at once.</string>
+    <string name="hint_dismiss">Dismiss tip</string>
+    <string name="no_app_selected_title">No app selected</string>
+    <string name="no_app_selected_subtitle">Pick an app on the left to see its details and filters.</string>
 
     <!-- App details (shared) -->
+    <string name="app_name_label">App name</string>
+    <string name="app_name_required">The name can\'t be empty</string>
     <string name="no_description">No description</string>
     <string name="version_label">Version: %1$s</string>
     <string name="stars_count">%1$d ⭐</string>
@@ -98,6 +108,12 @@
     <string name="settings_persistent_service_subtitle">Keeps a permanent notification to reliably check for updates on phones that kill background apps. Increases battery usage.</string>
     <string name="settings_allow_background">Allow background work</string>
     <string name="settings_allow_background_subtitle">Battery and autostart settings</string>
+    <string name="settings_parallel_checks">Parallel update checks</string>
+    <string name="settings_parallel_checks_subtitle">Check several apps at the same time. Faster, but more likely to hit GitHub\'s hourly request limit without a token.</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="settings_dynamic_color">Dynamic color</string>
     <string name="settings_dynamic_color_subtitle">Use colors from your wallpaper</string>
     <string name="settings_language">Language</string>
@@ -224,6 +240,10 @@
     <string name="error_install_storage">Not enough free space to install.</string>
     <string name="error_install_bad_payload">The download was incomplete. Try again.</string>
     <string name="error_install_downgrade">This version is older than the installed one. Uninstall the current app first.</string>
+    <string name="error_install_downgrade_versions">Can\'t install %1$s over the installed %2$s — Android refuses downgrades. Uninstall the current app first.</string>
+    <string name="error_install_signature_mismatch">This APK is signed with a different key than the installed app, so it can\'t replace it. Uninstall the current app first — its data will be lost.</string>
+    <string name="error_install_conflict">This APK conflicts with an app already on the device.</string>
+    <string name="error_install_conflict_detail">This APK conflicts with an app already on the device: %1$s</string>
     <string name="error_install_rejected">Android refused the install.</string>
     <string name="error_install_rejected_detail">Android refused the install: %1$s</string>
     <string name="error_privileged_not_found">Shizuku/Sui or Dhizuku is not running.</string>

@@ -24,6 +24,7 @@ import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
 import dev.re7gog.b_sideloader.domain.model.TelegramChatSummary
 import dev.re7gog.b_sideloader.domain.model.TelegramTopicSummary
+import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
@@ -209,8 +210,17 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun setUseDynamicColor(enabled: Boolean) =
         state.update { it.copy(useDynamicColor = enabled) }
 
+    override suspend fun setThemeMode(mode: ThemeMode) =
+        state.update { it.copy(themeMode = mode) }
+
+    override suspend fun setParallelUpdateChecks(enabled: Boolean) =
+        state.update { it.copy(parallelUpdateChecks = enabled) }
+
     override suspend fun setBackgroundMode(mode: BackgroundMode) =
         state.update { it.copy(backgroundMode = mode) }
+
+    override suspend fun setLongPressHintSeen(seen: Boolean) =
+        state.update { it.copy(longPressHintSeen = seen) }
 }
 
 /** Records what it was asked to install and replays a scripted outcome. */

@@ -85,7 +85,11 @@ fun SearchScreen(
         onChatClick = { chat -> viewModel.onChatSelected(chat, onTelegramTargetClick) },
         onTopicClick = { topic ->
             uiState.topicsOf?.let { chat ->
-                onTelegramTargetClick(chat.id, topic.id, topic.name)
+                // The group's name, not the topic's: a topic is a section of a channel, and
+                // "Releases" or "APK" on its own says nothing about which app it belongs to. The
+                // details screen lets the name be edited, which is where a topic-specific name
+                // belongs if the user wants one.
+                onTelegramTargetClick(chat.id, topic.id, chat.title)
             }
         },
         onBackToChats = viewModel::onBackToChats,

@@ -159,7 +159,6 @@ class AppDetailsViewModel @AssistedInject constructor(
             source = source,
         )
         return app to HeadlineUi.GitHub(
-            title = args.name,
             owner = args.owner,
             description = args.description,
             stars = args.stars,
@@ -181,10 +180,7 @@ class AppDetailsViewModel @AssistedInject constructor(
             filterMode = FilterMode.Words,
             source = source,
         )
-        return app to HeadlineUi.Telegram(
-            title = args.title,
-            photoFileId = chatPhotoFileId(args.chatId),
-        )
+        return app to HeadlineUi.Telegram(photoFileId = chatPhotoFileId(args.chatId))
     }
 
     private suspend fun headlineFor(app: TrackedApp): HeadlineUi = when (val source = app.source) {
@@ -194,7 +190,6 @@ class AppDetailsViewModel @AssistedInject constructor(
                 githubRepository.getRepository(source.owner, source.repo)
             }.getOrNull()
             HeadlineUi.GitHub(
-                title = app.name,
                 owner = source.owner,
                 description = summary?.description,
                 stars = summary?.stars ?: 0,
@@ -202,10 +197,7 @@ class AppDetailsViewModel @AssistedInject constructor(
             )
         }
 
-        is AppSource.Telegram -> HeadlineUi.Telegram(
-            title = app.name,
-            photoFileId = chatPhotoFileId(source.chatId),
-        )
+        is AppSource.Telegram -> HeadlineUi.Telegram(photoFileId = chatPhotoFileId(source.chatId))
     }
 
     private suspend fun chatPhotoFileId(chatId: Long): Int? =
@@ -260,6 +252,14 @@ class AppDetailsViewModel @AssistedInject constructor(
     }
 
     // ---- edits ------------------------------------------------------------------------------
+
+    /**
+     * Renames the app.
+     *
+     * Only the list and this page's title use the name — nothing about *which* APK wins depends on
+     * it — so this deliberately does not go through the candidate lookup. See [SelectionInputs].
+     */
+    fun onNameChange(value: String) = edit { it.copy(name = value) }
 
     fun onAutoUpdateChange(enabled: Boolean) = edit { it.copy(autoUpdate = enabled) }
 

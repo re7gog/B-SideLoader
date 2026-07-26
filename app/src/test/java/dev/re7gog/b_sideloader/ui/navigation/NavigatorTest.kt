@@ -132,4 +132,86 @@ class NavigatorTest {
 
         assertEquals(listOf(AppsRoute, SettingsRoute), navigator.state.stacksInUse)
     }
+
+    // ---- transition direction ----------------------------------------------------------------
+    //
+    // Navigation 3 decides "push or pop?" by comparing back-stack shapes, and switching between
+    // two sibling tabs swaps one entry for another in both directions — indistinguishable to it,
+    // so it calls every such move a push. Only the navigator knows the tabs are ordered, so these
+    // tests pin down the direction the animation follows.
+
+    @Test
+    fun `moving to a later tab is forward`() {
+        val navigator = navigator()
+
+        navigator.navigate(SettingsRoute)
+
+        assertEquals(NavDirection.Forward, navigator.direction)
+    }
+
+    /** The regression: Settings -> Search moves left in the bar and must animate that way. */
+    @Test
+    fun `moving to an earlier tab is backward`() {
+        val navigator = navigator()
+        navigator.navigate(SettingsRoute)
+
+        navigator.navigate(SearchRoute)
+
+        assertEquals(NavDirection.Backward, navigator.direction)
+    }
+
+    @Test
+    fun `pushing a child route is forward`() {
+        val navigator = navigator()
+        navigator.navigate(SettingsRoute)
+
+        navigator.navigate(TelegramLoginRoute)
+
+        assertEquals(NavDirection.Forward, navigator.direction)
+    }
+
+    @Test
+    fun `going back is backward`() {
+        val navigator = navigator()
+        navigator.navigate(SearchRoute)
+        navigator.navigate(TelegramLoginRoute)
+
+        navigator.goBack()
+
+        assertEquals(NavDirection.Backward, navigator.direction)
+    }
+
+    /** Leaving a non-start tab through back walks towards the apps list, so it reads as backward. */
+    @Test
+    fun `leaving a tab root through back is backward`() {
+        val navigator = navigator()
+        navigator.navigate(SettingsRoute)
+
+        navigator.goBack()
+
+        assertEquals(AppsRoute, navigator.state.topLevelRoute)
+        assertEquals(NavDirection.Backward, navigator.direction)
+    }
+
+    @Test
+    fun `opening app details is forward`() {
+        val navigator = navigator()
+        navigator.navigate(SettingsRoute)
+
+        navigator.showAppDetails(7L)
+
+        assertEquals(NavDirection.Forward, navigator.direction)
+    }
+
+    /** Unwinding to the list after an install is a retreat, even though nothing was popped here. */
+    @Test
+    fun `returning to the apps list is backward`() {
+        val navigator = navigator()
+        navigator.navigate(SearchRoute)
+        navigator.navigate(NewGithubAppRoute(owner = "octocat", repo = "example", name = "Example"))
+
+        navigator.goToAppsList()
+
+        assertEquals(NavDirection.Backward, navigator.direction)
+    }
 }

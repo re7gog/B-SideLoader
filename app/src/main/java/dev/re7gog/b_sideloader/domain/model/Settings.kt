@@ -17,15 +17,53 @@ data class AppSettings(
     /** Allow update checks/downloads on a metered connection. */
     val allowMeteredNetwork: Boolean = false,
     val useDynamicColor: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.Default,
+    /**
+     * Query several sources at once when checking many apps.
+     *
+     * Off by default: a burst of requests is what pushes an unauthenticated user over GitHub's
+     * hourly quota, and the failure mode (everything rate-limited at once) is worse than a slow
+     * sequential sweep.
+     */
+    val parallelUpdateChecks: Boolean = false,
     /** Run a persistent foreground service instead of a periodic WorkManager job. */
     val backgroundMode: BackgroundMode = BackgroundMode.Periodic,
     val checkInterval: Duration = DEFAULT_CHECK_INTERVAL,
+    /**
+     * One-shot UI flag, not something the settings screen shows: whether the apps list has already
+     * told the user that long-pressing a row starts a selection. It lives here because there is
+     * exactly one preference store, and a second one for a single boolean would be worse.
+     */
+    val longPressHintSeen: Boolean = false,
 ) {
     companion object {
         val DEFAULT_CHECK_INTERVAL: Duration = 6.hours
 
         /** WorkManager refuses periodic work with a shorter interval than this. */
         val MIN_CHECK_INTERVAL: Duration = 15.minutes
+
+        /** How many source lookups may be in flight when [parallelUpdateChecks] is on. */
+        const val MAX_PARALLEL_CHECKS: Int = 4
+    }
+}
+
+/**
+ * Which colour scheme the app uses, independent of the system setting.
+ *
+ * [System] is the default and the only value that follows `isSystemInDarkTheme()`; the other two
+ * pin the scheme so a user whose phone has no per-app theme control can still force one.
+ */
+enum class ThemeMode {
+    System,
+    Light,
+    Dark,
+    ;
+
+    companion object {
+        val Default = System
+
+        fun fromStoredName(name: String?): ThemeMode =
+            entries.firstOrNull { it.name == name } ?: Default
     }
 }
 

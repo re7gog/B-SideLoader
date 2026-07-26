@@ -16,7 +16,9 @@
     <string name="save_and_install">Сохранить и установить</string>
     <string name="save_changes">Сохранить изменения</string>
     <string name="ok">ОК</string>
+    <string name="save">Сохранить</string>
     <string name="cd_back">Назад</string>
+    <string name="cd_edit_name">Изменить название</string>
     <string name="cd_clear">Очистить</string>
     <string name="cd_selected">Выбрано</string>
 
@@ -34,8 +36,16 @@
     <string name="no_apps_title">Пока нет приложений</string>
     <string name="no_apps_subtitle">Приложения, добавленные из GitHub или Telegram, появятся здесь.</string>
     <string name="cd_app_icon">Значок приложения %1$s</string>
+    <string name="update_all">Обновить все (%1$d)</string>
+    <string name="cd_update_app">Обновить %1$s</string>
+    <string name="hint_long_press">Совет: нажмите и удерживайте приложение, чтобы выделить его, а затем удалить сразу несколько.</string>
+    <string name="hint_dismiss">Скрыть подсказку</string>
+    <string name="no_app_selected_title">Приложение не выбрано</string>
+    <string name="no_app_selected_subtitle">Выберите приложение слева, чтобы увидеть его описание и фильтры.</string>
 
     <!-- App details (shared) -->
+    <string name="app_name_label">Название приложения</string>
+    <string name="app_name_required">Название не может быть пустым</string>
     <string name="no_description">Нет описания</string>
     <string name="version_label">Версия: %1$s</string>
     <string name="stars_count">%1$d ⭐</string>
@@ -98,6 +108,12 @@
     <string name="settings_persistent_service_subtitle">Показывает постоянное уведомление для надёжной проверки обновлений на телефонах, которые закрывают фоновые приложения. Увеличивает расход батареи.</string>
     <string name="settings_allow_background">Разрешить работу в фоне</string>
     <string name="settings_allow_background_subtitle">Настройки батареи и автозапуска</string>
+    <string name="settings_parallel_checks">Параллельная проверка обновлений</string>
+    <string name="settings_parallel_checks_subtitle">Проверять несколько приложений одновременно. Быстрее, но без токена легче упереться в часовой лимит запросов GitHub.</string>
+    <string name="settings_theme">Тема</string>
+    <string name="theme_system">Как в системе</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
     <string name="settings_dynamic_color">Динамические цвета</string>
     <string name="settings_dynamic_color_subtitle">Использовать цвета обоев</string>
     <string name="settings_language">Язык</string>
@@ -224,6 +240,10 @@
     <string name="error_install_storage">Недостаточно свободного места для установки.</string>
     <string name="error_install_bad_payload">Загрузка не завершилась. Попробуйте ещё раз.</string>
     <string name="error_install_downgrade">Эта версия старее установленной. Сначала удалите текущее приложение.</string>
+    <string name="error_install_downgrade_versions">Не удаётся установить %1$s поверх установленной %2$s — Android не разрешает откат версии. Сначала удалите текущее приложение.</string>
+    <string name="error_install_signature_mismatch">Этот APK подписан другим ключом, поэтому не может заменить установленное приложение. Сначала удалите текущее — его данные будут потеряны.</string>
+    <string name="error_install_conflict">Этот APK конфликтует с приложением, уже установленным на устройстве.</string>
+    <string name="error_install_conflict_detail">Этот APK конфликтует с приложением, уже установленным на устройстве: %1$s</string>
     <string name="error_install_rejected">Android отклонил установку.</string>
     <string name="error_install_rejected_detail">Android отклонил установку: %1$s</string>
     <string name="error_privileged_not_found">Shizuku/Sui или Dhizuku не запущен.</string>

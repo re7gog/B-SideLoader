@@ -13,6 +13,7 @@ import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
+import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.domain.repository.SecretsRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
@@ -126,6 +127,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setUseDynamicColor(enabled) }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+    }
+
+    fun setParallelUpdateChecks(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setParallelUpdateChecks(enabled) }
     }
 
     fun updateGithubToken(token: String) {

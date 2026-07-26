@@ -13,6 +13,7 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
+import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -66,8 +67,20 @@ class DataStoreSettingsRepository @Inject constructor(
         it[Keys.DYNAMIC_COLOR] = enabled
     }
 
+    override suspend fun setThemeMode(mode: ThemeMode) = edit {
+        it[Keys.THEME_MODE] = mode.name
+    }
+
+    override suspend fun setParallelUpdateChecks(enabled: Boolean) = edit {
+        it[Keys.PARALLEL_CHECKS] = enabled
+    }
+
     override suspend fun setBackgroundMode(mode: BackgroundMode) = edit {
         it[Keys.BACKGROUND_MODE] = mode.name
+    }
+
+    override suspend fun setLongPressHintSeen(seen: Boolean) = edit {
+        it[Keys.LONG_PRESS_HINT_SEEN] = seen
     }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
@@ -79,7 +92,10 @@ class DataStoreSettingsRepository @Inject constructor(
         autoUpdate = this[Keys.AUTO_UPDATE] ?: AppSettings().autoUpdate,
         allowMeteredNetwork = this[Keys.ALLOW_METERED] ?: AppSettings().allowMeteredNetwork,
         useDynamicColor = this[Keys.DYNAMIC_COLOR] ?: AppSettings().useDynamicColor,
+        themeMode = ThemeMode.fromStoredName(this[Keys.THEME_MODE]),
+        parallelUpdateChecks = this[Keys.PARALLEL_CHECKS] ?: AppSettings().parallelUpdateChecks,
         backgroundMode = resolveBackgroundMode(this),
+        longPressHintSeen = this[Keys.LONG_PRESS_HINT_SEEN] ?: AppSettings().longPressHintSeen,
     )
 
     /**
@@ -100,7 +116,10 @@ class DataStoreSettingsRepository @Inject constructor(
         val AUTO_UPDATE = booleanPreferencesKey("use_autoupdates")
         val ALLOW_METERED = booleanPreferencesKey("use_mobile_data")
         val DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val PARALLEL_CHECKS = booleanPreferencesKey("parallel_update_checks")
         val BACKGROUND_MODE = stringPreferencesKey("background_mode")
+        val LONG_PRESS_HINT_SEEN = booleanPreferencesKey("long_press_hint_seen")
 
         /** Written by versions before [BACKGROUND_MODE] existed. */
         val LEGACY_FOREGROUND_SERVICE = booleanPreferencesKey("use_foreground_service")
