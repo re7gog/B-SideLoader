@@ -20,9 +20,18 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "dev.re7gog.b_sideloader.HiltTestRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = System.getenv("ANDROID_KEYSTORE_PATH")?.let { file(it) }
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
+        }
     }
 
     buildTypes {
@@ -33,6 +42,7 @@ android {
             // convention) instead of `proguardFiles`. The AOSP default optimize rules are
             // pulled in automatically because `keepRules.includeDefault` defaults to true.
             //signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             // Keeps the two builds distinguishable in logs/crash reports without a suffix,
