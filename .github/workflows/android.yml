@@ -1,11 +1,18 @@
 name: Build Android APK
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       release_tag:
-        required: false
+        required: true
         type: string
+        description: Release tag
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -58,49 +65,10 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease --no-configuration-cache
 
-      - name: Upload arm64-v8a APK
-        uses: actions/upload-artifact@v7
-        if: ${{  success() }}
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: arm64-v8a
-          path: app/build/outputs/apk/release/*arm64-v8a*.apk
-
-      - name: Upload armeabi-v7a APK
-        uses: actions/upload-artifact@v7
-        if: ${{  success() }}
-        with:
-          name: armeabi-v7a
-          path: app/build/outputs/apk/release/*armeabi-v7a*.apk
-
-      - name: Upload x86 APK
-        uses: actions/upload-artifact@v7
-        if: ${{  success() }}
-        with:
-          name: x86-apk
-          path: app/build/outputs/apk/release/*x86*.apk
-
-      - name: Upload universal APK
-        uses: actions/upload-artifact@v7
-        if: ${{ success() }}
-        with:
-          name: universal-apk
-          path: app/build/outputs/apk/release/*universal*.apk
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
-
-    steps:
-      - name: Download APK artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: release-files
-
-      - name: Upload APKs to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          file: release-files/*
-          tag: ${{ inputs.release_tag }}
-          file_glob: true
-          prerelease: false
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
