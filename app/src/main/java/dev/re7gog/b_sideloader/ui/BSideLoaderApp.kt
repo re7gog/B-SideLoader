@@ -10,7 +10,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -69,7 +69,7 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
     // `supportLargeAndXLargeWidth` is what makes the 1200 dp breakpoint exist at all: with the
     // default breakpoint set the reported width saturates at 840 dp, so a large-window check would
     // silently never fire.
-    val adaptiveInfo = currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true)
+    val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val sizeClass = adaptiveInfo.windowSizeClass
 
     // Two panes as soon as two panes fit: an unfolded foldable, a tablet, a desktop window.
