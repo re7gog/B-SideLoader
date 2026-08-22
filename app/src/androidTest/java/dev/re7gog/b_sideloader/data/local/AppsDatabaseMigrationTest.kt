@@ -67,22 +67,30 @@ class AppsDatabaseMigrationTest {
         assertEquals(listOf("Mine"), migrated.githubAppNames())
     }
 
-    /** The seeded row has to be a well-formed GitHub app, or the mapper would silently drop it. */
+    /**
+     * The seeded row has to be a well-formed GitHub app, or the mapper would silently drop it.
+     *
+     * Its version is empty on purpose — `AppVersion.Unknown`, meaning "never installed from this
+     * source" — so the row offers an install instead of claiming to match a release it has never
+     * seen. See `SelfAppSeed`.
+     */
     @Test
-    fun migrate1To2_seedsAUsableGithubRow() {
+    fun migrate1To2_seedsAUsableGithubRowWithAnUnknownVersion() {
         helper.createDatabase(TEST_DB, 1).close()
 
         val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
 
         migrated.query(
-            "SELECT apps.packageName, apps.autoupdate, github_details.owner, github_details.repo " +
+            "SELECT apps.packageName, apps.version, apps.autoupdate, " +
+                "github_details.owner, github_details.repo " +
                 "FROM apps INNER JOIN github_details ON apps.id = github_details.id"
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("dev.re7gog.b_sideloader", cursor.getString(0))
-            assertEquals(1, cursor.getInt(1))
-            assertEquals(SelfApp.OWNER, cursor.getString(2))
-            assertEquals(SelfApp.REPO, cursor.getString(3))
+            assertEquals("", cursor.getString(1))
+            assertEquals(1, cursor.getInt(2))
+            assertEquals(SelfApp.OWNER, cursor.getString(3))
+            assertEquals(SelfApp.REPO, cursor.getString(4))
         }
     }
 

@@ -56,15 +56,18 @@ class ConfirmSelfUpdateUseCase @Inject constructor(
     }
 
     /**
-     * Whether the package that is running now is the one the record was written for.
+     * Whether the package on the device was replaced since the record was written.
      *
-     * The version name is the primary signal — a release of this app is named after its
-     * `versionName`, so the two are directly comparable. The version code is the fallback for a
-     * release that broke that convention: Android refuses to replace an app with an equal or older
-     * code, so a changed code can only mean the package was replaced since the record was written.
+     * The install time is the signal that works in every case, including the one that matters most
+     * here: the *first* install through B-SideLoader is a reinstall of the build already running,
+     * which leaves the version code untouched. The version code is kept as a second opinion for a
+     * ROM that reports a stale install time.
+     *
+     * A release name cannot be used for this — the releases of this app are named `v1.0.0` while
+     * `versionName` is `1.0.0`, so the two never compare equal.
      */
     private fun landed(pending: PendingSelfUpdate): Boolean =
-        selfApp.versionName == pending.version.raw ||
+        selfApp.lastUpdateTime != pending.previousLastUpdateTime ||
             selfApp.versionCode != pending.previousVersionCode
 
     private companion object {

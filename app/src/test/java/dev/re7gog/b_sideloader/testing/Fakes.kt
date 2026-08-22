@@ -113,8 +113,8 @@ class FakeAppsRepository(initial: List<TrackedApp> = emptyList()) : AppsReposito
  */
 class FakeSelfAppInfo(
     override val packageName: String = SELF_PACKAGE,
-    override val versionName: String = "1.0.0",
     override val versionCode: Long = 1L,
+    override val lastUpdateTime: Long = 1_000L,
 ) : SelfAppInfo {
     companion object {
         const val SELF_PACKAGE: String = "dev.re7gog.b_sideloader"

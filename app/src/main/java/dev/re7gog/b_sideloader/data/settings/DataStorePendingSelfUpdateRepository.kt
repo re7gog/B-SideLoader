@@ -41,6 +41,7 @@ class DataStorePendingSelfUpdateRepository @Inject constructor(
             appId = preferences[Keys.APP_ID] ?: return null,
             packageName = preferences[Keys.PACKAGE_NAME] ?: return null,
             version = AppVersion(preferences[Keys.VERSION] ?: return null),
+            previousLastUpdateTime = preferences[Keys.PREVIOUS_UPDATE_TIME] ?: return null,
             previousVersionCode = preferences[Keys.PREVIOUS_VERSION_CODE] ?: return null,
         )
     }
@@ -49,6 +50,7 @@ class DataStorePendingSelfUpdateRepository @Inject constructor(
         preferences[Keys.APP_ID] = pending.appId
         preferences[Keys.PACKAGE_NAME] = pending.packageName
         preferences[Keys.VERSION] = pending.version.raw
+        preferences[Keys.PREVIOUS_UPDATE_TIME] = pending.previousLastUpdateTime
         preferences[Keys.PREVIOUS_VERSION_CODE] = pending.previousVersionCode
     }
 
@@ -75,9 +77,10 @@ class DataStorePendingSelfUpdateRepository @Inject constructor(
         val APP_ID = longPreferencesKey("pending_self_update_app_id")
         val PACKAGE_NAME = stringPreferencesKey("pending_self_update_package")
         val VERSION = stringPreferencesKey("pending_self_update_version")
+        val PREVIOUS_UPDATE_TIME = longPreferencesKey("pending_self_update_previous_time")
         val PREVIOUS_VERSION_CODE = longPreferencesKey("pending_self_update_previous_code")
 
-        val ALL = listOf(APP_ID, PACKAGE_NAME, VERSION, PREVIOUS_VERSION_CODE)
+        val ALL = listOf(APP_ID, PACKAGE_NAME, VERSION, PREVIOUS_UPDATE_TIME, PREVIOUS_VERSION_CODE)
     }
 
     private companion object {

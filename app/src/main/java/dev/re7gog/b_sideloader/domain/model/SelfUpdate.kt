@@ -29,12 +29,13 @@ object SelfApp {
  *
  * @param appId row the version belongs to. Only saved apps are recorded — an unsaved one has no id
  *   to write back to, and the seeded self row means that case does not arise in practice.
- * @param previousVersionCode what was running when the install began, so the new process can tell
- *   "the update landed" from "the user declined it".
+ * @param previousLastUpdateTime, [previousVersionCode] what was on the device when the install
+ *   began, so the new process can tell "the package was replaced" from "the user declined it".
  */
 data class PendingSelfUpdate(
     val appId: Long,
     val packageName: String,
     val version: AppVersion,
+    val previousLastUpdateTime: Long,
     val previousVersionCode: Long,
 )

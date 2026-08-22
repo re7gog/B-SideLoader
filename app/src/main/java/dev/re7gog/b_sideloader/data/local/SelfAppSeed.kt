@@ -16,9 +16,15 @@ import dev.re7gog.b_sideloader.domain.model.SelfApp
  * through raw SQL rather than the DAO because a `RoomDatabase.Callback` and a `Migration` are
  * handed a [SupportSQLiteDatabase] — the DAO does not exist yet at that point.
  *
- * The seeded version is [BuildConfig.VERSION_NAME], which by project convention is exactly what
- * the matching GitHub release is *named*. That is what makes the freshly seeded row read as "up to
- * date" instead of immediately offering the build the user is already running.
+ * The seeded version is deliberately *unknown* (an empty `version` column). A GitHub app's stored
+ * version is the release *name*, and this project publishes releases as `v1.0.0` while the build
+ * calls itself `1.0.0` — so there is no honest value to write here, and guessing one would make
+ * the row claim to be up to date against a release it has never seen.
+ *
+ * Unknown reads as "not installed from here", which is both true and useful: the row offers an
+ * install rather than an update, the background sweep leaves it alone until the user has run that
+ * install once, and that first install is what makes B-SideLoader the installer of record for
+ * itself — which is what buys silent updates from then on.
  *
  * Nothing here re-creates a deleted row: the seed is skipped when this repository is already
  * tracked, and it never runs again afterwards. A user who removes the row means it.
@@ -46,7 +52,8 @@ internal object SelfAppSeed {
         put("sourceType", AppSourceKind.GitHub.storedValue)
         put("packageName", BuildConfig.APPLICATION_ID)
         put("name", SelfApp.NAME)
-        put("version", BuildConfig.VERSION_NAME)
+        // Unknown: see the class comment. AppVersion.Unknown is exactly this empty string.
+        put("version", "")
         put("autoupdate", true)
         put("filterInclude", "")
         put("filterExclude", "")

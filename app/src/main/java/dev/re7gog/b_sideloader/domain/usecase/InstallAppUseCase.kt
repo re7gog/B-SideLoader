@@ -120,6 +120,7 @@ class InstallAppUseCase @Inject constructor(
                 appId = app.id,
                 packageName = app.packageName,
                 version = candidate.version,
+                previousLastUpdateTime = selfApp.lastUpdateTime,
                 previousVersionCode = selfApp.versionCode,
             )
         )

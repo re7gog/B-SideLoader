@@ -31,7 +31,7 @@ class InstallAppUseCaseTest {
     private val installer = FakeInstallerGateway()
     private val telegram = FakeTelegramRepository()
     private val pendingSelfUpdates = FakePendingSelfUpdateRepository()
-    private val selfInfo = FakeSelfAppInfo(versionCode = 7L)
+    private val selfInfo = FakeSelfAppInfo(versionCode = 7L, lastUpdateTime = 500L)
 
     private fun useCase(apps: FakeAppsRepository) =
         InstallAppUseCase(installer, apps, telegram, pendingSelfUpdates, selfInfo, NoopLogger)
@@ -123,6 +123,7 @@ class InstallAppUseCaseTest {
         assertEquals(3L, pending.appId)
         assertEquals("v2.0", pending.version.raw)
         assertEquals(FakeSelfAppInfo.SELF_PACKAGE, pending.packageName)
+        assertEquals(500L, pending.previousLastUpdateTime)
         assertEquals(7L, pending.previousVersionCode)
     }
 
