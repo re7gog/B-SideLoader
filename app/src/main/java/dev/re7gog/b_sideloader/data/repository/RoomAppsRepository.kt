@@ -40,6 +40,10 @@ class RoomAppsRepository @Inject constructor(
         dao.getAll().toDomain()
     }
 
+    override suspend fun getApp(id: Long): TrackedApp? = withContext(dispatchers.io) {
+        dao.getById(id)?.toDomainOrNull()
+    }
+
     override suspend fun findBySource(source: AppSource): TrackedApp? = withContext(dispatchers.io) {
         when (source) {
             is AppSource.GitHub -> dao.findGithubApp(source.owner, source.repo)

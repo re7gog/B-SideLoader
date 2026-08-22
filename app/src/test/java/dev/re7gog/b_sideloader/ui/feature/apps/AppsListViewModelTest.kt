@@ -15,6 +15,8 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
+import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
 import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
@@ -56,7 +58,14 @@ class AppsListViewModelTest {
             packageInspector = packages,
             logger = NoopLogger,
         ),
-        installApp = InstallAppUseCase(installer, apps, telegram, NoopLogger),
+        installApp = InstallAppUseCase(
+            installer,
+            apps,
+            telegram,
+            FakePendingSelfUpdateRepository(),
+            FakeSelfAppInfo(),
+            NoopLogger,
+        ),
         deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
         uninstallApps = UninstallAppsUseCase(installer, packages),
         settingsRepository = settings,
@@ -249,7 +258,14 @@ class AppsListViewModelTest {
                 packageInspector = packages,
                 logger = NoopLogger,
             ),
-            installApp = InstallAppUseCase(installer, apps, telegram, NoopLogger),
+            installApp = InstallAppUseCase(
+                installer,
+                apps,
+                telegram,
+                FakePendingSelfUpdateRepository(),
+                FakeSelfAppInfo(),
+                NoopLogger,
+            ),
             deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
             uninstallApps = UninstallAppsUseCase(installer, packages),
             settingsRepository = seen,

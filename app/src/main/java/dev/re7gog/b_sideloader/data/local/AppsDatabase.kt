@@ -2,6 +2,8 @@ package dev.re7gog.b_sideloader.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.re7gog.b_sideloader.data.local.dao.AppsDao
 import dev.re7gog.b_sideloader.data.local.entity.AppEntity
 import dev.re7gog.b_sideloader.data.local.entity.GithubDetailsEntity
@@ -35,10 +37,20 @@ abstract class AppsDatabase : RoomDatabase() {
     abstract fun appsDao(): AppsDao
 
     companion object {
-        const val DB_VERSION = 1
+        const val DB_VERSION = 2
         const val DB_NAME = "apps_database"
 
-        /** Empty while the schema is still at its first version. */
-        val MIGRATIONS: Array<androidx.room.migration.Migration> = emptyArray()
+        /**
+         * Adds B-SideLoader's own row to a database created before it tracked itself.
+         *
+         * Data-only: the tables are byte-for-byte what version 1 declared, so there is no `ALTER`
+         * here and `schemas/2.json` differs from `1.json` only in its version number. Room still
+         * needs the migration to exist — without one it refuses to open the file at all.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) = SelfAppSeed.insertInto(db)
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
     }
 }

@@ -13,6 +13,8 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
+import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.MainDispatcherRule
@@ -51,7 +53,14 @@ class AppDetailsViewModelTest {
         githubRepository = github,
         telegramRepository = telegram,
         listCandidates = ListUpdateCandidatesUseCase(github, telegram),
-        installApp = InstallAppUseCase(installer, appsRepository, telegram, NoopLogger),
+        installApp = InstallAppUseCase(
+            installer,
+            appsRepository,
+            telegram,
+            FakePendingSelfUpdateRepository(),
+            FakeSelfAppInfo(),
+            NoopLogger,
+        ),
         saveTrackedApp = SaveTrackedAppUseCase(appsRepository),
         deleteTrackedApps = DeleteTrackedAppsUseCase(appsRepository),
         uninstallApps = UninstallAppsUseCase(installer, packageInspector),

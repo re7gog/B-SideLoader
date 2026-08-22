@@ -6,6 +6,7 @@ import dev.re7gog.b_sideloader.domain.model.FilterMode
 import dev.re7gog.b_sideloader.domain.model.FilterRule
 import dev.re7gog.b_sideloader.domain.model.GithubAsset
 import dev.re7gog.b_sideloader.domain.model.GithubRelease
+import dev.re7gog.b_sideloader.domain.model.SelfApp
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 
@@ -42,6 +43,22 @@ fun githubApp(
         usePrereleases = usePrereleases,
         releaseFilter = FilterRule(releaseInclude, releaseExclude),
     ),
+)
+
+/** B-SideLoader's own row: the app that, when installed, replaces the process installing it. */
+fun selfApp(
+    id: Long = 1L,
+    version: AppVersion = AppVersion("1.0.0"),
+    autoUpdate: Boolean = true,
+): TrackedApp = TrackedApp(
+    id = id,
+    packageName = FakeSelfAppInfo.SELF_PACKAGE,
+    name = SelfApp.NAME,
+    version = version,
+    autoUpdate = autoUpdate,
+    assetFilter = FilterRule.None,
+    filterMode = FilterMode.Words,
+    source = SelfApp.source,
 )
 
 fun telegramApp(

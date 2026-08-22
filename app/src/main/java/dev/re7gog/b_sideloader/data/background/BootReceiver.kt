@@ -8,6 +8,7 @@ import dev.re7gog.b_sideloader.core.coroutines.DispatcherProvider
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.di.ApplicationScope
+import dev.re7gog.b_sideloader.domain.usecase.ConfirmSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -15,11 +16,16 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Re-establishes background update checking after a reboot or an app update.
+ * Re-establishes background update checking after a reboot or an app update, and records a
+ * self-update the moment it lands.
  *
  * WorkManager restores its own periodic jobs, but a foreground service does not restart itself —
  * and on ROMs that clear everything on boot, re-syncing here is what keeps the persistent monitor
  * alive at all.
+ *
+ * `MY_PACKAGE_REPLACED` is also the earliest point at which the *new* version of B-SideLoader runs
+ * after updating itself, which is why [ConfirmSelfUpdateUseCase] is called from here: the process
+ * that started that install was killed long before `PackageInstaller` had a verdict to report.
  *
  * Uses the application-wide scope rather than an ad-hoc `CoroutineScope(Dispatchers.Default)`: a
  * scope created inside `onReceive` has no parent, so nothing can cancel it and a hung sync would
@@ -30,6 +36,9 @@ class BootReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var syncBackgroundWork: SyncBackgroundWorkUseCase
+
+    @Inject
+    lateinit var confirmSelfUpdate: ConfirmSelfUpdateUseCase
 
     @Inject
     @ApplicationScope
@@ -48,6 +57,10 @@ class BootReceiver : BroadcastReceiver() {
         scope.launch {
             try {
                 withContext(dispatchers.default) {
+                    if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+                        suspendRunCatching { confirmSelfUpdate() }
+                            .onFailure { logger.e(TAG, it) { "Could not record the self-update" } }
+                    }
                     suspendRunCatching { syncBackgroundWork() }
                         .onFailure { logger.e(TAG, it) { "Could not reschedule updates on boot" } }
                 }

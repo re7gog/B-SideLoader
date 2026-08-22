@@ -3,6 +3,8 @@ package dev.re7gog.b_sideloader.domain.usecase
 import dev.re7gog.b_sideloader.core.coroutines.rethrowIfCancellation
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
+import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
+import dev.re7gog.b_sideloader.domain.device.isSelf
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
@@ -67,6 +69,9 @@ data class SweepReport(
  * Failure of one app never aborts the sweep — a rate-limited repository or a channel the user left
  * must not stop the other twenty apps from updating — but cancellation always propagates, so
  * WorkManager stopping the worker actually stops the work.
+ *
+ * B-SideLoader's own update, if there is one, is installed last: replacing the package kills the
+ * worker or service running this sweep, and anything queued behind it would simply never happen.
  */
 class RunUpdateSweepUseCase @Inject constructor(
     private val appsRepository: AppsRepository,
@@ -74,6 +79,7 @@ class RunUpdateSweepUseCase @Inject constructor(
     private val checkUpdates: CheckUpdatesUseCase,
     private val installApp: InstallAppUseCase,
     private val deviceInfo: DeviceInfo,
+    private val selfApp: SelfAppInfo,
     private val logger: Logger,
 ) {
     suspend operator fun invoke(
@@ -104,7 +110,8 @@ class RunUpdateSweepUseCase @Inject constructor(
         )
         if (effectiveMode == SweepMode.CheckOnly) return report
 
-        updatable.forEach { outcome ->
+        // Stable sort, so everything else keeps its check order and only this app moves to the end.
+        updatable.sortedBy { selfApp.isSelf(it.app) }.forEach { outcome ->
             // hasUpdate implies a candidate, but read it defensively rather than asserting.
             val candidate = outcome.check?.candidate ?: return@forEach
             report = installOne(outcome.app, candidate, report, onProgress)

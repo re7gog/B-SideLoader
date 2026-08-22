@@ -25,6 +25,9 @@ interface AppsRepository {
     /** Snapshot of every tracked app. Used by the background sweep, which must not subscribe. */
     suspend fun getApps(): List<TrackedApp>
 
+    /** Snapshot of one app by row id, or `null` when it is not there any more. */
+    suspend fun getApp(id: Long): TrackedApp?
+
     /** The saved app for [source], or `null` when this source is not tracked yet. */
     suspend fun findBySource(source: AppSource): TrackedApp?
 

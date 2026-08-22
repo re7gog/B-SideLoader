@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.re7gog.b_sideloader.data.background.AndroidBackgroundRestrictions
 import dev.re7gog.b_sideloader.data.background.WorkManagerBackgroundScheduler
 import dev.re7gog.b_sideloader.data.device.AndroidDeviceInfo
+import dev.re7gog.b_sideloader.data.device.AndroidSelfAppInfo
 import dev.re7gog.b_sideloader.data.encrypt.SecureSecretsRepository
 import dev.re7gog.b_sideloader.data.installer.AndroidPackageInspector
 import dev.re7gog.b_sideloader.data.installer.CacheApkStagingArea
@@ -14,16 +15,19 @@ import dev.re7gog.b_sideloader.data.installer.InstallerGatewayImpl
 import dev.re7gog.b_sideloader.data.remote.interceptor.AuthTokenSource
 import dev.re7gog.b_sideloader.data.repository.GithubRepositoryImpl
 import dev.re7gog.b_sideloader.data.repository.RoomAppsRepository
+import dev.re7gog.b_sideloader.data.settings.DataStorePendingSelfUpdateRepository
 import dev.re7gog.b_sideloader.data.settings.DataStoreSettingsRepository
 import dev.re7gog.b_sideloader.data.telegram.TelegramRepositoryImpl
 import dev.re7gog.b_sideloader.domain.background.BackgroundRestrictions
 import dev.re7gog.b_sideloader.domain.background.BackgroundWorkScheduler
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
+import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
 import dev.re7gog.b_sideloader.domain.installer.ApkStagingArea
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
+import dev.re7gog.b_sideloader.domain.repository.PendingSelfUpdateRepository
 import dev.re7gog.b_sideloader.domain.repository.SecretsRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
@@ -55,6 +59,12 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindPendingSelfUpdateRepository(
+        impl: DataStorePendingSelfUpdateRepository,
+    ): PendingSelfUpdateRepository
+
+    @Binds
+    @Singleton
     abstract fun bindSecretsRepository(impl: SecureSecretsRepository): SecretsRepository
 
     /** Same instance as the repository above: the token cache must not be duplicated. */
@@ -77,6 +87,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindDeviceInfo(impl: AndroidDeviceInfo): DeviceInfo
+
+    @Binds
+    @Singleton
+    abstract fun bindSelfAppInfo(impl: AndroidSelfAppInfo): SelfAppInfo
 
     @Binds
     @Singleton

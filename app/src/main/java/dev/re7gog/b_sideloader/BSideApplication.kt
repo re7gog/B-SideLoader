@@ -9,6 +9,7 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.background.NotificationCenter
 import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.data.telegram.TdlibClient
+import dev.re7gog.b_sideloader.domain.usecase.ConfirmSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -25,6 +26,9 @@ class BSideApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var syncBackgroundWork: SyncBackgroundWorkUseCase
+
+    @Inject
+    lateinit var confirmSelfUpdate: ConfirmSelfUpdateUseCase
 
     @Inject
     lateinit var tdlibClient: TdlibClient
@@ -52,6 +56,11 @@ class BSideApplication : Application(), Configuration.Provider {
                 .onFailure { logger.e(TAG) { "TDLib failed to start: ${it.message}" } }
             suspendRunCatching { syncBackgroundWork() }
                 .onFailure { logger.e(TAG) { "Background work sync failed: ${it.message}" } }
+            // A self-update that finished while this process was dead is only in the database once
+            // this has run. MY_PACKAGE_REPLACED normally gets there first; this covers the ROMs
+            // that drop that broadcast.
+            suspendRunCatching { confirmSelfUpdate() }
+                .onFailure { logger.e(TAG) { "Self-update confirmation failed: ${it.message}" } }
         }
     }
 

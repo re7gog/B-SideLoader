@@ -28,6 +28,10 @@ interface AppsDao {
     fun observeById(id: Long): Flow<AppWithDetails?>
 
     @Transaction
+    @Query("SELECT * FROM apps WHERE id = :id")
+    suspend fun getById(id: Long): AppWithDetails?
+
+    @Transaction
     @Query(
         "SELECT apps.* FROM apps " +
             "INNER JOIN github_details ON apps.id = github_details.id " +

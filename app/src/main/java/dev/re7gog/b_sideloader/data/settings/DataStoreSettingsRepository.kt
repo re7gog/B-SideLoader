@@ -1,13 +1,11 @@
 package dev.re7gog.b_sideloader.data.settings
 
 import android.content.Context
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.model.AppSettings
@@ -24,8 +22,6 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
 /**
  * DataStore-backed [SettingsRepository].
  *
@@ -39,7 +35,7 @@ class DataStoreSettingsRepository @Inject constructor(
     private val logger: Logger,
 ) : SettingsRepository {
 
-    override val settings: Flow<AppSettings> = context.settingsDataStore.data
+    override val settings: Flow<AppSettings> = context.appPreferences.data
         .catch { throwable ->
             // A corrupt preferences file must not take the app down; defaults are a valid state.
             if (throwable !is IOException) throw throwable
@@ -84,7 +80,7 @@ class DataStoreSettingsRepository @Inject constructor(
     }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
-        context.settingsDataStore.edit(block)
+        context.appPreferences.edit(block)
     }
 
     private fun Preferences.toSettings() = AppSettings(

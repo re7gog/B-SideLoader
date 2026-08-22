@@ -5,16 +5,20 @@ import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
+import dev.re7gog.b_sideloader.domain.model.SelfApp
 import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
+import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.asset
 import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.release
+import dev.re7gog.b_sideloader.testing.selfApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -33,6 +37,8 @@ class RunUpdateSweepUseCaseTest {
 
     /** Every fixture app uses `com.example`, so this is "the tracked app is on the device". */
     private val packages = FakePackageInspector(installedPackages = setOf("com.example"))
+    private val selfInfo = FakeSelfAppInfo()
+    private val pendingSelfUpdates = FakePendingSelfUpdateRepository()
 
     private fun sweep(
         apps: FakeAppsRepository,
@@ -49,8 +55,16 @@ class RunUpdateSweepUseCaseTest {
             packageInspector = packages,
             logger = NoopLogger,
         ),
-        installApp = InstallAppUseCase(installer, apps, telegram, NoopLogger),
+        installApp = InstallAppUseCase(
+            installer,
+            apps,
+            telegram,
+            pendingSelfUpdates,
+            selfInfo,
+            NoopLogger,
+        ),
         deviceInfo = deviceInfo,
+        selfApp = selfInfo,
         logger = NoopLogger,
     )
 
@@ -64,6 +78,28 @@ class RunUpdateSweepUseCaseTest {
         assertEquals(listOf("A"), report.withUpdates)
         assertEquals(listOf("A"), report.installed)
         assertEquals("v2.0", apps.getApps().single().version.raw)
+    }
+
+    /**
+     * Installing B-SideLoader replaces the process running the sweep, so anything queued behind it
+     * would never be reached. The check order puts it first here on purpose.
+     */
+    @Test
+    fun `B-SideLoader is installed after everything else`() = runTest {
+        val apps = FakeAppsRepository(
+            listOf(
+                selfApp(id = 1, version = AppVersion("1.0.0")),
+                githubApp(id = 2, name = "A", version = AppVersion("v1.0")),
+            )
+        )
+        val packages = FakePackageInspector(
+            installedPackages = setOf("com.example", FakeSelfAppInfo.SELF_PACKAGE),
+        )
+
+        val report = sweep(apps, packages = packages)()
+
+        assertEquals(listOf(SelfApp.NAME, "A"), report.withUpdates)
+        assertEquals(listOf("A", SelfApp.NAME), report.installed)
     }
 
     @Test

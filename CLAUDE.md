@@ -25,6 +25,14 @@ or bump dependencies **there**, referenced as `libs.*` aliases.
 
 Two modules: `:app` and `:tdlib` (Telegram native wrapper — see below).
 
+### Devices and the emulator
+
+**Never start an Android emulator, and never run the app on a device yourself.** The user always
+tests on their own physical phone. `installDebug`, `connectedDebugAndroidTest`, `adb` and the
+emulator/simulator tooling are theirs to run — verify locally with `assembleDebug`,
+`assembleRelease`, `testDebugUnitTest` and `lint`, and ask the user to check anything that needs
+real hardware.
+
 ### Required secrets
 
 The Telegram feature needs an API id/hash from <https://my.telegram.org/apps>. They are obfuscated
@@ -109,6 +117,17 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   `BackgroundMode.Periodic` uses `UpdateCheckWorker`; `Persistent` uses `UpdateMonitorService`
   (a `specialUse` foreground service — `dataSync` is capped at ~6 h/day on Android 14+).
   `RunUpdateSweepUseCase` isolates per-app failures but always propagates cancellation.
+- **Self-update.** The app tracks itself like any other app: `SelfAppSeed` writes a row pointing at
+  `SelfApp.source` (`re7gog/B-SideLoader`) — from `onCreate` for a new database and from the
+  1 -> 2 migration for an existing one — seeded with `BuildConfig.VERSION_NAME`. **A GitHub release
+  of this app must therefore be *named* exactly its `versionName`** (`1.0.0`, not `v1.0.0`), since
+  a GitHub app's stored version is the release name. Installing that row replaces the running
+  process, so `InstallAppUseCase` never reaches its own database write: it records a
+  `PendingSelfUpdate` *before* starting the install, and `ConfirmSelfUpdateUseCase` completes the
+  write from the *new* version's process — called from `MY_PACKAGE_REPLACED` (`BootReceiver`) and
+  again from `Application.onCreate` for ROMs that drop that broadcast. A record whose version never
+  landed (declined dialog, failed download) is dropped rather than kept. `RunUpdateSweepUseCase`
+  installs this app last, because the replace kills whatever is running the sweep.
 - **OEM background limits.** `AndroidBackgroundRestrictions` detects the ROM vendor and resolves
   *only that vendor's* autostart activities, verifying each exists before launching it. The
   "Background reliability" settings screen turns that into a checklist with per-ROM instructions,
@@ -156,12 +175,12 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` — 91 JVM tests covering selection logic, mappers, error
+`./gradlew :app:testDebugUnitTest` — 122 JVM tests covering selection logic, mappers, error
 translation, use cases, ViewModels and the navigation state machine. Fakes (not mocks) live in
 `app/src/test/java/.../testing/`.
 
-`./gradlew :app:connectedDebugAndroidTest` — Room DAO tests against real SQLite, plus Compose UI
-tests. **Robolectric is deliberately not used**; see `docs/testing.md` for the toolchain reason and
+`./gradlew :app:connectedDebugAndroidTest` — Room DAO and migration tests against real SQLite,
+plus Compose UI tests. **Robolectric is deliberately not used**; see `docs/testing.md` for the toolchain reason and
 for how to re-enable it.
 
 ## Conventions
