@@ -26,6 +26,7 @@ import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ListUpdateCandidatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.OpenInstalledAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SaveTrackedAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.UninstallAppsUseCase
 import dev.re7gog.b_sideloader.ui.common.error.toUiText
@@ -74,6 +75,7 @@ class AppDetailsViewModel @AssistedInject constructor(
     private val telegramRepository: TelegramRepository,
     private val listCandidates: ListUpdateCandidatesUseCase,
     private val installApp: InstallAppUseCase,
+    private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val saveTrackedApp: SaveTrackedAppUseCase,
     private val deleteTrackedApps: DeleteTrackedAppsUseCase,
     private val uninstallApps: UninstallAppsUseCase,
@@ -111,6 +113,9 @@ class AppDetailsViewModel @AssistedInject constructor(
     // ---- loading ----------------------------------------------------------------------------
 
     private suspend fun load() {
+        // The page shows the stored version and compares candidates against it; for this app's own
+        // row that is only right once the startup reconciliation has run. Instant after startup.
+        reconcileSelfUpdate()
         val loaded = when (args) {
             is AppDetailsArgs.Saved -> loadSaved(args.appId)
             is AppDetailsArgs.NewGithub -> loadNewGithub(args)

@@ -16,7 +16,29 @@ object SelfApp {
     const val NAME: String = "B-SideLoader"
 
     val source: AppSource.GitHub get() = AppSource.GitHub(owner = OWNER, repo = REPO)
+
+    /**
+     * Whether [source] is this repository, whatever its filters — the only source whose release
+     * names a build's own tag can stand in for. GitHub treats names case-insensitively.
+     */
+    fun isPublishedBy(source: AppSource): Boolean =
+        source is AppSource.GitHub &&
+            source.owner.equals(OWNER, ignoreCase = true) &&
+            source.repo.equals(REPO, ignoreCase = true)
 }
+
+/**
+ * What B-SideLoader remembers about updating itself, across the process death that every
+ * self-update is.
+ *
+ * @param rememberedVersionCode version code of the build that last reconciled its own row, or
+ *   `null` before this build — or any build that knows about this record — has ever run.
+ * @param pending an update handed to the installer that no process has judged yet.
+ */
+data class SelfUpdateState(
+    val rememberedVersionCode: Long?,
+    val pending: PendingSelfUpdate?,
+)
 
 /**
  * A self-update that was handed to the system installer but is not recorded in the database yet.
@@ -24,18 +46,14 @@ object SelfApp {
  * Installing B-SideLoader over itself kills the process the moment the package is replaced, so
  * `InstallAppUseCase` never reaches its own write: the flow, its coroutine and the whole process
  * are gone before `PackageInstaller` reports success. This record is written *before* the install
- * starts and [dev.re7gog.b_sideloader.domain.usecase.ConfirmSelfUpdateUseCase] finishes the write
- * from the new version's process.
+ * starts, and [dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase] decides its fate
+ * in the next process by comparing version codes against [SelfUpdateState.rememberedVersionCode].
  *
  * @param appId row the version belongs to. Only saved apps are recorded — an unsaved one has no id
  *   to write back to, and the seeded self row means that case does not arise in practice.
- * @param previousLastUpdateTime, [previousVersionCode] what was on the device when the install
- *   began, so the new process can tell "the package was replaced" from "the user declined it".
+ * @param releaseName the GitHub release being installed, i.e. what the row's version becomes.
  */
 data class PendingSelfUpdate(
     val appId: Long,
-    val packageName: String,
-    val version: AppVersion,
-    val previousLastUpdateTime: Long,
-    val previousVersionCode: Long,
+    val releaseName: AppVersion,
 )

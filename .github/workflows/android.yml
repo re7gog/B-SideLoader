@@ -56,6 +56,8 @@ jobs:
 
       - name: Build release APK
         env:
+          # Becomes versionName, versionCode and BuildConfig.RELEASE_TAG (see app/build.gradle.kts).
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           MASK_SECRET: ${{ secrets.MASK_SECRET }}
           ID_SECRET: ${{ secrets.ID_SECRET }}
           HASH_SECRET: ${{ secrets.HASH_SECRET }}
@@ -68,6 +70,10 @@ jobs:
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # The release is named exactly after its tag: a GitHub app's row stores the release name,
+          # and the app writes its own tag into its row to know which release it is running.
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          name: ${{ inputs.release_tag || github.ref_name }}
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
         env:

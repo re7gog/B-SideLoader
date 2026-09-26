@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
@@ -15,15 +16,17 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
-import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
-import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
+import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
+import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
 import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.MainDispatcherRule
 import dev.re7gog.b_sideloader.testing.asset
 import dev.re7gog.b_sideloader.testing.githubApp
+import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.release
+import dev.re7gog.b_sideloader.testing.selfApp
 import dev.re7gog.b_sideloader.testing.telegramApp
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -48,6 +51,9 @@ class AppsListViewModelTest {
     private val github = FakeGithubRepository()
     private val telegram = FakeTelegramRepository()
     private val settings = FakeSettingsRepository()
+    private val selfUpdates = FakeSelfUpdateStateRepository()
+    private val selfInfo = FakeSelfAppInfo(versionCode = 2L)
+    private val reconcile = reconcileSelfUpdate(apps, selfUpdates, selfInfo)
 
     private fun viewModel() = AppsListViewModel(
         observeTrackedApps = ObserveTrackedAppsUseCase(apps, packages),
@@ -62,10 +68,12 @@ class AppsListViewModelTest {
             installer,
             apps,
             telegram,
-            FakePendingSelfUpdateRepository(),
-            FakeSelfAppInfo(),
+            selfUpdates,
+            reconcile,
+            selfInfo,
             NoopLogger,
         ),
+        reconcileSelfUpdate = reconcile,
         deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
         uninstallApps = UninstallAppsUseCase(installer, packages),
         settingsRepository = settings,
@@ -229,6 +237,52 @@ class AppsListViewModelTest {
         }
     }
 
+    /**
+     * Right after a self-update the list is the first thing on screen, while the new process is
+     * still reconciling its own row. A check that read the row before that would offer the update
+     * that was just installed — the flash of "Update" users saw.
+     */
+    @Test
+    fun `a self-update that just landed is never offered`() = runTest {
+        github.releases = listOf(release("v2.0", assets = arrayOf(asset("app.apk"))))
+        val selfId = apps.add(selfApp(version = AppVersion("v1.0")))
+        packages.markInstalled(FakeSelfAppInfo.SELF_PACKAGE)
+        // What the previous build left behind when it handed "v2.0" to the installer.
+        selfUpdates.rememberedVersionCode = 1L
+        selfUpdates.pending = PendingSelfUpdate(appId = selfId, releaseName = AppVersion("v2.0"))
+
+        viewModel().uiState.test {
+            while (true) {
+                val self = awaitItem().apps.firstOrNull { it.id == selfId } ?: continue
+                assertFalse("offered the update that just landed", self.canUpdate)
+                if (self.updateState == AppUpdateState.UpToDate) break
+            }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals("v2.0", apps.getApp(selfId)?.version?.raw)
+    }
+
+    /**
+     * A verdict is as old as its check. Once the row says the candidate is installed — here by an
+     * install from the details screen — the list must stop offering it without another check.
+     */
+    @Test
+    fun `an update recorded elsewhere stops being offered without a refresh`() = runTest {
+        github.releases = listOf(release("v2.0", assets = arrayOf(asset("app.apk"))))
+        apps.update(githubApp(id = 1, name = "Alpha", packageName = "com.alpha", version = AppVersion("v1.0")))
+
+        viewModel().uiState.test {
+            awaitState { it.apps.any { app -> app.canUpdate } }
+
+            apps.update(githubApp(id = 1, name = "Alpha", packageName = "com.alpha", version = AppVersion("v2.0")))
+
+            val state = awaitState { it.apps.none { app -> app.canUpdate } }
+            assertEquals(AppUpdateState.UpToDate, state.apps.first { it.name == "Alpha" }.updateState)
+            assertEquals(1, github.releaseCallCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     /** The hint is a one-shot: dismissing it writes through to the settings store. */
     @Test
     fun `dismissing the long press hint persists it`() = runTest {
@@ -262,10 +316,12 @@ class AppsListViewModelTest {
                 installer,
                 apps,
                 telegram,
-                FakePendingSelfUpdateRepository(),
-                FakeSelfAppInfo(),
+                selfUpdates,
+                reconcile,
+                selfInfo,
                 NoopLogger,
             ),
+            reconcileSelfUpdate = reconcile,
             deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
             uninstallApps = UninstallAppsUseCase(installer, packages),
             settingsRepository = seen,

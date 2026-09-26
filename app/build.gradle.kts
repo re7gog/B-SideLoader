@@ -7,6 +7,21 @@ plugins {
     alias(libs.plugins.refine)
 }
 
+/**
+ * The git tag this build is published under, e.g. `v1.2.3`. CI sets `RELEASE_TAG`; a local build can
+ * pass `-PreleaseTag=v1.2.3` to pose as a release. Empty for an ordinary local build.
+ *
+ * The tag is also the GitHub release's name, which is the version a GitHub app's row stores — so it
+ * is exactly what the app writes into its own row to know which release it is (`SelfAppSeed`,
+ * `ReconcileSelfUpdateUseCase`).
+ */
+val releaseTag: String = providers.environmentVariable("RELEASE_TAG")
+    .orElse(providers.gradleProperty("releaseTag"))
+    .getOrElse("")
+    .trim()
+
+val releaseVersion: ReleaseVersion? = releaseTag.takeIf { it.isNotEmpty() }?.let(::parseReleaseTag)
+
 android {
     namespace = "dev.re7gog.b_sideloader"
     compileSdk {
@@ -19,8 +34,13 @@ android {
         applicationId = "dev.re7gog.b_sideloader"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.0.1"
+        // A release build takes both from its tag, so the version code can never be forgotten:
+        // self-update counts an install as landed only when the version code went up. The literals
+        // are for untagged local builds.
+        versionCode = releaseVersion?.code ?: 2
+        versionName = releaseVersion?.name ?: "1.0.1"
+        // parseReleaseTag only lets [0-9A-Za-z.-] through, so the tag needs no escaping.
+        buildConfigField("String", "RELEASE_TAG", "\"$releaseTag\"")
 
         testInstrumentationRunner = "dev.re7gog.b_sideloader.HiltTestRunner"
     }
@@ -191,4 +211,36 @@ dependencies {
     kspAndroidTest(libs.dagger.hilt.compiler)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+}
+
+/** What a release tag turns into: `versionName` and `versionCode`. */
+data class ReleaseVersion(val name: String, val code: Int)
+
+/**
+ * `v1.2.3` -> name `1.2.3`, code `1_02_03_99`; `v1.2.3-rc2` -> name `1.2.3-rc2`, code `1_02_03_02`.
+ *
+ * The last two digits order a tag's pre-releases below the release itself, by the number that ends
+ * the suffix (`-test` counts as 0), so every tag installs over the ones before it. Two pre-releases
+ * of the same version need rising numbers (`-rc1`, `-rc2`) to update into each other.
+ *
+ * A tag that does not fit fails the build: a guessed version code is worse than no release, because
+ * a code that does not go up makes the installed app keep offering the same update.
+ */
+fun parseReleaseTag(tag: String): ReleaseVersion {
+    val match = Regex("""v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?""").matchEntire(tag)
+        ?: error("Release tag '$tag' is not vMAJOR.MINOR.PATCH[-suffix]")
+    val (major, minor, patch) = (1..3).map { match.groupValues[it].toInt() }
+    require(major <= 2_099 && minor <= 99 && patch <= 99) {
+        "Release tag '$tag' does not fit the version code scheme (major <= 2099, minor/patch <= 99)"
+    }
+    val suffix = match.groupValues[4]
+    val stage = if (suffix.isEmpty()) {
+        99
+    } else {
+        (Regex("""\d+$""").find(suffix)?.value?.toIntOrNull() ?: 0).coerceAtMost(98)
+    }
+    return ReleaseVersion(
+        name = tag.removePrefix("v"),
+        code = major * 1_000_000 + minor * 10_000 + patch * 100 + stage,
+    )
 }

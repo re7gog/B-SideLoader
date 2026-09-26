@@ -2,6 +2,8 @@ package dev.re7gog.b_sideloader.ui.feature.appdetails
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
+import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
@@ -13,14 +15,16 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
-import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
-import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
+import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
+import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.MainDispatcherRule
 import dev.re7gog.b_sideloader.testing.asset
 import dev.re7gog.b_sideloader.testing.githubApp
+import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.release
+import dev.re7gog.b_sideloader.testing.selfApp
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -47,28 +51,35 @@ class AppDetailsViewModelTest {
         args: AppDetailsArgs = AppDetailsArgs.Saved(1L),
         appsRepository: AppsRepository = apps,
         packageInspector: PackageInspector = packages,
-    ) = AppDetailsViewModel(
-        args = args,
-        appsRepository = appsRepository,
-        githubRepository = github,
-        telegramRepository = telegram,
-        listCandidates = ListUpdateCandidatesUseCase(github, telegram),
-        installApp = InstallAppUseCase(
-            installer,
-            appsRepository,
-            telegram,
-            FakePendingSelfUpdateRepository(),
-            FakeSelfAppInfo(),
-            NoopLogger,
-        ),
-        saveTrackedApp = SaveTrackedAppUseCase(appsRepository),
-        deleteTrackedApps = DeleteTrackedAppsUseCase(appsRepository),
-        uninstallApps = UninstallAppsUseCase(installer, packageInspector),
-        openInstalledApp = OpenInstalledAppUseCase(packageInspector),
-        packageInspector = packageInspector,
-        deviceInfo = FakeDeviceInfo(),
-        logger = NoopLogger,
-    )
+        selfUpdates: FakeSelfUpdateStateRepository = FakeSelfUpdateStateRepository(),
+        selfInfo: FakeSelfAppInfo = FakeSelfAppInfo(),
+    ): AppDetailsViewModel {
+        val reconcile = reconcileSelfUpdate(appsRepository, selfUpdates, selfInfo)
+        return AppDetailsViewModel(
+            args = args,
+            appsRepository = appsRepository,
+            githubRepository = github,
+            telegramRepository = telegram,
+            listCandidates = ListUpdateCandidatesUseCase(github, telegram),
+            installApp = InstallAppUseCase(
+                installer,
+                appsRepository,
+                telegram,
+                selfUpdates,
+                reconcile,
+                selfInfo,
+                NoopLogger,
+            ),
+            reconcileSelfUpdate = reconcile,
+            saveTrackedApp = SaveTrackedAppUseCase(appsRepository),
+            deleteTrackedApps = DeleteTrackedAppsUseCase(appsRepository),
+            uninstallApps = UninstallAppsUseCase(installer, packageInspector),
+            openInstalledApp = OpenInstalledAppUseCase(packageInspector),
+            packageInspector = packageInspector,
+            deviceInfo = FakeDeviceInfo(),
+            logger = NoopLogger,
+        )
+    }
 
     @Test
     fun `renaming a saved app marks it as having unsaved changes`() = runTest {
@@ -150,5 +161,27 @@ class AppDetailsViewModelTest {
 
         assertEquals("Cool Apps", viewModel.uiState.value.app?.name)
         assertEquals(PrimaryAction.SaveAndInstall, viewModel.uiState.value.primaryAction)
+    }
+
+    /**
+     * The page shows the stored version and compares candidates against it. For B-SideLoader's
+     * own row that is only right after the startup reconciliation, so the page waits for it.
+     */
+    @Test
+    fun `B-SideLoader's own page shows the version that just landed`() = runTest {
+        val apps = FakeAppsRepository(listOf(selfApp(id = 1L, version = AppVersion("v1.0"))))
+        val selfUpdates = FakeSelfUpdateStateRepository(
+            rememberedVersionCode = 1L,
+            pending = PendingSelfUpdate(appId = 1L, releaseName = AppVersion("v1.0.1")),
+        )
+
+        val viewModel = viewModel(
+            appsRepository = apps,
+            selfUpdates = selfUpdates,
+            selfInfo = FakeSelfAppInfo(versionCode = 2L),
+        )
+        advanceUntilIdle()
+
+        assertEquals("v1.0.1", viewModel.uiState.value.app?.version?.raw)
     }
 }

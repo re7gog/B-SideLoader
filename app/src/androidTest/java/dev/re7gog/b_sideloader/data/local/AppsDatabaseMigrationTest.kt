@@ -4,6 +4,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.re7gog.b_sideloader.BuildConfig
 import dev.re7gog.b_sideloader.domain.model.SelfApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,12 +71,11 @@ class AppsDatabaseMigrationTest {
     /**
      * The seeded row has to be a well-formed GitHub app, or the mapper would silently drop it.
      *
-     * Its version is empty on purpose — `AppVersion.Unknown`, meaning "never installed from this
-     * source" — so the row offers an install instead of claiming to match a release it has never
-     * seen. See `SelfAppSeed`.
+     * Its version is the release this build is — the tag CI built it from, or empty
+     * (`AppVersion.Unknown`) for an untagged local build. See `SelfAppSeed`.
      */
     @Test
-    fun migrate1To2_seedsAUsableGithubRowWithAnUnknownVersion() {
+    fun migrate1To2_seedsAUsableGithubRowWithThisBuildsRelease() {
         helper.createDatabase(TEST_DB, 1).close()
 
         val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
@@ -87,7 +87,7 @@ class AppsDatabaseMigrationTest {
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("dev.re7gog.b_sideloader", cursor.getString(0))
-            assertEquals("", cursor.getString(1))
+            assertEquals(BuildConfig.RELEASE_TAG, cursor.getString(1))
             assertEquals(1, cursor.getInt(2))
             assertEquals(SelfApp.OWNER, cursor.getString(3))
             assertEquals(SelfApp.REPO, cursor.getString(4))

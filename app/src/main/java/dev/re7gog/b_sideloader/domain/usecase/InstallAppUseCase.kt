@@ -13,7 +13,7 @@ import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
-import dev.re7gog.b_sideloader.domain.repository.PendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -27,6 +27,9 @@ sealed interface AppInstallEvent {
     /**
      * Installed *and* persisted. [app] carries the row id assigned on first save and the version
      * marker that was just installed, so the caller can switch straight to "saved app" mode.
+     *
+     * The one exception is B-SideLoader installing itself, whose row is written by
+     * [ReconcileSelfUpdateUseCase] in the next process instead — see [InstallAppUseCase].
      */
     data class Completed(val app: TrackedApp) : AppInstallEvent
 
@@ -43,8 +46,9 @@ sealed interface AppInstallEvent {
  *
  * The one install that cannot work that way is B-SideLoader updating itself: replacing the package
  * kills this process, so the write below never runs. For that case — and only that case — a
- * [PendingSelfUpdate] is written *before* the install and completed by
- * [ConfirmSelfUpdateUseCase] once the new version starts.
+ * [PendingSelfUpdate] is written *before* the install, and the row is left to
+ * [ReconcileSelfUpdateUseCase] in the next process, which records the release only if the version
+ * code proves it landed.
  *
  * The returned flow is cold and cancellable. Abandoning it cancels the download and drops any
  * temporary Telegram copy — see [onCompletion] below.
@@ -53,12 +57,14 @@ class InstallAppUseCase @Inject constructor(
     private val installerGateway: InstallerGateway,
     private val appsRepository: AppsRepository,
     private val telegramRepository: TelegramRepository,
-    private val pendingSelfUpdates: PendingSelfUpdateRepository,
+    private val selfUpdates: SelfUpdateStateRepository,
+    private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val selfApp: SelfAppInfo,
     private val logger: Logger,
 ) {
     operator fun invoke(app: TrackedApp, candidate: UpdateCandidate): Flow<AppInstallEvent> = flow {
-        recordSelfUpdate(app, candidate)
+        val isSelfUpdate = selfApp.isSelf(app) && app.isSaved
+        if (isSelfUpdate) recordSelfUpdate(app, candidate)
         installerGateway.install(candidate.download).collect { progress ->
             if (progress !is InstallProgress.Finished) {
                 emit(AppInstallEvent.Progress(progress))
@@ -66,15 +72,20 @@ class InstallAppUseCase @Inject constructor(
             }
             when (val outcome = progress.outcome) {
                 is InstallOutcome.Success -> {
-                    val installed = persist(app, candidate, outcome)
-                    // Reaching this line at all means the process outlived the install, so the
-                    // write-ahead record has nothing left to say.
-                    forgetSelfUpdate(app)
+                    val installed = if (isSelfUpdate) {
+                        // Not written here: the version code of this process cannot prove the
+                        // replace happened, and the reconciliation in the next one can. The copy
+                        // only keeps the screen from offering the update again meanwhile.
+                        app.copy(version = candidate.version)
+                    } else {
+                        persist(app, candidate, outcome)
+                    }
                     emit(AppInstallEvent.Completed(installed))
                 }
 
                 is InstallOutcome.Failure -> {
-                    forgetSelfUpdate(app)
+                    // Seen by the process that started it, so there is nothing to judge later.
+                    if (isSelfUpdate) selfUpdates.clearPending()
                     emit(AppInstallEvent.Failed(outcome.error))
                 }
             }
@@ -109,26 +120,18 @@ class InstallAppUseCase @Inject constructor(
      * Only saved apps qualify: the record points at a row id, and an app that has never been saved
      * has none. In practice the app's own row is seeded on first run, so it is always saved.
      *
+     * Reconciling first is what makes the record safe to write: once this process has reconciled
+     * it never judges a record again, so this one waits for the next process — the one whose
+     * version code can tell whether it landed. Normally that already happened at startup, and
+     * this returns at once.
+     *
      * Cancelling the install leaves the record behind; that is deliberate rather than sloppy, as
-     * [ConfirmSelfUpdateUseCase] drops a record whose version never landed the next time it runs.
+     * the next reconciliation drops a record whose version code never went up.
      */
     private suspend fun recordSelfUpdate(app: TrackedApp, candidate: UpdateCandidate) {
-        if (!selfApp.isSelf(app) || !app.isSaved) return
+        reconcileSelfUpdate()
         logger.i(TAG) { "Installing over ourselves; recording ${candidate.version} as pending" }
-        pendingSelfUpdates.put(
-            PendingSelfUpdate(
-                appId = app.id,
-                packageName = app.packageName,
-                version = candidate.version,
-                previousLastUpdateTime = selfApp.lastUpdateTime,
-                previousVersionCode = selfApp.versionCode,
-            )
-        )
-    }
-
-    private suspend fun forgetSelfUpdate(app: TrackedApp) {
-        if (!selfApp.isSelf(app)) return
-        pendingSelfUpdates.clear()
+        selfUpdates.markPending(PendingSelfUpdate(appId = app.id, releaseName = candidate.version))
     }
 
     private suspend fun releaseTelegramCopy(download: DownloadRef) {

@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.testing
 
+import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
 import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
 import dev.re7gog.b_sideloader.domain.error.AppError
@@ -10,6 +11,7 @@ import dev.re7gog.b_sideloader.domain.installer.PackageChange
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppSource
+import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
 import dev.re7gog.b_sideloader.domain.model.GithubRelease
@@ -21,6 +23,7 @@ import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.model.LocalApk
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.PrivilegedIdentity
+import dev.re7gog.b_sideloader.domain.model.SelfUpdateState
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
@@ -31,10 +34,11 @@ import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
-import dev.re7gog.b_sideloader.domain.repository.PendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramDownload
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
+import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,37 +113,54 @@ class FakeAppsRepository(initial: List<TrackedApp> = emptyList()) : AppsReposito
  * A pinned build identity, so a test can say "this is what is running now" without `BuildConfig`.
  *
  * The default package name matches [dev.re7gog.b_sideloader.testing.selfApp], which is what makes
- * that fixture read as "B-SideLoader itself" to the code under test.
+ * that fixture read as "B-SideLoader itself" to the code under test. The default release tag is
+ * unknown — a local build — so a reconciliation run by some other test leaves the rows alone.
  */
 class FakeSelfAppInfo(
     override val packageName: String = SELF_PACKAGE,
     override val versionCode: Long = 1L,
-    override val lastUpdateTime: Long = 1_000L,
+    override val releaseTag: AppVersion = AppVersion.Unknown,
 ) : SelfAppInfo {
     companion object {
         const val SELF_PACKAGE: String = "dev.re7gog.b_sideloader"
     }
 }
 
-class FakePendingSelfUpdateRepository(
-    /** Readable and writable, so a test can both plant a record and assert on the one written. */
+class FakeSelfUpdateStateRepository(
+    /** Readable and writable, so a test can both plant state and assert on what was written. */
+    var rememberedVersionCode: Long? = null,
     var pending: PendingSelfUpdate? = null,
-) : PendingSelfUpdateRepository {
+) : SelfUpdateStateRepository {
 
-    var clearCount = 0
+    /** How many writes happened at all, so a test can assert that nothing was written. */
+    var writeCount = 0
         private set
 
-    override suspend fun get(): PendingSelfUpdate? = pending
+    override suspend fun get(): SelfUpdateState = SelfUpdateState(rememberedVersionCode, pending)
 
-    override suspend fun put(pending: PendingSelfUpdate) {
+    override suspend fun markPending(pending: PendingSelfUpdate) {
         this.pending = pending
+        writeCount++
     }
 
-    override suspend fun clear() {
+    override suspend fun clearPending() {
         pending = null
-        clearCount++
+        writeCount++
+    }
+
+    override suspend fun settle(versionCode: Long) {
+        pending = null
+        rememberedVersionCode = versionCode
+        writeCount++
     }
 }
+
+/** The real reconciliation over fakes. With the defaults it finds nothing to change. */
+fun reconcileSelfUpdate(
+    apps: AppsRepository,
+    state: SelfUpdateStateRepository = FakeSelfUpdateStateRepository(),
+    selfInfo: SelfAppInfo = FakeSelfAppInfo(),
+): ReconcileSelfUpdateUseCase = ReconcileSelfUpdateUseCase(state, apps, selfInfo, NoopLogger)
 
 class FakeGithubRepository(
     var releases: List<GithubRelease> = emptyList(),

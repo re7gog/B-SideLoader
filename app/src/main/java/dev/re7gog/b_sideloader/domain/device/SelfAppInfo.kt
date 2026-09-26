@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.domain.device
 
+import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 
 /**
@@ -12,22 +13,18 @@ interface SelfAppInfo {
     /** `BuildConfig.APPLICATION_ID`. */
     val packageName: String
 
-    /** `BuildConfig.VERSION_CODE`, which Android requires to grow with every update. */
+    /**
+     * `BuildConfig.VERSION_CODE`. A release build derives it from its tag, so it goes up with every
+     * release — which is what makes "the version code went up" proof that a self-update landed.
+     */
     val versionCode: Long
 
     /**
-     * `PackageInfo.lastUpdateTime` for this app, or [NO_INSTALL_TIME] when it cannot be read.
-     *
-     * The one thing that changes on *every* install of this package, including a reinstall of the
-     * very same build — which is exactly what the first install through B-SideLoader is, and what
-     * a version code alone cannot detect. Only ever compared for inequality, so the value being a
-     * wall-clock timestamp does not matter.
+     * The git tag CI built this from, which is also the name of the GitHub release it was published
+     * as — the value a GitHub app's row stores as its version. [AppVersion.Unknown] for a local
+     * build, which is not any release.
      */
-    val lastUpdateTime: Long
-
-    companion object {
-        const val NO_INSTALL_TIME: Long = 0L
-    }
+    val releaseTag: AppVersion
 }
 
 /** Whether [app] is B-SideLoader itself, i.e. installing it replaces the running process. */

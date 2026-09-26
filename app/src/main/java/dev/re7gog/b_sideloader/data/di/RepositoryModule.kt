@@ -15,7 +15,7 @@ import dev.re7gog.b_sideloader.data.installer.InstallerGatewayImpl
 import dev.re7gog.b_sideloader.data.remote.interceptor.AuthTokenSource
 import dev.re7gog.b_sideloader.data.repository.GithubRepositoryImpl
 import dev.re7gog.b_sideloader.data.repository.RoomAppsRepository
-import dev.re7gog.b_sideloader.data.settings.DataStorePendingSelfUpdateRepository
+import dev.re7gog.b_sideloader.data.settings.DataStoreSelfUpdateStateRepository
 import dev.re7gog.b_sideloader.data.settings.DataStoreSettingsRepository
 import dev.re7gog.b_sideloader.data.telegram.TelegramRepositoryImpl
 import dev.re7gog.b_sideloader.domain.background.BackgroundRestrictions
@@ -27,8 +27,8 @@ import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
-import dev.re7gog.b_sideloader.domain.repository.PendingSelfUpdateRepository
 import dev.re7gog.b_sideloader.domain.repository.SecretsRepository
+import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import javax.inject.Singleton
@@ -59,9 +59,9 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindPendingSelfUpdateRepository(
-        impl: DataStorePendingSelfUpdateRepository,
-    ): PendingSelfUpdateRepository
+    abstract fun bindSelfUpdateStateRepository(
+        impl: DataStoreSelfUpdateStateRepository,
+    ): SelfUpdateStateRepository
 
     @Binds
     @Singleton

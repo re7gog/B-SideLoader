@@ -4,6 +4,7 @@ import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.SelfApp
 import dev.re7gog.b_sideloader.testing.FakeAppsRepository
@@ -11,8 +12,8 @@ import dev.re7gog.b_sideloader.testing.FakeDeviceInfo
 import dev.re7gog.b_sideloader.testing.FakeGithubRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
-import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
 import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
+import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
 import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.asset
@@ -38,7 +39,7 @@ class RunUpdateSweepUseCaseTest {
     /** Every fixture app uses `com.example`, so this is "the tracked app is on the device". */
     private val packages = FakePackageInspector(installedPackages = setOf("com.example"))
     private val selfInfo = FakeSelfAppInfo()
-    private val pendingSelfUpdates = FakePendingSelfUpdateRepository()
+    private val selfUpdates = FakeSelfUpdateStateRepository()
 
     private fun sweep(
         apps: FakeAppsRepository,
@@ -46,27 +47,33 @@ class RunUpdateSweepUseCaseTest {
         github: dev.re7gog.b_sideloader.domain.repository.GithubRepository = this.github,
         deviceInfo: FakeDeviceInfo = this.deviceInfo,
         packages: FakePackageInspector = this.packages,
-    ): RunUpdateSweepUseCase = RunUpdateSweepUseCase(
-        appsRepository = apps,
-        settingsRepository = settings,
-        checkUpdates = CheckUpdatesUseCase(
-            resolveUpdate = ResolveUpdateUseCase(github, telegram, deviceInfo),
+        selfInfo: FakeSelfAppInfo = this.selfInfo,
+    ): RunUpdateSweepUseCase {
+        val reconcile = ReconcileSelfUpdateUseCase(selfUpdates, apps, selfInfo, NoopLogger)
+        return RunUpdateSweepUseCase(
+            appsRepository = apps,
             settingsRepository = settings,
-            packageInspector = packages,
+            checkUpdates = CheckUpdatesUseCase(
+                resolveUpdate = ResolveUpdateUseCase(github, telegram, deviceInfo),
+                settingsRepository = settings,
+                packageInspector = packages,
+                logger = NoopLogger,
+            ),
+            installApp = InstallAppUseCase(
+                installer,
+                apps,
+                telegram,
+                selfUpdates,
+                reconcile,
+                selfInfo,
+                NoopLogger,
+            ),
+            reconcileSelfUpdate = reconcile,
+            deviceInfo = deviceInfo,
+            selfApp = selfInfo,
             logger = NoopLogger,
-        ),
-        installApp = InstallAppUseCase(
-            installer,
-            apps,
-            telegram,
-            pendingSelfUpdates,
-            selfInfo,
-            NoopLogger,
-        ),
-        deviceInfo = deviceInfo,
-        selfApp = selfInfo,
-        logger = NoopLogger,
-    )
+        )
+    }
 
     @Test
     fun `reports and installs an outdated app`() = runTest {
@@ -100,6 +107,25 @@ class RunUpdateSweepUseCaseTest {
 
         assertEquals(listOf(SelfApp.NAME, "A"), report.withUpdates)
         assertEquals(listOf("A", SelfApp.NAME), report.installed)
+    }
+
+    /**
+     * A self-update kills the worker that installed it, and the next sweep runs in the new build's
+     * process. Its row must be reconciled before the check, or the sweep would find — and
+     * install — the very update that just landed.
+     */
+    @Test
+    fun `a self-update that just landed is recorded before the check`() = runTest {
+        val apps = FakeAppsRepository(listOf(selfApp(id = 1, version = AppVersion("v1.0"))))
+        selfUpdates.rememberedVersionCode = 1L
+        selfUpdates.pending = PendingSelfUpdate(appId = 1, releaseName = AppVersion("v2.0"))
+        val packages = FakePackageInspector(installedPackages = setOf(FakeSelfAppInfo.SELF_PACKAGE))
+
+        val report = sweep(apps, packages = packages, selfInfo = FakeSelfAppInfo(versionCode = 2L))()
+
+        assertEquals(emptyList<String>(), report.withUpdates)
+        assertEquals(emptyList<String>(), report.installed)
+        assertEquals("v2.0", apps.getApps().single().version.raw)
     }
 
     @Test

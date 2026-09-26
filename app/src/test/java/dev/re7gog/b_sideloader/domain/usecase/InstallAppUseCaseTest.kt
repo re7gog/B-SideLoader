@@ -12,10 +12,11 @@ import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
-import dev.re7gog.b_sideloader.testing.FakePendingSelfUpdateRepository
 import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
+import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.githubApp
+import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.selfApp
 import dev.re7gog.b_sideloader.testing.telegramApp
 import kotlinx.coroutines.flow.toList
@@ -30,11 +31,18 @@ class InstallAppUseCaseTest {
 
     private val installer = FakeInstallerGateway()
     private val telegram = FakeTelegramRepository()
-    private val pendingSelfUpdates = FakePendingSelfUpdateRepository()
-    private val selfInfo = FakeSelfAppInfo(versionCode = 7L, lastUpdateTime = 500L)
+    private val selfUpdates = FakeSelfUpdateStateRepository()
+    private val selfInfo = FakeSelfAppInfo(versionCode = 7L)
 
-    private fun useCase(apps: FakeAppsRepository) =
-        InstallAppUseCase(installer, apps, telegram, pendingSelfUpdates, selfInfo, NoopLogger)
+    private fun useCase(apps: FakeAppsRepository) = InstallAppUseCase(
+        installer,
+        apps,
+        telegram,
+        selfUpdates,
+        reconcileSelfUpdate(apps, selfUpdates, selfInfo),
+        selfInfo,
+        NoopLogger,
+    )
 
     private val httpCandidate = UpdateCandidate(
         version = AppVersion("v2.0"),
@@ -108,46 +116,57 @@ class InstallAppUseCaseTest {
     /**
      * The write-ahead record for a self-update has to exist *before* the install starts: the
      * process is killed the moment the package is replaced, so anything written afterwards is
-     * written by nobody.
+     * written by nobody. And this process has to have reconciled first, so that the version code
+     * it remembers is the one the next process compares against.
      */
     @Test
-    fun `installing over ourselves records the pending version before the install`() = runTest {
+    fun `installing over ourselves records the pending release before the install`() = runTest {
         val self = selfApp(id = 3L, version = AppVersion("1.0.0"))
         val apps = FakeAppsRepository(listOf(self))
         var recordedWhenInstallStarted: PendingSelfUpdate? = null
-        installer.onInstall = { recordedWhenInstallStarted = pendingSelfUpdates.pending }
+        var rememberedWhenInstallStarted: Long? = null
+        installer.onInstall = {
+            recordedWhenInstallStarted = selfUpdates.pending
+            rememberedWhenInstallStarted = selfUpdates.rememberedVersionCode
+        }
 
         useCase(apps).invoke(self, httpCandidate).toList()
 
-        val pending = recordedWhenInstallStarted!!
-        assertEquals(3L, pending.appId)
-        assertEquals("v2.0", pending.version.raw)
-        assertEquals(FakeSelfAppInfo.SELF_PACKAGE, pending.packageName)
-        assertEquals(500L, pending.previousLastUpdateTime)
-        assertEquals(7L, pending.previousVersionCode)
+        assertEquals(
+            PendingSelfUpdate(appId = 3L, releaseName = AppVersion("v2.0")),
+            recordedWhenInstallStarted,
+        )
+        assertEquals(7L, rememberedWhenInstallStarted)
     }
 
-    /** Surviving to the end means the ordinary write happened, so the record is just litter. */
+    /**
+     * Even a success this process lives to see is not written: only the next process's version
+     * code can prove the replace happened, so the record stays for it to judge.
+     */
     @Test
-    fun `the pending record is dropped when the process outlives the install`() = runTest {
+    fun `a successful self-install leaves the row to the next process`() = runTest {
         val self = selfApp(id = 3L, version = AppVersion("1.0.0"))
         val apps = FakeAppsRepository(listOf(self))
 
-        useCase(apps).invoke(self, httpCandidate).toList()
+        val events = useCase(apps).invoke(self, httpCandidate).toList()
 
-        assertNull(pendingSelfUpdates.pending)
-        assertEquals("v2.0", apps.getApps().single().version.raw)
+        assertEquals("1.0.0", apps.getApps().single().version.raw)
+        assertEquals(AppVersion("v2.0"), selfUpdates.pending?.releaseName)
+        // The screen is still told what was installed, so it stops offering the update.
+        val completed = events.filterIsInstance<AppInstallEvent.Completed>().single()
+        assertEquals("v2.0", completed.app.version.raw)
     }
 
+    /** A failure this process sees is final; there is nothing left for the next one to judge. */
     @Test
-    fun `a failed self-install drops the record too`() = runTest {
+    fun `a failed self-install drops the record`() = runTest {
         installer.outcome = InstallOutcome.Failure(AppError.Install(InstallFailure.Aborted))
         val self = selfApp(id = 3L)
         val apps = FakeAppsRepository(listOf(self))
 
         useCase(apps).invoke(self, httpCandidate).toList()
 
-        assertNull(pendingSelfUpdates.pending)
+        assertNull(selfUpdates.pending)
         assertEquals("1.0.0", apps.getApps().single().version.raw)
     }
 
@@ -159,8 +178,8 @@ class InstallAppUseCaseTest {
 
         useCase(apps).invoke(other, httpCandidate).toList()
 
-        assertNull(pendingSelfUpdates.pending)
-        assertEquals(0, pendingSelfUpdates.clearCount)
+        assertNull(selfUpdates.pending)
+        assertEquals(0, selfUpdates.writeCount)
     }
 
     /**

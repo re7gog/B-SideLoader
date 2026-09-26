@@ -72,12 +72,15 @@ data class SweepReport(
  *
  * B-SideLoader's own update, if there is one, is installed last: replacing the package kills the
  * worker or service running this sweep, and anything queued behind it would simply never happen.
+ * And its own row is reconciled before anything is read, so a sweep in the process that a
+ * self-update just started does not find — and install — that same update again.
  */
 class RunUpdateSweepUseCase @Inject constructor(
     private val appsRepository: AppsRepository,
     private val settingsRepository: SettingsRepository,
     private val checkUpdates: CheckUpdatesUseCase,
     private val installApp: InstallAppUseCase,
+    private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val deviceInfo: DeviceInfo,
     private val selfApp: SelfAppInfo,
     private val logger: Logger,
@@ -95,6 +98,7 @@ class RunUpdateSweepUseCase @Inject constructor(
             )
         }
 
+        reconcileSelfUpdate()
         val apps = appsRepository.getApps().filter { it.autoUpdate }
         val outcomes = checkUpdates(apps) { app, done, total ->
             onProgress(SweepProgress.Checking(app.name, done, total))

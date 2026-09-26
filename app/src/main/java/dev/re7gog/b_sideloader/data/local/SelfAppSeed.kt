@@ -16,15 +16,13 @@ import dev.re7gog.b_sideloader.domain.model.SelfApp
  * through raw SQL rather than the DAO because a `RoomDatabase.Callback` and a `Migration` are
  * handed a [SupportSQLiteDatabase] — the DAO does not exist yet at that point.
  *
- * The seeded version is deliberately *unknown* (an empty `version` column). A GitHub app's stored
- * version is the release *name*, and this project publishes releases as `v1.0.0` while the build
- * calls itself `1.0.0` — so there is no honest value to write here, and guessing one would make
- * the row claim to be up to date against a release it has never seen.
+ * The seeded version is the release this build *is*: `BuildConfig.RELEASE_TAG`, the git tag CI
+ * built it from, which is also the GitHub release's name — the value a GitHub app's row stores. So
+ * from its very first start the app knows which release it is, and offers only newer ones.
  *
- * Unknown reads as "not installed from here", which is both true and useful: the row offers an
- * install rather than an update, the background sweep leaves it alone until the user has run that
- * install once, and that first install is what makes B-SideLoader the installer of record for
- * itself — which is what buys silent updates from then on.
+ * A local build has no tag and seeds an empty version (`AppVersion.Unknown`, "not installed from
+ * here"), which is the honest answer for a build that is not any release. An existing row is
+ * brought up to date the same way on startup, by `ReconcileSelfUpdateUseCase`.
  *
  * Nothing here re-creates a deleted row: the seed is skipped when this repository is already
  * tracked, and it never runs again afterwards. A user who removes the row means it.
@@ -52,8 +50,8 @@ internal object SelfAppSeed {
         put("sourceType", AppSourceKind.GitHub.storedValue)
         put("packageName", BuildConfig.APPLICATION_ID)
         put("name", SelfApp.NAME)
-        // Unknown: see the class comment. AppVersion.Unknown is exactly this empty string.
-        put("version", "")
+        // Empty for a local build, which AppVersion.Unknown is exactly. See the class comment.
+        put("version", BuildConfig.RELEASE_TAG)
         put("autoupdate", true)
         put("filterInclude", "")
         put("filterExclude", "")

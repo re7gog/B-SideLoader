@@ -10,7 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
  *
  * One `DataStore` for the whole app, shared by everything that keeps a key-value scrap:
  * [DataStoreSettingsRepository] for what the user configures and
- * [DataStorePendingSelfUpdateRepository] for the write-ahead record of an in-flight self-update.
+ * [DataStoreSelfUpdateStateRepository] for what the app remembers about updating itself.
  * A second store would mean a second file, a second corruption story and a second migration path
  * for what is a handful of keys.
  *

@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.feature.apps
 
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
+import dev.re7gog.b_sideloader.domain.usecase.TrackedAppStatus
 import dev.re7gog.b_sideloader.domain.usecase.UpdateCheckOutcome
 
 /**
@@ -53,6 +54,24 @@ internal data class UpdateBoard(
             }
         }
         return copy(states = nextStates, candidates = nextCandidates)
+    }
+
+    /**
+     * [states], held against what the database says *now*.
+     *
+     * A verdict is as old as the check that produced it, while a row's version can move after that
+     * check — an install from the details screen, or B-SideLoader's own row being reconciled. A row
+     * whose stored version already is the candidate is up to date whatever the verdict said;
+     * without this it would keep offering an update that has already happened until the next
+     * refresh.
+     */
+    fun statesFor(apps: List<TrackedAppStatus>): Map<Long, AppUpdateState> {
+        val settled = apps.filter { status ->
+            val id = status.app.id
+            states[id] == AppUpdateState.Available && candidates[id]?.version == status.app.version
+        }
+        if (settled.isEmpty()) return states
+        return states + settled.associate { it.app.id to AppUpdateState.UpToDate }
     }
 
     fun starting(id: Long): UpdateBoard = copy(

@@ -119,19 +119,22 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   `RunUpdateSweepUseCase` isolates per-app failures but always propagates cancellation.
 - **Self-update.** The app tracks itself like any other app: `SelfAppSeed` writes a row pointing at
   `SelfApp.source` (`re7gog/B-SideLoader`) — from `onCreate` for a new database, from the 1 -> 2
-  migration for an existing one — with an **unknown version**, since a GitHub app's stored version
-  is the release *name* (`v1.0.0`) and a build only knows its `versionName` (`1.0.0`). The row
-  therefore starts as "not installed from here": it offers an install, the background sweep leaves
-  it alone, and running that install once makes B-SideLoader the installer of record for itself,
-  which is what buys silent updates from then on. Installing it replaces the running process, so
-  `InstallAppUseCase` never reaches its own database write: it records a `PendingSelfUpdate`
-  *before* starting the install, and `ConfirmSelfUpdateUseCase` completes the write from the *new*
-  version's process — called from `MY_PACKAGE_REPLACED` (`BootReceiver`) and again from
-  `Application.onCreate` for ROMs that drop that broadcast. Whether the install landed is decided
-  by `PackageInfo.lastUpdateTime` (version code as a second opinion), never by a release name: that
-  first install is a reinstall of the very same build, so the version code does not move. A record
-  whose install never happened is dropped. `RunUpdateSweepUseCase` installs this app last, because
-  the replace kills whatever is running the sweep.
+  migration for an existing one. A release build knows which release it is: CI passes the tag as
+  `RELEASE_TAG`, and `app/build.gradle.kts` turns it into `BuildConfig.RELEASE_TAG`, `versionName`
+  and a `versionCode` that rises with every tag (`v1.2.3` -> `1020399`; pre-release suffixes sort
+  below the release). The workflow names each release exactly after its tag, because a GitHub
+  app's row stores the release *name*. The seed writes that tag; an untagged local build writes
+  nothing (unknown version). Installing this app replaces the running process, so
+  `InstallAppUseCase` never writes the row for it: it records a `PendingSelfUpdate` (row id +
+  release name) *before* the install, and `ReconcileSelfUpdateUseCase` judges it in the next
+  process against the version code remembered in `SelfUpdateStateRepository`: code went up ->
+  write the release name; did not -> drop it; nothing pending but the code changed (first start,
+  APK installed by hand) -> write the build's own tag. It runs **once per process, before
+  anything reads the apps** — `Application.onCreate` starts it, `BootReceiver`
+  (`MY_PACKAGE_REPLACED`), the apps list, the details screen, the sweep and the self-install
+  itself await it — so no check ever sees the stale row, and a record written by this process's
+  own in-flight install is never judged by it. `RunUpdateSweepUseCase` installs this app last,
+  because the replace kills whatever is running the sweep.
 - **OEM background limits.** `AndroidBackgroundRestrictions` detects the ROM vendor and resolves
   *only that vendor's* autostart activities, verifying each exists before launching it. The
   "Background reliability" settings screen turns that into a checklist with per-ROM instructions,
@@ -179,7 +182,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` — 123 JVM tests covering selection logic, mappers, error
+`./gradlew :app:testDebugUnitTest` — 132 JVM tests covering selection logic, mappers, error
 translation, use cases, ViewModels and the navigation state machine. Fakes (not mocks) live in
 `app/src/test/java/.../testing/`.
 

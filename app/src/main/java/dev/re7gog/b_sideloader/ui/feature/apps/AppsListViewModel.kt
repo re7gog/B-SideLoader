@@ -13,6 +13,7 @@ import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ObserveTrackedAppsUseCase
+import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.TrackedAppStatus
 import dev.re7gog.b_sideloader.domain.usecase.UninstallAppsUseCase
 import dev.re7gog.b_sideloader.ui.common.error.toUiText
@@ -52,6 +53,7 @@ class AppsListViewModel @Inject constructor(
     private val appsRepository: AppsRepository,
     private val checkUpdates: CheckUpdatesUseCase,
     private val installApp: InstallAppUseCase,
+    private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val deleteTrackedApps: DeleteTrackedAppsUseCase,
     private val uninstallApps: UninstallAppsUseCase,
     private val settingsRepository: SettingsRepository,
@@ -91,7 +93,7 @@ class AppsListViewModel @Inject constructor(
         lastKnownApps = apps
         // Drop ids of apps that disappeared, otherwise the selection count outlives the rows.
         val liveSelection = selected intersect apps.mapTo(mutableSetOf()) { it.app.id }
-        val items = apps.toListItems(liveSelection, board.states, board.progress)
+        val items = apps.toListItems(liveSelection, board.statesFor(apps), board.progress)
         AppsListUiState(
             apps = items,
             isLoading = false,
@@ -119,10 +121,15 @@ class AppsListViewModel @Inject constructor(
      * The app list comes from a repository snapshot rather than from [lastKnownApps]: this is
      * called from `init`, before anything has subscribed to [uiState], so the observed list has
      * not arrived yet and the check would silently have nothing to do.
+     *
+     * The snapshot is taken only once B-SideLoader's own row is reconciled. Right after a
+     * self-update this is the first screen, and a snapshot taken a moment earlier would still hold
+     * the old version — showing the update that was just installed.
      */
     fun refresh() {
         if (checkJob?.isActive == true) return
         checkJob = viewModelScope.launch {
+            reconcileSelfUpdate()
             val apps = appsRepository.getApps()
             // Deliberately does not reset the per-row verdicts: the refresh indicator already says
             // a check is running, and blanking them would make every "Update" button disappear and

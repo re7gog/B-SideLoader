@@ -9,7 +9,7 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.background.NotificationCenter
 import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.data.telegram.TdlibClient
-import dev.re7gog.b_sideloader.domain.usecase.ConfirmSelfUpdateUseCase
+import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -28,7 +28,7 @@ class BSideApplication : Application(), Configuration.Provider {
     lateinit var syncBackgroundWork: SyncBackgroundWorkUseCase
 
     @Inject
-    lateinit var confirmSelfUpdate: ConfirmSelfUpdateUseCase
+    lateinit var reconcileSelfUpdate: ReconcileSelfUpdateUseCase
 
     @Inject
     lateinit var tdlibClient: TdlibClient
@@ -49,6 +49,11 @@ class BSideApplication : Application(), Configuration.Provider {
         super.onCreate()
         notificationCenter.ensureChannels()
 
+        // First and on its own, not queued behind TDLib: every update check waits for this, so a
+        // self-update that finished while no process was alive — or the release this build is —
+        // is in the database before anything can compare against it. Never throws.
+        applicationScope.launch { reconcileSelfUpdate() }
+
         applicationScope.launch {
             // TDLib needs its client alive before anything asks for an auth state, and the
             // scheduled work has to be reconciled with whatever the settings now say.
@@ -56,11 +61,6 @@ class BSideApplication : Application(), Configuration.Provider {
                 .onFailure { logger.e(TAG) { "TDLib failed to start: ${it.message}" } }
             suspendRunCatching { syncBackgroundWork() }
                 .onFailure { logger.e(TAG) { "Background work sync failed: ${it.message}" } }
-            // A self-update that finished while this process was dead is only in the database once
-            // this has run. MY_PACKAGE_REPLACED normally gets there first; this covers the ROMs
-            // that drop that broadcast.
-            suspendRunCatching { confirmSelfUpdate() }
-                .onFailure { logger.e(TAG) { "Self-update confirmation failed: ${it.message}" } }
         }
     }
 
