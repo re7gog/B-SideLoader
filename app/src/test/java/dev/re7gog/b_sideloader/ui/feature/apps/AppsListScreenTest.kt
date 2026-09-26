@@ -65,7 +65,8 @@ class AppsListScreenTest {
 
         composeRule.onNodeWithText("Alpha").assertIsDisplayed()
         composeRule.onNodeWithText("Beta").assertIsDisplayed()
-        composeRule.onNodeWithText("octocat", substring = true).assertIsDisplayed()
+        // Both rows are by the same owner: one subtitle each, not one for the list.
+        composeRule.onAllNodesWithText("octocat", substring = true).assertCountEquals(2)
     }
 
     @Test

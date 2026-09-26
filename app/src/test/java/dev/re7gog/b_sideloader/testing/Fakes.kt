@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.testing
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.background.BackgroundWorkScheduler
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
 import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
 import dev.re7gog.b_sideloader.domain.error.AppError
@@ -34,6 +35,7 @@ import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
+import dev.re7gog.b_sideloader.domain.repository.SecretsRepository
 import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramDownload
@@ -212,9 +214,23 @@ class FakeTelegramRepository(
         _authErrors.tryEmit(message)
     }
 
-    override suspend fun sendPhoneNumber(phoneNumber: String) = Unit
-    override suspend fun sendCode(code: String) = Unit
-    override suspend fun sendPassword(password: String) = Unit
+    /** Everything sent to TDLib during sign-in, in order, so a test can assert on the wire format. */
+    val sentPhoneNumbers = mutableListOf<String>()
+    val sentCodes = mutableListOf<String>()
+    val sentPasswords = mutableListOf<String>()
+
+    override suspend fun sendPhoneNumber(phoneNumber: String) {
+        sentPhoneNumbers += phoneNumber
+    }
+
+    override suspend fun sendCode(code: String) {
+        sentCodes += code
+    }
+
+    override suspend fun sendPassword(password: String) {
+        sentPasswords += password
+    }
+
     override suspend fun logOut() {
         _authState.value = TelegramAuthState.LoggedOut
     }
@@ -311,7 +327,10 @@ class FakeInstallerGateway(
         emit(InstallProgress.Finished(outcome))
     }
 
+    val installedLocal = mutableListOf<LocalApk>()
+
     override fun installLocal(apk: LocalApk): Flow<InstallProgress> = flow {
+        installedLocal += apk
         emit(InstallProgress.Preparing)
         emit(InstallProgress.Finished(outcome))
     }
@@ -363,6 +382,29 @@ class FakeDeviceInfo(
     override val hasAggressiveBackgroundLimits: Boolean = false,
     override val supportsSilentSelfUpdates: Boolean = true,
 ) : DeviceInfo
+
+class FakeSecretsRepository(var githubToken: String? = null) : SecretsRepository {
+    override suspend fun getGithubToken(): String? = githubToken
+
+    override suspend fun setGithubToken(token: String) {
+        githubToken = token.takeIf { it.isNotBlank() }
+    }
+}
+
+/** Remembers every settings snapshot it was asked to reconcile with. */
+class FakeBackgroundWorkScheduler : BackgroundWorkScheduler {
+    val synced = mutableListOf<AppSettings>()
+    var ranOnce = 0
+        private set
+
+    override suspend fun sync(settings: AppSettings) {
+        synced += settings
+    }
+
+    override suspend fun runOnce() {
+        ranOnce++
+    }
+}
 
 class FakeApkStagingArea(var staged: LocalApk? = null) : ApkStagingArea {
     var cleared = 0

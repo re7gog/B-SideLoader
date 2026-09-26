@@ -60,7 +60,9 @@ fun AppError.toUiText(): UiText = when (this) {
         PrivilegedFailure.UnsupportedOnThisAndroid -> UiText.of(R.string.error_privileged_unsupported)
     }
 
-    is AppError.Unexpected -> message
+    // The cause's own message, not this error's: without one, `message` is an English placeholder
+    // meant for logs, and showing it would bypass the translated fallback below.
+    is AppError.Unexpected -> cause?.message
         ?.takeIf { it.isNotBlank() }
         ?.let { UiText.Raw(it) }
         ?: UiText.of(R.string.error_unexpected)

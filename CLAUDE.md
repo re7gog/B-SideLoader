@@ -16,22 +16,34 @@ or bump dependencies **there**, referenced as `libs.*` aliases.
 
 ```bash
 ./gradlew assembleDebug                       # debug APK (per-ABI splits + universal)
-./gradlew installDebug                        # build + install on a connected device
-./gradlew :app:testDebugUnitTest              # JVM unit tests (fast, no device)
-./gradlew :app:connectedDebugAndroidTest      # instrumented tests (needs a device)
+./gradlew :app:testDebugUnitTest              # every automated test: JVM + Robolectric, no device
 ./gradlew :app:assembleRelease                # runs R8; the only way to catch a missing keep rule
 ./gradlew lint
+./gradlew installDebug                        # the user's command, see below — never run it
 ```
 
 Two modules: `:app` and `:tdlib` (Telegram native wrapper — see below).
 
-### Devices and the emulator
+### Devices, the emulator and manual testing
 
-**Never start an Android emulator, and never run the app on a device yourself.** The user always
-tests on their own physical phone. `installDebug`, `connectedDebugAndroidTest`, `adb` and the
-emulator/simulator tooling are theirs to run — verify locally with `assembleDebug`,
-`assembleRelease`, `testDebugUnitTest` and `lint`, and ask the user to check anything that needs
-real hardware.
+**Never use an Android emulator — do not create, start or run anything on one — and never
+install or run the app on a device yourself.** The developer tests the final result by hand, on
+their own physical phone. `installDebug`, `connectedDebugAndroidTest`, `adb` and all emulator/AVD
+tooling are theirs to run, not yours.
+
+Verify changes with what runs on this machine: `assembleDebug`, `assembleRelease`,
+`testDebugUnitTest` (which includes the Robolectric suites) and `lint`. When a change can only be
+confirmed on real hardware — install/update/uninstall flows, Shizuku/Dhizuku, OEM background
+behaviour, notifications, LeakCanary reports — finish by telling the user exactly what to check
+by hand, rather than trying to check it yourself.
+
+### LeakCanary
+
+Debug builds include LeakCanary (`debugImplementation` in `app/build.gradle.kts`). It installs
+itself through its own ContentProvider — there is no setup code — and adds a separate "Leaks"
+launcher icon on the phone. Release builds do not contain it; confirm with
+`./gradlew :app:dependencies --configuration releaseRuntimeClasspath` if a dependency change could
+have leaked it in. Leak reports only appear on the user's device, so ask them for the trace.
 
 ### Required secrets
 
@@ -172,6 +184,17 @@ Verify keep-rule changes with `./gradlew :app:assembleRelease`, then check
 `app/build/outputs/mapping/release/configuration.txt` (which rules reached R8) and `mapping.txt`
 (what survived).
 
+### Hidden-API refinement (`dev.rikka.tools.refine`)
+
+`PrivilegedApkInstaller` calls hidden framework APIs through `hidden-stub` classes such as
+`PackageInstallerHidden`, which refine's ASM transform rewrites to the real classes. The refine
+Gradle plugin is **deliberately not applied** in `:app`: it registers that transform with
+`InstrumentationScope.ALL` on every component, unit tests included, which re-serialises every
+dependency jar on the test classpath and breaks the signed BouncyCastle/Conscrypt jars Robolectric
+loads ("SHA-256 digest error"). `app/build.gradle.kts` registers `RefineFactory` itself in an
+`androidComponents` block — `ALL` for the app and instrumented tests, exactly as the plugin did,
+`PROJECT` for host (unit) tests. Do not re-add `alias(libs.plugins.refine)` to `:app`.
+
 ### `:tdlib` module
 
 Prebuilt TDLib native libraries stripped from Telegram X live in `tdlib/src/main/libs/<abi>/`
@@ -182,13 +205,30 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` — 132 JVM tests covering selection logic, mappers, error
-translation, use cases, ViewModels and the navigation state machine. Fakes (not mocks) live in
-`app/src/test/java/.../testing/`.
+`./gradlew :app:testDebugUnitTest` runs every automated test — 303, all on the JVM, no device:
 
-`./gradlew :app:connectedDebugAndroidTest` — Room DAO and migration tests against real SQLite,
-plus Compose UI tests. **Robolectric is deliberately not used**; see `docs/testing.md` for the toolchain reason and
-for how to re-enable it.
+- **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
+  the navigation state machine.
+- **Robolectric** (`@RunWith(AndroidJUnit4::class)`) for everything that touches the framework:
+  Room against real SQLite and the migrations, DataStore, Keystore-sealed secrets, WorkManager
+  scheduling and the worker, notifications, `PackageManager`/`PackageInstaller` sessions, the
+  result receivers, OEM background restrictions, and every Compose screen.
+
+There are no instrumented tests; `src/androidTest` only keeps `HiltTestRunner` for the user's own
+device runs. Fakes (not mocks) live in `app/src/test/java/.../testing/`. `docs/testing.md` has the
+suite map and the Robolectric specifics; the ones that bite:
+
+- `src/test/resources/robolectric.properties` swaps in a plain `Application` — the real one starts
+  TDLib and background work. Code behind `@AndroidEntryPoint` (the receivers) is tested with
+  `@HiltAndroidTest` + `@Config(application = HiltTestApplication::class)`.
+- Screens are tested through their stateless overload, or by passing a ViewModel built from fakes
+  as the `viewModel` argument. Long screens are `LazyColumn`s: scroll with `performScrollToNode`
+  before asserting on anything below the fold.
+- The default SDK is `targetSdk` (37). Older-API branches use `@Config(sdk = [...])`.
+- Robolectric has no AndroidKeyStore: `FakeAndroidKeyStore` installs an in-memory provider.
+- Robolectric's `PackageInstaller.Session.commit` reports success with no `EXTRA_STATUS`; use
+  `ShadowCommitOnlySession` and deliver a realistic verdict through the committed `IntentSender`.
+- On Windows, an APK that Robolectric's package parser has read stays open and cannot be deleted.
 
 ## Conventions
 
@@ -198,8 +238,9 @@ for how to re-enable it.
 - ViewModels are constructor-injected `@HiltViewModel`; screens have a stateless overload taking a
   UI state and callbacks, so they can be tested and previewed without a ViewModel.
 - Room schema is exported to `app/schemas`. Changing it means bumping `AppsDatabase.DB_VERSION`,
-  adding a `Migration` to `AppsDatabase.MIGRATIONS`, committing the new JSON, and adding a
-  migration test. There is **no** destructive fallback.
+  adding a `Migration` to `AppsDatabase.MIGRATIONS`, committing the new JSON, and adding a case
+  to `AppsDatabaseMigrationTest` (it builds the old database from the committed JSON). There is
+  **no** destructive fallback.
 - **Kotlin block comments nest.** A `/*` sequence inside a KDoc (for example writing a glob such as
   `src/main/` followed by a double star) silently swallows the rest of the file. Avoid it.
 

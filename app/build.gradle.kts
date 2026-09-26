@@ -1,10 +1,15 @@
+import com.android.build.api.instrumentation.InstrumentationScope
+import com.android.build.api.variant.HostTest
+import com.android.build.api.variant.UnitTest
+import dev.rikka.tools.refine.RefineFactory
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.devtools.ksp)
     alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.refine)
+    // `dev.rikka.tools.refine` is deliberately NOT applied here: see the `androidComponents` block.
 }
 
 /**
@@ -92,9 +97,10 @@ android {
         }
     }
 
-    // Room's exported schemas double as the input for automated migration tests.
-    sourceSets.getByName("androidTest") {
-        assets.directories.add(layout.projectDirectory.dir("schemas").asFile.path)
+    // Room's exported schemas double as the input for the migration tests, which read the old
+    // schema from the test classpath (`AppsDatabaseMigrationTest`).
+    sourceSets.getByName("test") {
+        resources.directories.add(layout.projectDirectory.dir("schemas").asFile.path)
     }
 
     testOptions {
@@ -102,6 +108,41 @@ android {
             // Robolectric needs the merged resources/manifest to inflate Compose content.
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
+            all {
+                // Robolectric's android-all image is large; the default 512 MB test heap is tight
+                // once Compose and Room tests share one JVM.
+                it.maxHeapSize = "2g"
+                // Robolectric's FileDescriptor interceptor, reached while the API 37 image starts,
+                // calls `jdk.internal.access.SharedSecrets`, which JDK 17+ does not export.
+                it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+            }
+        }
+    }
+}
+
+/*
+ * What the `dev.rikka.tools.refine` plugin would register, minus the part that breaks Robolectric.
+ *
+ * Refine rewrites references to `@RefineAs` hidden-API stubs (`PackageInstallerHidden` ->
+ * `PackageInstaller`). The plugin registers its ASM visitor with `InstrumentationScope.ALL` on
+ * *every* component, and its factory claims every class is instrumentable — so on the unit-test
+ * classpath AGP re-serialises every class of every dependency jar. Class bytes change, the signed
+ * BouncyCastle and Conscrypt jars Robolectric loads fail their signature check, and every
+ * Robolectric test dies in class loading with "SHA-256 digest error".
+ *
+ * So the app and instrumented tests keep exactly what the plugin did, and host (unit) tests only
+ * remap this project's own classes, leaving dependency jars untouched. The app's only refined
+ * references are in `PrivilegedApkInstaller`, which no unit test runs.
+ */
+@Suppress("UnstableApiUsage")
+androidComponents {
+    onVariants { variant ->
+        variant.components.forEach { component ->
+            val isHostTest = component is HostTest || component is UnitTest
+            component.instrumentation.transformClassesWith(
+                RefineFactory::class.java,
+                if (isHostTest) InstrumentationScope.PROJECT else InstrumentationScope.ALL,
+            ) {}
         }
     }
 }
@@ -134,6 +175,8 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // Installs itself through a ContentProvider in the debug manifest; nothing reaches release.
+    debugImplementation(libs.leakcanary.android)
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -191,14 +234,23 @@ dependencies {
 
     // ---- Local (JVM) tests ----
     //
-    // Everything that does not need the Android framework runs here: domain selection logic,
-    // mappers, use cases, ViewModels and the navigation state machine. Robolectric is deliberately
-    // absent — see `docs/testing.md` for why, and for how to re-enable it.
+    // Pure logic (selection, mappers, use cases, ViewModels, navigation) runs as plain JUnit.
+    // Framework-bound code (Room, DataStore, WorkManager, PackageManager, notifications, receivers,
+    // Compose screens) runs on Robolectric in the same source set — see `docs/testing.md`.
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
     testImplementation(libs.androidx.arch.core.testing)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.work.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // Only for the `@AndroidEntryPoint` receivers, which cannot run outside a Hilt application.
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.dagger.hilt.compiler)
 
     // ---- Instrumented tests ----
     androidTestImplementation(libs.androidx.junit)

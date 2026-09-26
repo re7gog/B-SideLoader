@@ -22,9 +22,9 @@ import org.junit.runner.RunWith
 /**
  * DAO behaviour against the real SQLite engine.
  *
- * Runs on a device rather than on the JVM on purpose: the things worth testing here — the
- * `@Relation` join, `ON DELETE CASCADE`, `COLLATE NOCASE` ordering and matching — are all
- * behaviours of SQLite itself, and a JVM fake would prove nothing about them.
+ * The things worth testing here — the `@Relation` join, `ON DELETE CASCADE`, `COLLATE NOCASE`
+ * ordering and matching — are all behaviours of SQLite itself, and a JVM fake would prove nothing
+ * about them. Robolectric runs the real native SQLite library, so this needs no device.
  */
 @RunWith(AndroidJUnit4::class)
 class AppsDaoTest {
@@ -35,10 +35,9 @@ class AppsDaoTest {
     @Before
     fun createDatabase() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        database = Room.inMemoryDatabaseBuilder(context, AppsDatabase::class.java)
-            // Foreign keys are off by default in SQLite; the cascade below depends on them.
-            .setQueryCallback({ _, _ -> }, Runnable::run)
-            .build()
+        // Room turns `PRAGMA foreign_keys` on when it opens a database whose entities declare
+        // foreign keys, which is what the cascade tests below depend on.
+        database = Room.inMemoryDatabaseBuilder(context, AppsDatabase::class.java).build()
         dao = database.appsDao()
     }
 

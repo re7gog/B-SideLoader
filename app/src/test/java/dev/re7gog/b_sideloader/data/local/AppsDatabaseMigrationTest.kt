@@ -1,61 +1,59 @@
 package dev.re7gog.b_sideloader.data.local
 
-import androidx.room.testing.MigrationTestHelper
+import android.content.Context
 import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import dev.re7gog.b_sideloader.BuildConfig
+import dev.re7gog.b_sideloader.data.di.DatabaseModule
 import dev.re7gog.b_sideloader.domain.model.SelfApp
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * Opens a real version-1 database and migrates it, which is the only way to find out whether a
- * migration works — Room validates the resulting schema against the exported `schemas/2.json`, so
- * a migration that drifts from the entities fails here rather than on a user's phone.
+ * migration works.
+ *
+ * The old database is built from the exported `schemas/1.json` ([ExportedSchema]) and then opened
+ * through the production builder in [DatabaseModule], so the migrations under test are exactly the
+ * ones that ship. Room validates the migrated tables against the entities as it opens, so a
+ * migration that drifts from them fails here rather than on a user's phone.
  */
 @RunWith(AndroidJUnit4::class)
 class AppsDatabaseMigrationTest {
 
-    @get:Rule
-    val helper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppsDatabase::class.java,
-    )
+    private val context: Context = ApplicationProvider.getApplicationContext()
+    private var database: AppsDatabase? = null
+
+    @After
+    fun closeDatabase() {
+        database?.close()
+    }
 
     /** The 1 -> 2 migration exists solely to give an existing database the app's own row. */
     @Test
     fun migrate1To2_addsTheSelfRow() {
-        helper.createDatabase(TEST_DB, 1).use { db ->
-            db.insertGithubApp(id = 1, name = "Other", owner = "octocat", repo = "example")
-        }
+        createVersion1 { insertGithubApp(id = 1, name = "Other", owner = "octocat", repo = "example") }
 
-        val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
-
-        val names = migrated.githubAppNames()
-        assertEquals(listOf("Other", SelfApp.NAME), names)
+        assertEquals(listOf("Other", SelfApp.NAME), migrate().githubAppNames())
     }
 
     /** A user who added this repository by hand must not end up with it twice. */
     @Test
     fun migrate1To2_leavesAnAlreadyTrackedRepositoryAlone() {
-        helper.createDatabase(TEST_DB, 1).use { db ->
-            db.insertGithubApp(id = 1, name = "Mine", owner = SelfApp.OWNER, repo = SelfApp.REPO)
-        }
+        createVersion1 { insertGithubApp(id = 1, name = "Mine", owner = SelfApp.OWNER, repo = SelfApp.REPO) }
 
-        val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
-
-        assertEquals(listOf("Mine"), migrated.githubAppNames())
+        assertEquals(listOf("Mine"), migrate().githubAppNames())
     }
 
     /** Casing is the user's choice; "RE7GOG/b-sideloader" is the same repository. */
     @Test
     fun migrate1To2_matchesAnExistingRowRegardlessOfCase() {
-        helper.createDatabase(TEST_DB, 1).use { db ->
-            db.insertGithubApp(
+        createVersion1 {
+            insertGithubApp(
                 id = 1,
                 name = "Mine",
                 owner = SelfApp.OWNER.uppercase(),
@@ -63,9 +61,7 @@ class AppsDatabaseMigrationTest {
             )
         }
 
-        val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
-
-        assertEquals(listOf("Mine"), migrated.githubAppNames())
+        assertEquals(listOf("Mine"), migrate().githubAppNames())
     }
 
     /**
@@ -76,22 +72,45 @@ class AppsDatabaseMigrationTest {
      */
     @Test
     fun migrate1To2_seedsAUsableGithubRowWithThisBuildsRelease() {
-        helper.createDatabase(TEST_DB, 1).close()
+        createVersion1()
 
-        val migrated = helper.runMigrationsAndValidate(TEST_DB, 2, true, *AppsDatabase.MIGRATIONS)
-
-        migrated.query(
+        migrate().query(
             "SELECT apps.packageName, apps.version, apps.autoupdate, " +
                 "github_details.owner, github_details.repo " +
                 "FROM apps INNER JOIN github_details ON apps.id = github_details.id"
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
-            assertEquals("dev.re7gog.b_sideloader", cursor.getString(0))
+            assertEquals(BuildConfig.APPLICATION_ID, cursor.getString(0))
             assertEquals(BuildConfig.RELEASE_TAG, cursor.getString(1))
             assertEquals(1, cursor.getInt(2))
             assertEquals(SelfApp.OWNER, cursor.getString(3))
             assertEquals(SelfApp.REPO, cursor.getString(4))
         }
+    }
+
+    /** Existing apps keep every column across the migration — it is data-only. */
+    @Test
+    fun migrate1To2_keepsExistingRowsIntact() {
+        createVersion1 { insertGithubApp(id = 7, name = "Other", owner = "octocat", repo = "example") }
+
+        val migrated = migrate()
+
+        migrated.query("SELECT id, packageName, version FROM apps WHERE name = 'Other'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(7L, cursor.getLong(0))
+            assertEquals("com.example", cursor.getString(1))
+            assertEquals("1.0", cursor.getString(2))
+        }
+    }
+
+    private fun createVersion1(populate: SupportSQLiteDatabase.() -> Unit = {}) =
+        ExportedSchema.load(version = 1).createDatabase(context, AppsDatabase.DB_NAME, populate)
+
+    /** Opens the database the way the app does, which runs every pending migration. */
+    private fun migrate(): SupportSQLiteDatabase {
+        val opened = DatabaseModule.provideAppsDatabase(context)
+        database = opened
+        return opened.openHelper.writableDatabase
     }
 
     private fun SupportSQLiteDatabase.insertGithubApp(
@@ -121,9 +140,5 @@ class AppsDatabaseMigrationTest {
         buildList {
             while (cursor.moveToNext()) add(cursor.getString(0))
         }
-    }
-
-    private companion object {
-        const val TEST_DB = "migration-test"
     }
 }

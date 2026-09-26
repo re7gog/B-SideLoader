@@ -13,10 +13,11 @@ import dev.re7gog.b_sideloader.data.local.entity.TelegramDetailsEntity
  * The apps database.
  *
  * `exportSchema = true` writes `app/schemas/<version>.json` on every build. That file is checked
- * in and copied into the instrumented-test assets (see `app/build.gradle.kts`), which is what lets
- * `MigrationTest` open an old database and assert that the migration to the current version
- * actually succeeds — the previous setup exported nothing and relied on destructive fallback, so a
- * schema change would silently have wiped user data on the first release.
+ * in and put on the unit-test classpath (see `app/build.gradle.kts`), which is what lets
+ * `AppsDatabaseMigrationTest` build an old database from it and assert that the migration to the
+ * current version actually succeeds — the previous setup exported nothing and relied on
+ * destructive fallback, so a schema change would silently have wiped user data on the first
+ * release.
  *
  * ### Adding a schema change
  * 1. Bump [DB_VERSION].

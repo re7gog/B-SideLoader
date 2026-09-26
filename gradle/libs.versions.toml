@@ -40,6 +40,11 @@ turbine = "1.2.1"
 mockk = "1.14.11"
 androidxTestCore = "1.7.0"
 archCoreTesting = "2.2.0"
+# 4.17 ships an image for API 37 (android-all 17), this project's targetSdk.
+robolectric = "4.17"
+# Debug builds only. The 3.0 alphas are the only releases since 2.14 (2024); alpha 9 has the
+# Compose state inspector fix and the Android 15+ layout fix for LeakCanary's own leak screen.
+leakcanary = "3.0-alpha-9"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -112,6 +117,8 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 #mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }
 hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
