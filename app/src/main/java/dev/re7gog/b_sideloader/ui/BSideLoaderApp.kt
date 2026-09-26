@@ -11,6 +11,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -101,11 +102,22 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
         )
     }
 
+    val suiteType = navigationSuiteType(
+        sizeClass = sizeClass,
+        isTabletop = adaptiveInfo.windowPosture.isTabletop,
+        allowWideRail = wideRail,
+    )
+
+    // The `navigationItems` overload, not the older `navigationSuiteItems` one: the latter only
+    // consumes window insets for the legacy bar/rail/drawer types, so with the short bar or the
+    // wide rail every screen's Scaffold padded for the system navigation bar a second time,
+    // leaving an empty strip above the bar.
     NavigationSuiteScaffold(
-        navigationSuiteItems = {
+        navigationItems = {
             topLevelDestinations.forEach { destination ->
                 val selected = destination.route == navigationState.topLevelRoute
-                item(
+                NavigationSuiteItem(
+                    navigationSuiteType = suiteType,
                     selected = selected,
                     onClick = {
                         // Only buzz on an actual switch: re-tapping the current tab is a no-op and
@@ -125,11 +137,7 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
                 )
             }
         },
-        layoutType = navigationSuiteType(
-            sizeClass = sizeClass,
-            isTabletop = adaptiveInfo.windowPosture.isTabletop,
-            allowWideRail = wideRail,
-        ),
+        navigationSuiteType = suiteType,
         modifier = modifier,
     ) {
         NavDisplay(
