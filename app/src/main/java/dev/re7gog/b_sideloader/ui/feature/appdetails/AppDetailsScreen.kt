@@ -84,7 +84,6 @@ import dev.re7gog.b_sideloader.ui.common.component.rememberInstalledAppIcon
 fun AppDetailsScreen(
     args: AppDetailsArgs,
     onBack: () -> Unit,
-    onFinishedFromSearch: () -> Unit,
     modifier: Modifier = Modifier,
     /**
      * False when this screen is the detail pane of a two-pane layout: the list next to it is
@@ -105,7 +104,6 @@ fun AppDetailsScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
-        onFinishedFromSearch = onFinishedFromSearch,
         onPrimaryAction = viewModel::onPrimaryAction,
         onUninstall = viewModel::onUninstall,
         onDelete = { viewModel.onDelete(onBack) },
@@ -131,7 +129,6 @@ fun AppDetailsScreen(
     uiState: AppDetailsUiState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
-    onFinishedFromSearch: () -> Unit,
     onPrimaryAction: () -> Unit,
     onUninstall: () -> Unit,
     onDelete: () -> Unit,
@@ -149,12 +146,7 @@ fun AppDetailsScreen(
     modifier: Modifier = Modifier,
     showBackAffordance: Boolean = true,
 ) {
-    // After a successful install started from search, back goes to the apps list — the search
-    // results the user came from are a dead end once the app is tracked.
-    val handleBack: () -> Unit = {
-        if (uiState.installSucceeded) onFinishedFromSearch() else onBack()
-    }
-    BackHandler(enabled = showBackAffordance, onBack = handleBack)
+    BackHandler(enabled = showBackAffordance, onBack = onBack)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     val app = uiState.app
@@ -175,7 +167,7 @@ fun AppDetailsScreen(
                 TopAppBar(
                     title = {},
                     navigationIcon = {
-                        IconButton(onClick = handleBack) {
+                        IconButton(onClick = onBack) {
                             Icon(
                                 painterResource(R.drawable.arrow_back_24px),
                                 contentDescription = stringResource(R.string.cd_back),
@@ -639,6 +631,7 @@ private val PrimaryAction.labelRes: Int
         PrimaryAction.Update -> R.string.update
         PrimaryAction.Install -> R.string.install
         PrimaryAction.Open -> R.string.open
+        PrimaryAction.AddAgain -> R.string.add_again
     }
 
 private const val BYTES_PER_MB = 1024L * 1024L

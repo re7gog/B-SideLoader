@@ -12,6 +12,7 @@
     <string name="uninstall">Удалить с устройства</string>
     <string name="install">Установить</string>
     <string name="open">Открыть</string>
+    <string name="add_again">Добавить ещё</string>
     <string name="update">Обновить</string>
     <string name="save_and_install">Сохранить и установить</string>
     <string name="save_changes">Сохранить изменения</string>

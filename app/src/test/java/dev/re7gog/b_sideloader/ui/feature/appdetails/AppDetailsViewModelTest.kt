@@ -2,7 +2,9 @@ package dev.re7gog.b_sideloader.ui.feature.appdetails
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
+import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
@@ -25,6 +27,7 @@ import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.release
 import dev.re7gog.b_sideloader.testing.selfApp
+import dev.re7gog.b_sideloader.testing.telegramApp
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -161,6 +164,113 @@ class AppDetailsViewModelTest {
 
         assertEquals("Cool Apps", viewModel.uiState.value.app?.name)
         assertEquals(PrimaryAction.SaveAndInstall, viewModel.uiState.value.primaryAction)
+    }
+
+    // ---- add again ----
+
+    private val searchedGithub = AppDetailsArgs.NewGithub(owner = "octocat", repo = "example", name = "Example")
+
+    /** A source nobody has added yet is the ordinary first-time case. */
+    @Test
+    fun `a source that is not tracked yet offers save and install`() = runTest {
+        val viewModel = viewModel(
+            args = AppDetailsArgs.NewGithub(owner = "octocat", repo = "other", name = "Other"),
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.alreadyAdded)
+        assertEquals(PrimaryAction.SaveAndInstall, viewModel.uiState.value.primaryAction)
+    }
+
+    /**
+     * Search never opens the saved row. Whatever is stored for the source — name, filters, the
+     * version that is installed — plays no part: the page is a new app, and only the button's
+     * label says the source is already tracked.
+     */
+    @Test
+    fun `a tracked source opened from search is a new app that only differs in its label`() = runTest {
+        val tracked = FakeAppsRepository(
+            listOf(githubApp(id = 1, name = "Saved name", assetInclude = "arm64", version = AppVersion("v0.1"))),
+        )
+        val viewModel = viewModel(args = searchedGithub, appsRepository = tracked)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.alreadyAdded)
+        assertEquals(PrimaryAction.AddAgain, state.primaryAction)
+        assertTrue(state.isPrimaryEnabled)
+        assertFalse(state.isSaved)
+        assertFalse(state.isInstalled)
+        assertFalse(state.hasUnsavedChanges)
+        assertEquals("Example", state.app?.name)
+        assertEquals("", state.app?.assetFilter?.include)
+        assertEquals("", state.app?.packageName)
+        assertFalse(state.app?.version?.isKnown == true)
+    }
+
+    /** The reported bug: editing a filter on the page must not turn Add again into Save changes. */
+    @Test
+    fun `editing filters keeps add again`() = runTest {
+        val viewModel = viewModel(args = searchedGithub)
+        advanceUntilIdle()
+
+        viewModel.onAssetIncludeChange("app")
+        viewModel.onReleaseExcludeChange("beta")
+        viewModel.onNameChange("Second app")
+        advanceUntilIdle()
+
+        assertEquals(PrimaryAction.AddAgain, viewModel.uiState.value.primaryAction)
+        assertFalse(viewModel.uiState.value.hasUnsavedChanges)
+    }
+
+    /** Only search starts a new app; the saved app's own page from the apps list is unchanged. */
+    @Test
+    fun `the apps list page still offers open`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.alreadyAdded)
+        assertEquals(PrimaryAction.Open, viewModel.uiState.value.primaryAction)
+    }
+
+    @Test
+    fun `adding again installs a second row and leaves the first one alone`() = runTest {
+        installer.outcome = InstallOutcome.Success("com.example.second")
+        val original = apps.getApps().single()
+        val viewModel = viewModel(args = searchedGithub)
+        advanceUntilIdle()
+
+        viewModel.onAssetIncludeChange("app")
+        advanceUntilIdle()
+        viewModel.onPrimaryAction()
+        advanceUntilIdle()
+
+        val rows = apps.getApps()
+        assertEquals(listOf("com.example", "com.example.second"), rows.map { it.packageName })
+        assertEquals(original, rows[0])
+        assertEquals("app", rows[1].assetFilter.include)
+        // Saved and installed through this page, so from here it is an ordinary saved app.
+        assertEquals(rows[1], viewModel.uiState.value.app)
+        assertEquals(PrimaryAction.Open, viewModel.uiState.value.primaryAction)
+    }
+
+    @Test
+    fun `a tracked telegram channel opened from search is a new app too`() = runTest {
+        val tracked = FakeAppsRepository(
+            listOf(telegramApp(id = 1, chatId = -100L, topicId = 0, messageInclude = "other app")),
+        )
+        val viewModel = viewModel(
+            args = AppDetailsArgs.NewTelegram(chatId = -100L, topicId = 0, title = "Cool Apps"),
+            appsRepository = tracked,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(PrimaryAction.AddAgain, state.primaryAction)
+        assertFalse(state.isSaved)
+        assertEquals("Cool Apps", state.app?.name)
+        assertEquals(AppSource.Telegram(chatId = -100L, topicId = 0), state.app?.source)
+        assertEquals(1, tracked.getApps().size)
     }
 
     /**

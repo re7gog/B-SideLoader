@@ -101,23 +101,6 @@ class NavigatorTest {
         assertEquals(1, navigator.state.currentStack.size)
     }
 
-    /**
-     * After installing an app found in search, returning to the search results is a dead end —
-     * the app is now in the list, which is where the user is sent.
-     */
-    @Test
-    fun `goToAppsList clears both stacks and switches tab`() {
-        val navigator = navigator()
-        navigator.navigate(SearchRoute)
-        navigator.navigate(NewGithubAppRoute(owner = "octocat", repo = "example", name = "Example"))
-
-        navigator.goToAppsList()
-
-        assertEquals(AppsRoute, navigator.state.topLevelRoute)
-        assertEquals(1, navigator.state.currentStack.size)
-        assertEquals(1, navigator.state.backStacks.getValue(SearchRoute).size)
-    }
-
     @Test
     fun `only the start route is composed while on it`() {
         val navigator = navigator()
@@ -201,17 +184,5 @@ class NavigatorTest {
         navigator.showAppDetails(7L)
 
         assertEquals(NavDirection.Forward, navigator.direction)
-    }
-
-    /** Unwinding to the list after an install is a retreat, even though nothing was popped here. */
-    @Test
-    fun `returning to the apps list is backward`() {
-        val navigator = navigator()
-        navigator.navigate(SearchRoute)
-        navigator.navigate(NewGithubAppRoute(owner = "octocat", repo = "example", name = "Example"))
-
-        navigator.goToAppsList()
-
-        assertEquals(NavDirection.Backward, navigator.direction)
     }
 }

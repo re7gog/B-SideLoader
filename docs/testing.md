@@ -34,7 +34,7 @@ JUnit and never touch it.
 | Self-update | `domain/usecase/ReconcileSelfUpdateUseCaseTest` | judging a pending self-update by the version code in the next process |
 | Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, cancellation propagating |
 | ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine |
-| Navigation | `ui/navigation/NavigatorTest` | per-tab back stacks, "exit through home", the post-install jump to the apps list |
+| Navigation | `ui/navigation/NavigatorTest` | per-tab back stacks, "exit through home" |
 
 ### Framework-bound — Robolectric
 

@@ -105,6 +105,48 @@ class AppDetailsScreenTest {
         composeRule.onNodeWithText(string(R.string.open)).assertIsEnabled()
     }
 
+    /** One channel can publish several apps, so a source that is tracked already says "Add again". */
+    @Test
+    fun anAlreadyTrackedSourceOffersAddAgainInPlaceOfSaveAndInstall() {
+        var tapped = false
+        setContent(
+            state(unsaved, target = candidate, alreadyAdded = true),
+            onPrimaryAction = { tapped = true },
+        )
+
+        assertFalse(exists(hasText(string(R.string.save_and_install))))
+        composeRule.onNodeWithText(string(R.string.add_again)).assertIsEnabled().performClick()
+
+        assertTrue(tapped)
+    }
+
+    /** Like Save & install, it waits for something to install. */
+    @Test
+    fun addAgainWaitsForATarget() {
+        setContent(state(unsaved, target = null, alreadyAdded = true))
+
+        composeRule.onNodeWithText(string(R.string.add_again)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aSourceNotTrackedYetStillOffersSaveAndInstall() {
+        setContent(state(unsaved, target = candidate))
+
+        composeRule.onNodeWithText(string(R.string.save_and_install)).assertIsEnabled()
+        assertFalse(exists(hasText(string(R.string.add_again))))
+    }
+
+    /** Once the new app is saved it is an ordinary saved app, whatever it was opened as. */
+    @Test
+    fun aSavedAppNeverOffersAddAgain() {
+        setContent(
+            state(saved, isInstalled = true, updateStatus = UpdateStatus.UpToDate, alreadyAdded = true),
+        )
+
+        composeRule.onNodeWithText(string(R.string.open)).assertIsEnabled()
+        assertFalse(exists(hasText(string(R.string.add_again))))
+    }
+
     /** Unsaved edits win over everything else: the button must not install over them. */
     @Test
     fun unsavedEditsTurnThePrimaryActionIntoSave() {
@@ -216,25 +258,8 @@ class AppDetailsScreenTest {
         scrollTo(hasText(string(R.string.no_matching_apks)))
     }
 
-    /** After installing from search, the search results are a dead end; back goes to the list. */
     @Test
-    fun backAfterASuccessfulInstallLeavesForTheAppsList() {
-        var back = 0
-        var finished = 0
-        setContent(
-            state(saved, installSucceeded = true),
-            onBack = { back++ },
-            onFinishedFromSearch = { finished++ },
-        )
-
-        composeRule.onNodeWithContentDescription(string(R.string.cd_back)).performClick()
-
-        assertEquals(0, back)
-        assertEquals(1, finished)
-    }
-
-    @Test
-    fun backOtherwiseJustGoesBack() {
+    fun backJustGoesBack() {
         var back = 0
         setContent(state(saved), onBack = { back++ })
 
@@ -255,7 +280,7 @@ class AppDetailsScreenTest {
         candidates: List<UpdateCandidate> = emptyList(),
         target: UpdateCandidate? = null,
         install: InstallProgress? = null,
-        installSucceeded: Boolean = false,
+        alreadyAdded: Boolean = false,
     ) = AppDetailsUiState(
         isLoading = false,
         app = app,
@@ -267,13 +292,12 @@ class AppDetailsScreenTest {
         candidates = persistentListOf(*candidates.toTypedArray()),
         target = target,
         install = install,
-        installSucceeded = installSucceeded,
+        alreadyAdded = alreadyAdded,
     )
 
     private fun setContent(
         uiState: AppDetailsUiState,
         onBack: () -> Unit = {},
-        onFinishedFromSearch: () -> Unit = {},
         onPrimaryAction: () -> Unit = {},
         onDelete: () -> Unit = {},
         onNameChange: (String) -> Unit = {},
@@ -284,7 +308,6 @@ class AppDetailsScreenTest {
                     uiState = uiState,
                     snackbarHostState = remember { SnackbarHostState() },
                     onBack = onBack,
-                    onFinishedFromSearch = onFinishedFromSearch,
                     onPrimaryAction = onPrimaryAction,
                     onUninstall = {},
                     onDelete = onDelete,

@@ -85,27 +85,4 @@ class Navigator(val state: NavigationState) {
         appsStack.add(SavedAppRoute(appId))
         state.topLevelRoute = AppsRoute
     }
-
-    /**
-     * Returns to the apps list, discarding everything stacked on top of it.
-     *
-     * Used after a successful install started from search: the app the user just installed is now
-     * in the list, and dropping them back into the search results they came from would be a dead
-     * end.
-     */
-    fun goToAppsList() {
-        // Unwinding to the list, so it should read as going back even though nothing was popped
-        // from the stack the user is looking at.
-        direction = NavDirection.Backward
-        val appsStack = state.backStacks.getValue(AppsRoute)
-        while (appsStack.size > 1) {
-            appsStack.removeAt(appsStack.lastIndex)
-        }
-        // Clear whatever the current tab had stacked so returning to it later starts fresh.
-        val current = state.currentStack
-        while (current.size > 1) {
-            current.removeAt(current.lastIndex)
-        }
-        state.topLevelRoute = AppsRoute
-    }
 }

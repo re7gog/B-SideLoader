@@ -164,7 +164,7 @@ There is no `NavController`. The back stack is app state:
   is showing; converts to `NavEntry`s with a `SaveableStateHolder` **and** a `ViewModelStore`
   decorator per stack (the latter is what scopes `hiltViewModel` to an entry).
 - `ui/navigation/Navigator.kt` — the only thing allowed to mutate that state; encodes "exit through
-  home" and the post-install jump back to the apps list.
+  home".
 - `ui/BSideLoaderApp.kt` — one `entryProvider { }` wiring every destination to its screen.
 
 Screens receive lambdas, never the navigator. A ViewModel that needs a nav argument takes it via

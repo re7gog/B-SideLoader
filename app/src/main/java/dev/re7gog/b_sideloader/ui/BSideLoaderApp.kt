@@ -273,8 +273,6 @@ private fun rememberEntryProvider(
                 AppDetailsScreen(
                     args = AppDetailsArgs.Saved(key.appId),
                     onBack = { navigator.goBack() },
-                    // Already in the list; there is nowhere else to send the user.
-                    onFinishedFromSearch = { navigator.goBack() },
                     // In two panes the list beside it already *is* the way back.
                     showBackAffordance = !twoPane,
                 )
@@ -291,7 +289,6 @@ private fun rememberEntryProvider(
                         avatarUrl = key.avatarUrl,
                     ),
                     onBack = { navigator.goBack() },
-                    onFinishedFromSearch = { navigator.goToAppsList() },
                 )
             }
 
@@ -303,7 +300,6 @@ private fun rememberEntryProvider(
                         title = key.title,
                     ),
                     onBack = { navigator.goBack() },
-                    onFinishedFromSearch = { navigator.goToAppsList() },
                 )
             }
 

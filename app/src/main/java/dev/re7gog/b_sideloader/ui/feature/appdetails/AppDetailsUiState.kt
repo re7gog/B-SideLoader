@@ -58,8 +58,11 @@ data class AppDetailsUiState(
     /** The candidate that would actually be installed. */
     val target: UpdateCandidate? = null,
     val install: InstallProgress? = null,
-    /** Set once this screen's own install succeeded; drives where back goes. */
-    val installSucceeded: Boolean = false,
+    /**
+     * Opened from search for a source that is already tracked. Changes nothing but the label of
+     * the first install: the page is otherwise the same as for a source seen for the first time.
+     */
+    val alreadyAdded: Boolean = false,
 ) {
     val isSaved: Boolean get() = app?.isSaved == true
     val isInstalling: Boolean get() = install != null
@@ -74,11 +77,12 @@ data class AppDetailsUiState(
 
     /**
      * The single primary button. Order matters: an app opened from search always installs on the
-     * first tap (its edits are persisted as part of that install).
+     * first tap (its edits are persisted as part of that install). When the source is already
+     * tracked, that same first install is labelled [PrimaryAction.AddAgain] instead.
      */
     val primaryAction: PrimaryAction
         get() = when {
-            !isSaved -> PrimaryAction.SaveAndInstall
+            !isSaved -> if (alreadyAdded) PrimaryAction.AddAgain else PrimaryAction.SaveAndInstall
             hasUnsavedChanges -> PrimaryAction.SaveChanges
             updateStatus == UpdateStatus.UpdateAvailable -> PrimaryAction.Update
             !isInstalled -> PrimaryAction.Install
@@ -89,12 +93,13 @@ data class AppDetailsUiState(
     val isPrimaryEnabled: Boolean
         get() = isNameValid && when (primaryAction) {
             PrimaryAction.SaveChanges, PrimaryAction.Open -> true
-            PrimaryAction.SaveAndInstall, PrimaryAction.Update, PrimaryAction.Install ->
-                target != null && !isResolving
+            PrimaryAction.SaveAndInstall, PrimaryAction.AddAgain, PrimaryAction.Update,
+            PrimaryAction.Install,
+            -> target != null && !isResolving
         }
 }
 
-enum class PrimaryAction { SaveAndInstall, SaveChanges, Update, Install, Open }
+enum class PrimaryAction { SaveAndInstall, SaveChanges, Update, Install, Open, AddAgain }
 
 /**
  * The source-specific part of the header: the avatar and whatever only that source can say.

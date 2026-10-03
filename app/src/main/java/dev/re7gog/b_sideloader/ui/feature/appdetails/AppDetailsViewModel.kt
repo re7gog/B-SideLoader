@@ -133,9 +133,17 @@ class AppDetailsViewModel @AssistedInject constructor(
                 app = app,
                 headline = headline,
                 isInstalled = packageInspector.isInstalled(app.packageName),
+                alreadyAdded = !app.isSaved && isTracked(app.source),
             )
         }
     }
+
+    /**
+     * Whether some saved app already comes from [source]. Only decides a button label, so a failed
+     * lookup counts as "no" rather than stopping the page.
+     */
+    private suspend fun isTracked(source: AppSource): Boolean =
+        suspendRunCatching { appsRepository.findBySource(source) }.getOrNull() != null
 
     private suspend fun loadSaved(appId: Long): Pair<TrackedApp, HeadlineUi>? {
         val app = suspendRunCatching { appsRepository.observeApp(appId).firstOrNull() }
@@ -146,14 +154,13 @@ class AppDetailsViewModel @AssistedInject constructor(
     }
 
     /**
-     * A repository picked from search may already be tracked — opening it as the saved app avoids
-     * creating a duplicate and gives the user Open/Update instead of "Save & install".
+     * An app picked from search is always a new one, even when its source is already tracked:
+     * nothing of an existing row is loaded, so the page starts blank, with default filters, as if
+     * the source had never been added. One channel or repository can publish several apps, and
+     * each needs its own filters. Whether the source is already tracked only relabels the button
+     * — see [AppDetailsUiState.alreadyAdded].
      */
-    private suspend fun loadNewGithub(args: AppDetailsArgs.NewGithub): Pair<TrackedApp, HeadlineUi> {
-        val source = AppSource.GitHub(owner = args.owner, repo = args.repo)
-        appsRepository.findBySource(source)?.let { existing ->
-            return existing to headlineFor(existing)
-        }
+    private fun loadNewGithub(args: AppDetailsArgs.NewGithub): Pair<TrackedApp, HeadlineUi> {
         val app = TrackedApp(
             packageName = "",
             name = args.name,
@@ -161,7 +168,7 @@ class AppDetailsViewModel @AssistedInject constructor(
             autoUpdate = true,
             assetFilter = FilterRule.None,
             filterMode = FilterMode.Words,
-            source = source,
+            source = AppSource.GitHub(owner = args.owner, repo = args.repo),
         )
         return app to HeadlineUi.GitHub(
             owner = args.owner,
@@ -172,10 +179,6 @@ class AppDetailsViewModel @AssistedInject constructor(
     }
 
     private suspend fun loadNewTelegram(args: AppDetailsArgs.NewTelegram): Pair<TrackedApp, HeadlineUi> {
-        val source = AppSource.Telegram(chatId = args.chatId, topicId = args.topicId)
-        appsRepository.findBySource(source)?.let { existing ->
-            return existing to headlineFor(existing)
-        }
         val app = TrackedApp(
             packageName = "",
             name = args.title,
@@ -183,7 +186,7 @@ class AppDetailsViewModel @AssistedInject constructor(
             autoUpdate = true,
             assetFilter = FilterRule.None,
             filterMode = FilterMode.Words,
-            source = source,
+            source = AppSource.Telegram(chatId = args.chatId, topicId = args.topicId),
         )
         return app to HeadlineUi.Telegram(photoFileId = chatPhotoFileId(args.chatId))
     }
@@ -317,6 +320,7 @@ class AppDetailsViewModel @AssistedInject constructor(
             PrimaryAction.SaveChanges -> save()
             PrimaryAction.Open -> open()
             PrimaryAction.SaveAndInstall,
+            PrimaryAction.AddAgain,
             PrimaryAction.Update,
             PrimaryAction.Install,
             -> install()
@@ -344,7 +348,6 @@ class AppDetailsViewModel @AssistedInject constructor(
                                 app = event.app,
                                 install = null,
                                 hasUnsavedChanges = false,
-                                installSucceeded = true,
                                 isInstalled = true,
                                 updateStatus = UpdateCheck(event.app, it.target).status,
                             )
