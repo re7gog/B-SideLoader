@@ -1,5 +1,7 @@
 package dev.re7gog.b_sideloader.data.telegram
 
+import dev.re7gog.b_sideloader.BuildConfig
+import dev.re7gog.b_sideloader.core.coroutines.runCatchingCancellable
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.domain.error.AppError
@@ -56,11 +58,29 @@ class TdlibClient @Inject constructor(
 
     private fun createClient(): Client {
         System.loadLibrary(NATIVE_LIBRARY)
+        if (!BuildConfig.DEBUG) silenceNativeLog()
         return Client.create(
             { update -> onUpdate(update) },
             { error -> logger.e(TAG, error) { "TDLib update handler failed" } },
             { error -> logger.e(TAG, error) { "TDLib default handler failed" } },
         )
+    }
+
+    /**
+     * TDLib's native logger writes to logcat by default, and at its default verbosity that
+     * includes the content of messages and updates. Release builds must not leak that.
+     *
+     * Installing a log message handler replaces the logcat sink entirely; the verbosity is
+     * lowered as well so TDLib does not even format the lines. Only fatal messages (which
+     * precede a native abort) are passed on, through [Logger].
+     */
+    private fun silenceNativeLog() {
+        Client.setLogMessageHandler(FATAL_LOG_LEVEL) { _, message ->
+            logger.e(TAG) { "TDLib fatal: $message" }
+        }
+        runCatchingCancellable {
+            Client.execute(TdApi.SetLogVerbosityLevel(FATAL_LOG_LEVEL))
+        }
     }
 
     private fun onUpdate(update: TdApi.Object) {
@@ -160,5 +180,6 @@ class TdlibClient @Inject constructor(
         const val TAG = "TDLib"
         const val NATIVE_LIBRARY = "tdjni"
         const val FILE_BUFFER = 100
+        const val FATAL_LOG_LEVEL = 0
     }
 }
