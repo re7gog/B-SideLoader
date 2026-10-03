@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader.ui.feature.search
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,7 +114,13 @@ fun SearchScreen(
     downloadPhoto: suspend (Int) -> String?,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    // Scaffold-based screens paint their own background; this one has none, so during a predictive
+    // back gesture the entry underneath showed through it.
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         if (uiState.inTopicList) {
             TopicListHeader(title = uiState.topicsOf?.title.orEmpty(), onBack = onBackToChats)
         } else {
