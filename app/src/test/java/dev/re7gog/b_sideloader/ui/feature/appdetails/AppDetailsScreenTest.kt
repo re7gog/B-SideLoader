@@ -21,16 +21,18 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.CandidateFile
+import dev.re7gog.b_sideloader.domain.model.CandidateGroup
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
 import dev.re7gog.b_sideloader.domain.model.FilterMode
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.model.UpdateStatus
+import dev.re7gog.b_sideloader.testing.ARM64_ABIS
 import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.telegramApp
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
-import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -241,9 +243,36 @@ class AppDetailsScreenTest {
 
     @Test
     fun listsTheMatchingApks() {
-        setContent(state(saved, candidates = listOf(candidate), target = candidate))
+        setContent(state(saved, groups = listOf(release("v2.0", candidate)), target = candidate))
 
         scrollTo(hasText(candidate.fileName))
+    }
+
+    /**
+     * A release is shown whole: its name and notes once, every APK in it, and the file an update
+     * would install marked among its siblings — with why the others were passed over.
+     */
+    @Test
+    fun aReleaseIsShownWholeWithTheChosenFileMarked() {
+        val x86 = candidate.copy(fileName = "app-x86_64.apk", download = DownloadRef.Http("https://example.test/x86"))
+        val armv7 = candidate.copy(fileName = "app-armeabi-v7a.apk", download = DownloadRef.Http("https://example.test/v7"))
+        val group = CandidateGroup(
+            title = "v2.0",
+            notes = "Faster startup",
+            files = listOf(
+                CandidateFile(armv7, matchesFilter = false),
+                CandidateFile(candidate, matchesFilter = true),
+                CandidateFile(x86, matchesFilter = true),
+            ),
+        )
+        setContent(state(saved, groups = listOf(group), target = candidate))
+
+        scrollTo(hasText("v2.0"))
+        scrollTo(hasText("Faster startup"))
+        scrollTo(hasText(armv7.fileName))
+        scrollTo(hasText(string(R.string.apk_filtered_out), substring = true))
+        scrollTo(hasText(string(R.string.apk_will_install), substring = true))
+        scrollTo(hasText(string(R.string.apk_other_architecture), substring = true))
     }
 
     @Test
@@ -270,6 +299,12 @@ class AppDetailsScreenTest {
 
     // ---- helpers ----
 
+    private fun release(name: String, vararg files: UpdateCandidate) = CandidateGroup(
+        title = name,
+        notes = null,
+        files = files.map { CandidateFile(it, matchesFilter = true) },
+    )
+
     private fun state(
         app: TrackedApp,
         headline: HeadlineUi? = HeadlineUi.GitHub(owner = "octocat"),
@@ -277,7 +312,7 @@ class AppDetailsScreenTest {
         hasUnsavedChanges: Boolean = false,
         updateStatus: UpdateStatus = UpdateStatus.NoCandidate,
         isResolving: Boolean = false,
-        candidates: List<UpdateCandidate> = emptyList(),
+        groups: List<CandidateGroup> = emptyList(),
         target: UpdateCandidate? = null,
         install: InstallProgress? = null,
         alreadyAdded: Boolean = false,
@@ -289,7 +324,7 @@ class AppDetailsScreenTest {
         hasUnsavedChanges = hasUnsavedChanges,
         updateStatus = updateStatus,
         isResolving = isResolving,
-        candidates = persistentListOf(*candidates.toTypedArray()),
+        apkGroups = groups.toApkGroupsUi(target, ARM64_ABIS),
         target = target,
         install = install,
         alreadyAdded = alreadyAdded,

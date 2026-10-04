@@ -13,6 +13,35 @@ data class UpdateCandidate(
     val notes: String? = null,
 )
 
+/**
+ * One GitHub release, or one Telegram message — an album of several files counts as one — with
+ * every APK it carries.
+ *
+ * The details page lists these rather than loose files, so the user sees each release or post as
+ * a whole: its name and notes, the files the APK filter let through, the ones it left out, and
+ * which one would actually be installed. Only groups the release/message filter accepts, and with
+ * at least one file the APK filter accepts, are produced.
+ */
+data class CandidateGroup(
+    /** The release name. Telegram messages have none. */
+    val title: String?,
+    /** Release notes or message caption, shared by every file in the group. */
+    val notes: String?,
+    /** Every APK in the group, in the order the release or post lists them. */
+    val files: List<CandidateFile>,
+) {
+    /** The files that can be installed: those the APK filter lets through. */
+    val candidates: List<UpdateCandidate>
+        get() = files.mapNotNull { file -> file.candidate.takeIf { file.matchesFilter } }
+}
+
+/** One APK in a [CandidateGroup]. */
+data class CandidateFile(
+    val candidate: UpdateCandidate,
+    /** False when the APK filter leaves it out; it is listed, but never installed. */
+    val matchesFilter: Boolean,
+)
+
 /** How to fetch a candidate's bytes. */
 sealed interface DownloadRef {
     /** A plain HTTPS download (GitHub release asset). */

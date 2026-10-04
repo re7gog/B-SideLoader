@@ -61,6 +61,66 @@ class TelegramApkSelectorTest {
         assertEquals("stable 1.2.3", candidates.single().notes)
     }
 
+    /**
+     * The details page shows an album whole: every file, in the order it was posted, under the one
+     * caption — with the files the APK filter leaves out still listed, just not installable.
+     */
+    @Test
+    fun `an album is one group with every file in posted order`() {
+        val app = telegramApp(assetExclude = "x86")
+        val group = groups(
+            app,
+            tgDocument(12, "app-x86_64.apk", albumId = 99L),
+            tgDocument(11, "app-arm64-v8a.apk", albumId = 99L),
+            tgDocument(10, "app-armeabi-v7a.apk", caption = "v2.0", albumId = 99L),
+        ).single()
+
+        assertEquals(
+            listOf("app-armeabi-v7a.apk", "app-arm64-v8a.apk", "app-x86_64.apk"),
+            group.files.map { it.candidate.fileName },
+        )
+        assertEquals(listOf(true, true, false), group.files.map { it.matchesFilter })
+        assertEquals("v2.0", group.notes)
+        assertNull(group.title)
+    }
+
+    /**
+     * The album is one release, so every file in it carries the same version — the newest message
+     * among the files the filter accepts. Which split the device picks then never reads as an
+     * update, and the marker is what it always was for an existing install.
+     */
+    @Test
+    fun `every file of an album shares one version`() {
+        val group = groups(
+            telegramApp(assetExclude = "x86"),
+            tgDocument(12, "app-x86_64.apk", albumId = 99L),
+            tgDocument(11, "app-arm64-v8a.apk", albumId = 99L),
+            tgDocument(10, "app-armeabi-v7a.apk", albumId = 99L),
+        ).single()
+
+        assertEquals(setOf("11"), group.files.map { it.candidate.version.raw }.toSet())
+    }
+
+    /**
+     * The regression: albums used to be collapsed to their first file, so a 64-bit device could
+     * be handed the 32-bit split posted first. Now the device picks among all of them.
+     */
+    @Test
+    fun `select considers every file of an album`() {
+        val app = telegramApp()
+        val target = TelegramApkSelector.select(
+            documents = listOf(
+                tgDocument(11, "app-x86_64.apk", albumId = 99L),
+                tgDocument(10, "app-arm64-v8a.apk", albumId = 99L),
+            ),
+            app = app,
+            source = app.source as AppSource.Telegram,
+            deviceAbis = ARM64_ABIS,
+        )
+
+        assertEquals("app-arm64-v8a.apk", target?.fileName)
+    }
+
     @Test
     fun `album is rejected when its caption fails the filter`() {
         val app = telegramApp(assetInclude = "arm64", messageExclude = "beta")
@@ -123,8 +183,12 @@ class TelegramApkSelectorTest {
         )
     }
 
+    /** Every installable candidate across the groups, as a flat list. */
     private fun filter(app: TrackedApp, vararg documents: TelegramApkDocument) =
-        TelegramApkSelector.filter(
+        groups(app, *documents).flatMap { it.candidates }
+
+    private fun groups(app: TrackedApp, vararg documents: TelegramApkDocument) =
+        TelegramApkSelector.groups(
             documents = documents.toList(),
             app = app,
             source = app.source as AppSource.Telegram,

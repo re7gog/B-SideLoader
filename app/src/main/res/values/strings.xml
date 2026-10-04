@@ -89,6 +89,9 @@
     <string name="available_apks">Available APKs</string>
     <string name="no_matching_apks">No matching APKs found</string>
     <string name="size_mb">%1$d MB</string>
+    <string name="apk_will_install">Will be installed</string>
+    <string name="apk_filtered_out">Filtered out</string>
+    <string name="apk_other_architecture">Other architecture</string>
 
     <!-- App details snackbars -->
     <string name="installation_error">Installation error</string>

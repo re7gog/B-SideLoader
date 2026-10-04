@@ -24,9 +24,10 @@ JUnit and never touch it.
 | Area | Suite | What it pins down |
 |---|---|---|
 | Filtering | `domain/selection/NameMatcherTest` | word vs regex matching, case-insensitivity, and how a half-typed regex degrades |
-| Architecture matching | `domain/selection/AbiMatcherTest` | universal vs split APKs, 64-bit devices accepting 32-bit splits, the fallback when nothing is installable |
-| GitHub selection | `domain/selection/GithubApkSelectorTest` | prereleases, release filters, skipping releases with no matching asset, preferring the asset this device can run |
-| Telegram selection | `domain/selection/TelegramApkSelectorTest` | album grouping (a caption in a sibling message), the `.apk` suffix rule, newest-first ordering |
+| Architecture matching | `domain/selection/AbiMatcherTest` | universal vs split APKs, 64-bit devices accepting 32-bit splits |
+| Picking the APK | `domain/selection/TargetSelectorTest` | newest group with a runnable file, skipping a newer one with none, the fallback when nothing is runnable, never a filtered-out file |
+| GitHub selection | `domain/selection/GithubApkSelectorTest` | prereleases, release filters, skipping releases with no matching asset, preferring the asset this device can run, whole releases as groups |
+| Telegram selection | `domain/selection/TelegramApkSelectorTest` | album grouping (a caption in a sibling message, every file kept in posted order, one version per album), the `.apk` suffix rule, newest-first ordering |
 | Persistence mapping | `data/mapper/AppMappersTest` | entity ↔ domain round trips, dropping rows whose details table is missing, stability of the stored source discriminator |
 | Error translation | `data/error/ThrowableToAppErrorTest` | IO → `Network`, GitHub's 403-means-rate-limit header quirk, and that cancellation is rethrown rather than mapped |
 | Update resolution | `domain/usecase/ResolveUpdateUseCaseTest` | every `UpdateStatus`, and that source failures propagate instead of silently reading as "no update" |

@@ -20,7 +20,7 @@ import dev.re7gog.b_sideloader.domain.model.UpdateCheck
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
-import dev.re7gog.b_sideloader.domain.selection.AbiMatcher
+import dev.re7gog.b_sideloader.domain.selection.TargetSelector
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
 import dev.re7gog.b_sideloader.domain.usecase.InstallKey
@@ -34,7 +34,6 @@ import dev.re7gog.b_sideloader.ui.common.error.toUiText
 import dev.re7gog.b_sideloader.ui.common.text.UiText
 import dev.re7gog.b_sideloader.R
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -240,11 +239,12 @@ class AppDetailsViewModel @AssistedInject constructor(
         val app = draft.value ?: return
         _uiState.update { it.copy(isResolving = true) }
         try {
-            val candidates = listCandidates(app)
-            val target = AbiMatcher.pickInstallable(candidates, deviceInfo.supportedAbis) { it.fileName }
+            val groups = listCandidates(app)
+            // The very call the update check makes, so the highlighted file is the one it installs.
+            val target = TargetSelector.select(groups, deviceInfo.supportedAbis)
             _uiState.update {
                 it.copy(
-                    candidates = candidates.toImmutableList(),
+                    apkGroups = groups.toApkGroupsUi(target, deviceInfo.supportedAbis),
                     target = target,
                     updateStatus = UpdateCheck(app, target).status,
                 )
@@ -254,7 +254,7 @@ class AppDetailsViewModel @AssistedInject constructor(
         } catch (e: Throwable) {
             logger.w(TAG, e) { "Could not resolve candidates for ${app.name}" }
             _messages.tryEmit(e.toUiText())
-            _uiState.update { it.copy(candidates = persistentListOf(), target = null) }
+            _uiState.update { it.copy(apkGroups = persistentListOf(), target = null) }
         } finally {
             _uiState.update { it.copy(isResolving = false) }
         }

@@ -89,6 +89,9 @@
     <string name="available_apks">Доступные APK</string>
     <string name="no_matching_apks">Подходящие APK не найдены</string>
     <string name="size_mb">%1$d МБ</string>
+    <string name="apk_will_install">Будет установлен</string>
+    <string name="apk_filtered_out">Не прошёл фильтр</string>
+    <string name="apk_other_architecture">Другая архитектура</string>
 
     <!-- App details snackbars -->
     <string name="installation_error">Ошибка установки</string>

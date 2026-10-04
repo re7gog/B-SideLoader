@@ -104,22 +104,45 @@ class GithubApkSelectorTest {
         assertEquals(4242L, candidate.sizeBytes)
     }
 
+    /**
+     * What the details page lists: one group per release, newest first, named after it, with every
+     * APK in it — the ones the APK filter leaves out included, flagged — and nothing that is not
+     * an APK.
+     */
     @Test
-    fun `matchingAssets lists every accepted apk newest first`() {
-        val app = githubApp()
-        val all = GithubApkSelector.matchingAssets(
+    fun `groups are whole releases newest first`() {
+        val app = githubApp(assetExclude = "x86")
+        val groups = GithubApkSelector.groups(
             releases = listOf(
-                release("v2.0", assets = arrayOf(asset("a-arm64-v8a.apk"), asset("a-x86.apk"))),
+                release(
+                    "v2.0",
+                    assets = arrayOf(asset("a-arm64-v8a.apk"), asset("a-x86.apk"), asset("checksums.txt")),
+                ),
                 release("v1.0", assets = arrayOf(asset("a-universal.apk"))),
             ),
             app = app,
             source = app.source as AppSource.GitHub,
         )
 
-        assertEquals(
-            listOf("a-arm64-v8a.apk", "a-x86.apk", "a-universal.apk"),
-            all.map { it.fileName },
+        assertEquals(listOf("v2.0", "v1.0"), groups.map { it.title })
+        assertEquals(listOf("a-arm64-v8a.apk", "a-x86.apk"), groups[0].files.map { it.candidate.fileName })
+        assertEquals(listOf(true, false), groups[0].files.map { it.matchesFilter })
+        assertEquals(listOf("a-arm64-v8a.apk"), groups[0].candidates.map { it.fileName })
+    }
+
+    /**
+     * A newest release with nothing this device can run is passed over for an older one that has
+     * something. It used to be picked anyway — and its install was bound to fail.
+     */
+    @Test
+    fun `falls back to an older release when the newest has nothing runnable`() {
+        val candidate = select(
+            githubApp(),
+            release("v2.0", assets = arrayOf(asset("app-x86_64.apk"))),
+            release("v1.0", assets = arrayOf(asset("app-universal.apk"))),
         )
+
+        assertEquals("v1.0", candidate?.version?.raw)
     }
 
     private fun select(

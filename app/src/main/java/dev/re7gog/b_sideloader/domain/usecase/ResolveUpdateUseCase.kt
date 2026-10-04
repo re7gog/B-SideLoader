@@ -2,6 +2,7 @@ package dev.re7gog.b_sideloader.domain.usecase
 
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
 import dev.re7gog.b_sideloader.domain.model.AppSource
+import dev.re7gog.b_sideloader.domain.model.CandidateGroup
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.model.UpdateCheck
@@ -47,24 +48,26 @@ class ResolveUpdateUseCase @Inject constructor(
 }
 
 /**
- * Every APK the current filters accept, newest first.
+ * Every release or message the current filters accept, newest first, each with all its APKs.
  *
- * Backs the "available files" list on the details screens, which is what makes a filter mistake
- * visible before the user installs something wrong.
+ * Backs the "available APKs" list on the details screens, which is what makes a filter mistake
+ * visible before the user installs something wrong. Feed the result to
+ * [dev.re7gog.b_sideloader.domain.selection.TargetSelector] to get the file an update would install
+ * — the same call [ResolveUpdateUseCase] makes.
  */
 class ListUpdateCandidatesUseCase @Inject constructor(
     private val githubRepository: GithubRepository,
     private val telegramRepository: TelegramRepository,
 ) {
-    suspend operator fun invoke(app: TrackedApp): List<UpdateCandidate> =
+    suspend operator fun invoke(app: TrackedApp): List<CandidateGroup> =
         when (val source = app.source) {
-            is AppSource.GitHub -> GithubApkSelector.matchingAssets(
+            is AppSource.GitHub -> GithubApkSelector.groups(
                 releases = githubRepository.getReleases(source.owner, source.repo),
                 app = app,
                 source = source,
             )
 
-            is AppSource.Telegram -> TelegramApkSelector.filter(
+            is AppSource.Telegram -> TelegramApkSelector.groups(
                 documents = telegramRepository.getApkDocuments(source.chatId, source.topicId),
                 app = app,
                 source = source,

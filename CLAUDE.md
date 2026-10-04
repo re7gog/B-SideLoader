@@ -73,7 +73,8 @@ domain/     model/       TrackedApp, AppSource, UpdateCandidate, InstallProgress
             installer/   InstallerGateway, PackageInspector, ApkStagingArea
             background/  BackgroundWorkScheduler, BackgroundRestrictions, BackgroundHealth
             device/      DeviceInfo
-            selection/   NameMatcher, AbiMatcher, Github/TelegramApkSelector  (pure, unit-tested)
+            selection/   NameMatcher, AbiMatcher, Github/TelegramApkSelector, TargetSelector
+                         (pure, unit-tested)
             usecase/     ObserveTrackedApps, ResolveUpdate, InstallApp, RunUpdateSweep, ...
 
 data/       local/       Room database, DAO, entities  (+ exported schemas in app/schemas)
@@ -116,8 +117,13 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
 ### Key flows
 
 - **Update resolution.** `ResolveUpdateUseCase` asks the source repository for raw releases or
-  messages and hands them to the matching `domain/selection` selector, which applies the app's
-  filters and then `AbiMatcher`. `UpdateCheck.status` compares the winner with what is installed.
+  messages and hands them to the matching `domain/selection` selector. Its `groups` applies the
+  app's filters and yields one `CandidateGroup` per release or Telegram message (an album is one
+  group, one version) with every APK in it, each flagged by the APK filter; `TargetSelector` then
+  picks the newest group with a file `AbiMatcher` says runs here. The details page lists those
+  groups (`ListUpdateCandidatesUseCase`) and calls the same `TargetSelector`, so the file it
+  highlights is the one an update installs. `UpdateCheck.status` compares the winner with what is
+  installed.
 - **Install.** `InstallAppUseCase` downloads (`InstallerGateway.download`), installs
   (`installDownloaded`), discards the file and persists the app on success — install and database
   write are one operation, so nothing has to be correlated afterwards. The two phases are separate
@@ -227,7 +233,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 336, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 346, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

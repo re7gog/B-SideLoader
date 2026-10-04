@@ -8,11 +8,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,12 +43,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -60,7 +66,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.AppSource
-import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.ui.common.component.ConfirmDialog
 import dev.re7gog.b_sideloader.ui.common.component.FilterField
 import dev.re7gog.b_sideloader.ui.common.component.SectionDefaults
@@ -324,7 +329,7 @@ fun AppDetailsScreen(
             }
 
             item { SectionLabel(stringResource(R.string.available_apks)) }
-            if (uiState.candidates.isEmpty()) {
+            if (uiState.apkGroups.isEmpty()) {
                 item {
                     Text(
                         text = stringResource(
@@ -336,12 +341,7 @@ fun AppDetailsScreen(
                     )
                 }
             }
-            items(uiState.candidates, key = { it.fileName + it.version.raw }) { candidate ->
-                CandidateCard(
-                    candidate = candidate,
-                    isTarget = candidate == uiState.target,
-                )
-            }
+            items(uiState.apkGroups, key = { it.key }) { group -> ApkGroupCard(group) }
         }
     }
 
@@ -585,39 +585,128 @@ private val FLYOUT_ANCHOR_OFFSET = 44.dp
 
 private const val FLYOUT_ENTER_MILLIS = 160
 
-/** One matching APK. The one that would actually be installed is outlined. */
+/**
+ * One release or message, whole: its name and notes once, then every APK it carries. The card
+ * holding the file that would be installed is outlined, and that file is highlighted inside it.
+ */
 @Composable
-private fun CandidateCard(candidate: UpdateCandidate, isTarget: Boolean) {
+private fun ApkGroupCard(group: ApkGroupUi) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = if (isTarget) {
-            MaterialTheme.colorScheme.primaryContainer
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = if (group.containsTarget) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
-            MaterialTheme.colorScheme.surfaceContainer
+            null
         },
-        border = if (isTarget) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            if (group.title != null || group.notes != null) {
+                Column(
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    group.title?.let { title ->
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    group.notes?.let { notes -> ExpandableNotes(notes) }
+                }
+            }
+            group.files.forEach { file -> ApkFileRow(file) }
+        }
+    }
+}
+
+/** Release notes run long; a few lines until tapped, then all of them. */
+@Composable
+private fun ExpandableNotes(notes: String) {
+    var expanded by rememberSaveable(notes) { mutableStateOf(false) }
+    var overflows by remember(notes) { mutableStateOf(false) }
+    Text(
+        text = notes,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_NOTES_LINES,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { layout -> if (!expanded) overflows = layout.hasVisualOverflow },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = overflows || expanded) { expanded = !expanded },
+    )
+}
+
+/**
+ * One APK of a group. The file that would be installed sits on a tinted pill with a check; a file
+ * the APK filter leaves out is faded. The second line says why a file is not the chosen one when
+ * that is not obvious — filtered out, or built for another architecture.
+ */
+@Composable
+private fun ApkFileRow(file: ApkFileUi) {
+    val status = when {
+        file.isTarget -> stringResource(R.string.apk_will_install)
+        !file.matchesFilter -> stringResource(R.string.apk_filtered_out)
+        !file.runsOnDevice -> stringResource(R.string.apk_other_architecture)
+        else -> null
+    }
+    val details = listOfNotNull(
+        file.candidate.sizeBytes?.let { bytes -> stringResource(R.string.size_mb, bytes / BYTES_PER_MB) },
+        status,
+    ).joinToString(separator = " · ")
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (file.isTarget) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+            )
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .alpha(if (file.matchesFilter) 1f else FILTERED_OUT_ALPHA),
+    ) {
+        Icon(
+            painter = painterResource(
+                if (file.isTarget) R.drawable.check_24px else R.drawable.apk_file_24px
+            ),
+            contentDescription = null,
+            tint = if (file.isTarget) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = candidate.fileName,
+                text = file.candidate.fileName,
                 style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
+                color = if (file.isTarget) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            candidate.notes?.takeIf { it.isNotBlank() }?.let {
+            if (details.isNotEmpty()) {
                 Text(
-                    text = it,
+                    text = details,
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            candidate.sizeBytes?.let { bytes ->
-                Text(
-                    text = stringResource(R.string.size_mb, bytes / BYTES_PER_MB),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (file.isTarget) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }
@@ -635,3 +724,7 @@ private val PrimaryAction.labelRes: Int
     }
 
 private const val BYTES_PER_MB = 1024L * 1024L
+
+private const val COLLAPSED_NOTES_LINES = 3
+
+private const val FILTERED_OUT_ALPHA = 0.5f

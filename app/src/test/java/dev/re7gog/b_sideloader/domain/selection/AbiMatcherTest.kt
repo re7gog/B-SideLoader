@@ -2,9 +2,7 @@ package dev.re7gog.b_sideloader.domain.selection
 
 import dev.re7gog.b_sideloader.testing.ARM32_ABIS
 import dev.re7gog.b_sideloader.testing.ARM64_ABIS
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,26 +37,5 @@ class AbiMatcherTest {
     @Test
     fun `abi detection is case insensitive`() {
         assertTrue(AbiMatcher.runsOn("App-ARM64-V8A-release.APK", ARM64_ABIS))
-    }
-
-    @Test
-    fun `picks the first installable candidate`() {
-        val names = listOf("app-x86_64.apk", "app-arm64-v8a.apk", "app-universal.apk")
-        assertEquals("app-arm64-v8a.apk", AbiMatcher.pickInstallable(names, ARM64_ABIS) { it })
-    }
-
-    /**
-     * When every candidate is for another architecture there is nothing installable; offering the
-     * newest anyway lets the user see and fix their filters instead of facing an empty screen.
-     */
-    @Test
-    fun `falls back to the first candidate when none is installable`() {
-        val names = listOf("app-x86_64.apk", "app-x86.apk")
-        assertEquals("app-x86_64.apk", AbiMatcher.pickInstallable(names, ARM64_ABIS) { it })
-    }
-
-    @Test
-    fun `returns null for an empty candidate list`() {
-        assertNull(AbiMatcher.pickInstallable(emptyList<String>(), ARM64_ABIS) { it })
     }
 }

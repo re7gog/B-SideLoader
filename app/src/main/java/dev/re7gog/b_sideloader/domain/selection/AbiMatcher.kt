@@ -25,17 +25,4 @@ object AbiMatcher {
         if (supported.any { name.contains(it) }) return true // built for one of this device's ABIs
         return KNOWN_ABIS.none { name.contains(it) } // otherwise only if it is universal
     }
-
-    /**
-     * Picks the first installable entry, falling back to the first entry overall.
-     *
-     * The fallback matters: when every candidate is an ABI split for another architecture there is
-     * nothing installable, and offering *something* lets the user see and adjust their filters
-     * rather than staring at an empty screen.
-     */
-    fun <T> pickInstallable(
-        candidates: List<T>,
-        deviceAbis: List<String>,
-        fileNameOf: (T) -> String,
-    ): T? = candidates.firstOrNull { runsOn(fileNameOf(it), deviceAbis) } ?: candidates.firstOrNull()
 }

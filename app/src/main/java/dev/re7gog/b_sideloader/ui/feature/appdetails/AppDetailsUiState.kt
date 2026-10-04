@@ -2,12 +2,15 @@ package dev.re7gog.b_sideloader.ui.feature.appdetails
 
 import androidx.compose.runtime.Immutable
 import dev.re7gog.b_sideloader.domain.model.AppSource
+import dev.re7gog.b_sideloader.domain.model.CandidateGroup
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.model.UpdateStatus
+import dev.re7gog.b_sideloader.domain.selection.AbiMatcher
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * How the details screen was opened.
@@ -54,7 +57,8 @@ data class AppDetailsUiState(
     val updateStatus: UpdateStatus = UpdateStatus.NoCandidate,
     /** True while a source lookup is in flight; installs are disabled meanwhile. */
     val isResolving: Boolean = false,
-    val candidates: ImmutableList<UpdateCandidate> = persistentListOf(),
+    /** Every release or message the filters accept, newest first, each with all its APKs. */
+    val apkGroups: ImmutableList<ApkGroupUi> = persistentListOf(),
     /** The candidate that would actually be installed. */
     val target: UpdateCandidate? = null,
     val install: InstallProgress? = null,
@@ -122,3 +126,53 @@ sealed interface HeadlineUi {
     @Immutable
     data class Telegram(val photoFileId: Int? = null) : HeadlineUi
 }
+
+/**
+ * One GitHub release or Telegram message on the details page, shown whole: its name and notes once,
+ * then every APK in it, so the user sees why one file was picked over its siblings.
+ */
+@Immutable
+data class ApkGroupUi(
+    /** The release name. Telegram messages have none. */
+    val title: String?,
+    val notes: String?,
+    val files: ImmutableList<ApkFileUi>,
+) {
+    /**
+     * Stable across re-resolves, since no two groups share a file. A string because lazy-list keys
+     * are saved in a `Bundle`.
+     */
+    val key: String get() = files.first().candidate.download.toString()
+
+    val containsTarget: Boolean get() = files.any { it.isTarget }
+}
+
+@Immutable
+data class ApkFileUi(
+    val candidate: UpdateCandidate,
+    /** The file an install or update would use. At most one in the whole list. */
+    val isTarget: Boolean,
+    /** False when the APK filter leaves it out: listed for context, never installed. */
+    val matchesFilter: Boolean,
+    /** False when it is built only for architectures this device lacks. */
+    val runsOnDevice: Boolean,
+)
+
+/** Domain -> screen, marking [target] and what this device can run. */
+fun List<CandidateGroup>.toApkGroupsUi(
+    target: UpdateCandidate?,
+    deviceAbis: List<String>,
+): ImmutableList<ApkGroupUi> = map { group ->
+    ApkGroupUi(
+        title = group.title,
+        notes = group.notes,
+        files = group.files.map { file ->
+            ApkFileUi(
+                candidate = file.candidate,
+                isTarget = file.candidate == target,
+                matchesFilter = file.matchesFilter,
+                runsOnDevice = AbiMatcher.runsOn(file.candidate.fileName, deviceAbis),
+            )
+        }.toImmutableList(),
+    )
+}.toImmutableList()
