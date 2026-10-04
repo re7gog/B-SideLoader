@@ -69,6 +69,29 @@ data class DownloadedApk(
     val source: DownloadRef,
 )
 
+/**
+ * An installer session opened *before* the download, so the user can approve the install while
+ * it downloads instead of being asked once it has finished — and, approved, the install then needs
+ * no dialog at all. Only opened where that spares the user a dialog; see
+ * [dev.re7gog.b_sideloader.domain.installer.InstallerGateway.openPreapprovalSession].
+ */
+data class PreapprovalSession(
+    val sessionId: Int,
+    val packageName: String,
+)
+
+/** What the user answered when asked to approve an install up front. */
+enum class PreapprovalDecision {
+    /** The install will go through without asking again. */
+    Approved,
+
+    /** The user said no. The install stops, quietly — they just told us they do not want it. */
+    Declined,
+
+    /** Could not be asked (disabled on the device, or failed): install the usual way instead. */
+    Unavailable,
+}
+
 /** How an install ended. */
 sealed interface InstallOutcome {
     data class Success(val packageName: String?) : InstallOutcome

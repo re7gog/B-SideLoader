@@ -5,6 +5,7 @@ import dev.re7gog.b_sideloader.core.coroutines.rethrowIfCancellation
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.installer.privileged.PrivilegedApkInstallerFactory
 import dev.re7gog.b_sideloader.data.installer.session.SessionApkInstaller
+import dev.re7gog.b_sideloader.data.installer.session.SessionPreapprover
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.model.DownloadProgress
@@ -14,6 +15,8 @@ import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.LocalApk
+import dev.re7gog.b_sideloader.domain.model.PreapprovalDecision
+import dev.re7gog.b_sideloader.domain.model.PreapprovalSession
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
@@ -51,6 +54,7 @@ import javax.inject.Singleton
 class InstallerGatewayImpl @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val sessionInstaller: SessionApkInstaller,
+    private val preapprover: SessionPreapprover,
     private val privilegedFactory: PrivilegedApkInstallerFactory,
     private val httpApkSource: HttpApkSource,
     private val telegramRepository: TelegramRepository,
@@ -71,8 +75,26 @@ class InstallerGatewayImpl @Inject constructor(
         emit(DownloadProgress.Failed(e as? AppError ?: AppError.Unexpected(e)))
     }.flowOn(dispatchers.io)
 
-    override fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress> =
-        installFile(File(apk.path), fallbackSize = apk.sizeBytes, missing = "Downloaded file is missing")
+    override fun installDownloaded(
+        apk: DownloadedApk,
+        preapproved: PreapprovalSession?,
+    ): Flow<InstallProgress> = installFile(
+        File(apk.path),
+        fallbackSize = apk.sizeBytes,
+        missing = "Downloaded file is missing",
+        preapproved = preapproved,
+    )
+
+    override suspend fun openPreapprovalSession(packageName: String): PreapprovalSession? =
+        withContext(dispatchers.io) {
+            preapprover.open(packageName, settingsRepository.current().installerMode)
+        }
+
+    override suspend fun requestPreapproval(session: PreapprovalSession): PreapprovalDecision =
+        withContext(dispatchers.io) { preapprover.request(session) }
+
+    override suspend fun abandon(session: PreapprovalSession) =
+        withContext(dispatchers.io) { sessionInstaller.abandonSession(session.sessionId) }
 
     override fun installLocal(apk: LocalApk): Flow<InstallProgress> = flow {
         emit(InstallProgress.Preparing)
@@ -153,15 +175,24 @@ class InstallerGatewayImpl @Inject constructor(
         )
     }
 
-    /** Streams [file] into the backend for the current mode. [missing] explains a vanished file. */
-    private fun installFile(file: File, fallbackSize: Long, missing: String): Flow<InstallProgress> =
+    /**
+     * Streams [file] into the backend for the current mode — or into [preapproved], which this
+     * then owns. [missing] explains a vanished file.
+     */
+    private fun installFile(
+        file: File,
+        fallbackSize: Long,
+        missing: String,
+        preapproved: PreapprovalSession? = null,
+    ): Flow<InstallProgress> =
         flow {
             val mode = settingsRepository.current().installerMode
             if (!file.exists()) {
+                preapproved?.let { sessionInstaller.abandonSession(it.sessionId) }
                 emit(InstallProgress.Finished(InstallOutcome.Failure(AppError.Storage(missing))))
                 return@flow
             }
-            val outcome = runInstall(mode) { backend ->
+            val outcome = runInstall(mode, preapproved) { backend ->
                 ApkPayload(
                     lengthBytes = file.length().takeIf { it > 0 } ?: fallbackSize,
                     stream = file.inputStream(),
@@ -175,9 +206,13 @@ class InstallerGatewayImpl @Inject constructor(
     /** Runs [block] against the backend for [mode], turning unexpected failures into an outcome. */
     private suspend fun runInstall(
         mode: InstallerMode,
+        preapproved: PreapprovalSession? = null,
         block: suspend (ApkInstallerBackend) -> InstallOutcome,
     ): InstallOutcome = try {
-        if (mode.isPrivileged) {
+        if (preapproved != null) {
+            // The user approved exactly this session; honour that even if the mode changed since.
+            block(sessionInstaller.into(preapproved.sessionId))
+        } else if (mode.isPrivileged) {
             privilegedFactory.use(mode.usesDhizuku) { installer ->
                 when (val access = installer.checkAccess()) {
                     is PrivilegedAccess.Granted -> block(installer)
@@ -187,13 +222,16 @@ class InstallerGatewayImpl @Inject constructor(
         } else {
             block(sessionInstaller)
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: AppError) {
-        InstallOutcome.Failure(e)
     } catch (e: Throwable) {
-        logger.e(TAG, e) { "Install failed" }
-        InstallOutcome.Failure(AppError.Unexpected(e))
+        // A failure before the session was even opened would otherwise leave it behind.
+        preapproved?.let { sessionInstaller.abandonSession(it.sessionId) }
+        e.rethrowIfCancellation()
+        if (e is AppError) {
+            InstallOutcome.Failure(e)
+        } else {
+            logger.e(TAG, e) { "Install failed" }
+            InstallOutcome.Failure(AppError.Unexpected(e))
+        }
     }
 
     private companion object {

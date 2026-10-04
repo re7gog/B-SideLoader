@@ -33,6 +33,7 @@ JUnit and never touch it.
 | Update resolution | `domain/usecase/ResolveUpdateUseCaseTest` | every `UpdateStatus`, and that source failures propagate instead of silently reading as "no update" |
 | Install | `domain/usecase/InstallAppUseCaseTest` | insert-vs-update on success, nothing written on failure, the Telegram cache copy being dropped |
 | Install scheduling | `domain/installer/InstallSchedulerTest` | one download per source by default and three with the setting, read live; one install at a time; B-SideLoader's own update waiting for the rest |
+| Pre-approval | `domain/usecase/InstallPreapprovalTest`, `data/installer/session/PreapprovalPolicyTest` | in-app installs only, approved -> the approved session, declined -> download cancelled quietly, unavailable -> usual path, one dialog at a time, install waits for the answer; where asking spares a dialog at all |
 | Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, sources downloading side by side while installs queue, the downloaded APK always discarded, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation) |
 | Self-update | `domain/usecase/ReconcileSelfUpdateUseCaseTest` | judging a pending self-update by the version code in the next process |
 | Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, cancellation propagating, installs going through the shared coordinator |

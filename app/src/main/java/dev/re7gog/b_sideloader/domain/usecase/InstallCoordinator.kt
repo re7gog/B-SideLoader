@@ -118,12 +118,16 @@ class InstallCoordinator @Inject constructor(
      *
      * Returns null, and queues nothing, when that app is already queued or installing — tapping
      * "Update" on the list and then on the app's page must not install it twice.
+     *
+     * The user tapped something to get here, so they may be asked to approve the install while it
+     * downloads (see [InstallAppUseCase]). If they decline, it ends with no [InstallResult] at all:
+     * it simply leaves [installs], with nothing to report.
      */
     fun install(app: TrackedApp, candidate: UpdateCandidate): InstallKey? {
         val key = newKey(app)
         val claim = claim(key)
         if (!claim.isNew) return null
-        scope.launch { run(key, app, candidate, claim.ending) }
+        scope.launch { run(key, app, candidate, claim.ending, interactive = true) }
         return key
     }
 
@@ -133,8 +137,10 @@ class InstallCoordinator @Inject constructor(
      *
      * If that app is already queued or installing — the user started it a moment ago — this
      * installs nothing and waits for that install instead, forwarding its progress. The result
-     * is null only when such an install was cancelled before it ended. Cancelling the caller
-     * cancels an install it started, but never one it was merely waiting for.
+     * is null only when such an install was cancelled before it ended, or declined by the user.
+     * Cancelling the caller cancels an install it started, but never one it was merely waiting for.
+     *
+     * Never asks the user anything: this is for the background sweep, which has no screen.
      */
     suspend fun installAndAwait(
         app: TrackedApp,
@@ -168,11 +174,12 @@ class InstallCoordinator @Inject constructor(
         candidate: UpdateCandidate,
         ending: CompletableDeferred<InstallResult?>,
         onProgress: suspend (InstallProgress) -> Unit = {},
+        interactive: Boolean = false,
     ): InstallResult? {
         var result: InstallResult? = null
         try {
             onProgress(InstallProgress.Queued)
-            installApp(app, candidate).collect { event ->
+            installApp(app, candidate, interactive).collect { event ->
                 when (event) {
                     is AppInstallEvent.Progress -> {
                         _installs.update { it + (key to event.progress) }
@@ -184,6 +191,9 @@ class InstallCoordinator @Inject constructor(
 
                     is AppInstallEvent.Failed ->
                         result = InstallResult.Failed(key, app, event.error).also { _results.emit(it) }
+
+                    // Quietly: no result, so no screen reports anything.
+                    AppInstallEvent.Declined -> Unit
                 }
             }
         } catch (e: Throwable) {

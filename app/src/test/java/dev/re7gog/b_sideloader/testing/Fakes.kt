@@ -23,6 +23,8 @@ import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
+import dev.re7gog.b_sideloader.domain.model.PreapprovalDecision
+import dev.re7gog.b_sideloader.domain.model.PreapprovalSession
 import dev.re7gog.b_sideloader.domain.model.LocalApk
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.PrivilegedIdentity
@@ -357,11 +359,47 @@ class FakeInstallerGateway(
         }
     }
 
-    override fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress> = flow {
-        committed += apk
-        emit(InstallProgress.Staging(0.5f))
-        beforeVerdict()
-        emit(InstallProgress.Finished(outcome))
+    override fun installDownloaded(apk: DownloadedApk, preapproved: PreapprovalSession?): Flow<InstallProgress> =
+        flow {
+            committed += apk
+            committedSessions += preapproved
+            emit(InstallProgress.Staging(0.5f))
+            beforeVerdict()
+            emit(InstallProgress.Finished(outcome))
+        }
+
+    // ---- pre-approval -----------------------------------------------------------------------
+
+    /**
+     * What the user answers when asked up front, or null when asking would not help — then no
+     * session is opened at all, like on a device or for an app where it would not spare a dialog.
+     */
+    var preapproval: PreapprovalDecision? = null
+
+    /** Runs when the user is asked, before they answer. Suspend in it to keep the dialog up. */
+    var whileAsking: suspend (PreapprovalSession) -> Unit = {}
+
+    val openedSessions = mutableListOf<PreapprovalSession>()
+    val askedSessions = mutableListOf<PreapprovalSession>()
+    val abandonedSessions = mutableListOf<PreapprovalSession>()
+
+    /** The session each install went into, in the order of [committed]; null for a new session. */
+    val committedSessions = mutableListOf<PreapprovalSession?>()
+
+    override suspend fun openPreapprovalSession(packageName: String): PreapprovalSession? {
+        if (preapproval == null) return null
+        return PreapprovalSession(sessionId = openedSessions.size + 1, packageName = packageName)
+            .also { openedSessions += it }
+    }
+
+    override suspend fun requestPreapproval(session: PreapprovalSession): PreapprovalDecision {
+        askedSessions += session
+        whileAsking(session)
+        return preapproval ?: PreapprovalDecision.Unavailable
+    }
+
+    override suspend fun abandon(session: PreapprovalSession) {
+        abandonedSessions += session
     }
 
     override suspend fun discard(apk: DownloadedApk) {

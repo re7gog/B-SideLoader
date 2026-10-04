@@ -6,6 +6,8 @@ import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.LocalApk
+import dev.re7gog.b_sideloader.domain.model.PreapprovalDecision
+import dev.re7gog.b_sideloader.domain.model.PreapprovalSession
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
 import kotlinx.coroutines.flow.Flow
@@ -32,8 +34,31 @@ interface InstallerGateway {
      * [InstallProgress.Finished]. Never throws for an install failure — a failure is a
      * [dev.re7gog.b_sideloader.domain.model.InstallOutcome.Failure] value — so a caller cannot
      * accidentally treat "user declined" as a crash. Does not discard [apk].
+     *
+     * With [preapproved], installs into that session — which the user approved, so no dialog —
+     * and takes it over: the caller must not abandon it afterwards.
      */
-    fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress>
+    fun installDownloaded(
+        apk: DownloadedApk,
+        preapproved: PreapprovalSession? = null,
+    ): Flow<InstallProgress>
+
+    /**
+     * Opens a session for installing [packageName], ahead of its download, so the user can be
+     * asked for approval up front with [requestPreapproval].
+     *
+     * Null wherever asking would not spare a dialog later: before Android 14, with a privileged
+     * installer (silent already), for an app that is not installed (its label, which the request
+     * must carry, is unknown until the APK is), and for an app this app is already the installer of
+     * record for (updated silently already — asking would *add* a dialog).
+     */
+    suspend fun openPreapprovalSession(packageName: String): PreapprovalSession?
+
+    /** Asks the user to approve installing into [session], and suspends until they answer. */
+    suspend fun requestPreapproval(session: PreapprovalSession): PreapprovalDecision
+
+    /** Drops a session that will not be installed into. Safe if the system already dropped it. */
+    suspend fun abandon(session: PreapprovalSession)
 
     /**
      * Drops this gateway's copy of [apk]. Safe to call more than once. A Telegram file is TDLib's,

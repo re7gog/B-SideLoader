@@ -26,6 +26,8 @@ import javax.inject.Singleton
  *    and on the unprivileged path each one raises its own confirmation dialog.
  *  - **B-SideLoader's own update installs last.** Replacing the package kills this process, and
  *    with it every download still running — so it waits for the installs already in flight.
+ *  - **One approval dialog at a time.** "Update all" asks for each app up front; those dialogs
+ *    come one after another instead of piling on top of each other.
  *
  * The per-source limit is read live: turning the setting on lets waiting downloads start at once.
  */
@@ -35,6 +37,7 @@ class InstallScheduler @Inject constructor(
 ) {
     private val downloads = AppSourceKind.entries.associateWith { MutableStateFlow(0) }
     private val installer = Mutex()
+    private val approvals = Mutex()
 
     /** Installs between [track]'s start and end, whatever phase they are in. */
     private val inFlight = MutableStateFlow(0)
@@ -74,6 +77,9 @@ class InstallScheduler @Inject constructor(
         if (last) inFlight.first { it <= 1 }
         return installer.withLock { block() }
     }
+
+    /** Runs [block] — asking the user to approve an install — once no other such dialog is up. */
+    suspend fun <T> approval(block: suspend () -> T): T = approvals.withLock { block() }
 
     private suspend fun acquire(active: MutableStateFlow<Int>) {
         while (true) {

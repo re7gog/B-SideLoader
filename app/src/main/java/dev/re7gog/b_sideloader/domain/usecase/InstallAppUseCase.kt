@@ -13,12 +13,18 @@ import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
+import dev.re7gog.b_sideloader.domain.model.PreapprovalDecision
+import dev.re7gog.b_sideloader.domain.model.PreapprovalSession
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
@@ -40,6 +46,12 @@ sealed interface AppInstallEvent {
     data class Completed(val app: TrackedApp) : AppInstallEvent
 
     data class Failed(val error: AppError) : AppInstallEvent
+
+    /**
+     * The user declined the install when asked up front. Not a failure: nothing is reported, the
+     * install just stops — they told us they do not want it.
+     */
+    data object Declined : AppInstallEvent
 }
 
 /**
@@ -60,6 +72,12 @@ sealed interface AppInstallEvent {
  * for a free slot on the app's source, then the install waits for the installer, which takes one
  * app at a time. So several apps can download at once while their installs still queue up.
  *
+ * When [invoke] is told someone is looking (`interactive`), the user may be asked to approve the
+ * install before it downloads — Android 14's pre-approval — wherever that spares them the dialog
+ * that would otherwise appear once the download is done; the gateway decides where that is. The
+ * question runs alongside the download: approved, the install needs no dialog at the end;
+ * declined, the download is cancelled and the install quietly stops.
+ *
  * The returned flow is cold and cancellable. Abandoning it cancels the download and drops both the
  * downloaded APK and any temporary Telegram copy.
  */
@@ -73,21 +91,60 @@ class InstallAppUseCase @Inject constructor(
     private val selfApp: SelfAppInfo,
     private val logger: Logger,
 ) {
-    operator fun invoke(app: TrackedApp, candidate: UpdateCandidate): Flow<AppInstallEvent> = flow {
+    /**
+     * @param interactive whether the user started this and is looking, so a dialog asking them to
+     *   approve it up front can be shown. False for the background sweep, which has no screen.
+     */
+    operator fun invoke(
+        app: TrackedApp,
+        candidate: UpdateCandidate,
+        interactive: Boolean = false,
+    ): Flow<AppInstallEvent> = flow {
         val isSelfUpdate = selfApp.isSelf(app) && app.isSaved
         if (isSelfUpdate) recordSelfUpdate(app, candidate)
         scheduler.track {
             emit(AppInstallEvent.Progress(InstallProgress.Queued))
-            val apk = scheduler.download(app.source.kind) {
-                download(candidate.download, isSelfUpdate)
-            } ?: return@track
+            // Ours to abandon until it is handed to the installer.
+            var session = if (interactive && app.packageName.isNotBlank()) {
+                installerGateway.openPreapprovalSession(app.packageName)
+            } else {
+                null
+            }
             try {
-                emit(AppInstallEvent.Progress(InstallProgress.Queued))
-                // B-SideLoader's own update replaces this process, so it waits for the others.
-                scheduler.install(last = isSelfUpdate) { install(app, candidate, apk, isSelfUpdate) }
+                coroutineScope {
+                    val approval = session?.let { askUpFront(it) }
+                    val apk = scheduler.download(app.source.kind) {
+                        download(candidate.download, isSelfUpdate)
+                    }
+                    if (apk == null) {
+                        // Already reported; there is nothing left to approve.
+                        approval?.cancel()
+                        return@coroutineScope
+                    }
+                    try {
+                        emit(AppInstallEvent.Progress(InstallProgress.Queued))
+                        // Waits for the answer if the user has not given it yet — committing
+                        // meanwhile would raise a second dialog over the first. Declined never
+                        // gets here: it cancels this whole block, download included.
+                        val approved = session.takeIf { approval?.await() == PreapprovalDecision.Approved }
+                        if (approved == null) session?.let { installerGateway.abandon(it) }
+                        session = null
+                        // B-SideLoader's own update replaces this process, so it waits for the others.
+                        scheduler.install(last = isSelfUpdate) {
+                            install(app, candidate, apk, approved, isSelfUpdate)
+                        }
+                    } finally {
+                        // Also when cancelled while waiting for the installer.
+                        withContext(NonCancellable) { installerGateway.discard(apk) }
+                    }
+                }
+            } catch (_: PreapprovalDeclined) {
+                // The system has already dropped the session.
+                session = null
+                if (isSelfUpdate) selfUpdates.clearPending()
+                emit(AppInstallEvent.Declined)
             } finally {
-                // Also when cancelled while waiting for the installer.
-                withContext(NonCancellable) { installerGateway.discard(apk) }
+                session?.let { withContext(NonCancellable) { installerGateway.abandon(it) } }
             }
         }
     }.onCompletion {
@@ -95,6 +152,18 @@ class InstallAppUseCase @Inject constructor(
         // downloads; without this the cache grows by one APK per install attempt.
         releaseTelegramCopy(candidate.download)
     }
+
+    /**
+     * Asks the user to approve [session] — one such dialog at a time, app-wide — alongside
+     * whatever else this scope is doing. A decline fails the scope, which is what cancels the
+     * download it is racing.
+     */
+    private fun CoroutineScope.askUpFront(session: PreapprovalSession): Deferred<PreapprovalDecision> =
+        async {
+            val decision = scheduler.approval { installerGateway.requestPreapproval(session) }
+            if (decision == PreapprovalDecision.Declined) throw PreapprovalDeclined()
+            decision
+        }
 
     /** Fetches the APK, or reports why not and returns null. */
     private suspend fun FlowCollector<AppInstallEvent>.download(
@@ -121,9 +190,10 @@ class InstallAppUseCase @Inject constructor(
         app: TrackedApp,
         candidate: UpdateCandidate,
         apk: DownloadedApk,
+        preapproved: PreapprovalSession?,
         isSelfUpdate: Boolean,
     ) {
-        installerGateway.installDownloaded(apk).collect { progress ->
+        installerGateway.installDownloaded(apk, preapproved).collect { progress ->
             if (progress !is InstallProgress.Finished) {
                 emit(AppInstallEvent.Progress(progress))
                 return@collect
@@ -195,6 +265,9 @@ class InstallAppUseCase @Inject constructor(
         suspendRunCatching { telegramRepository.discardLocalCopy(download.fileId) }
             .onFailure { logger.w(TAG, it) { "Could not drop Telegram copy of file ${download.fileId}" } }
     }
+
+    /** How a decline travels from the question to the download it cancels. */
+    private class PreapprovalDeclined : Exception()
 
     private companion object {
         const val TAG = "InstallApp"

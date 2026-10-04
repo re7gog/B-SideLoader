@@ -136,6 +136,16 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   `SessionApkInstaller` (standard `PackageInstaller`, user-confirmed) or `PrivilegedApkInstaller`
   (Shizuku/Sui/Dhizuku via `hidden-api-bypass` + `refine`). Results are matched by request id
   through `InstallEventBus`; sessions are abandoned on failure *and* on cancellation.
+  **Pre-approval** (Android 14): for installs the user started in the app (`interactive`), the
+  use case asks `InstallerGateway.openPreapprovalSession` for a session *before* the download and
+  asks the user to approve it alongside the download, one dialog at a time
+  (`InstallScheduler.approval`). Approved -> `installDownloaded(apk, preapproved)` commits that
+  session with no dialog; declined -> the download is cancelled and the install ends quietly
+  (`AppInstallEvent.Declined`, no `InstallResult`); unavailable -> the usual path. Where it is
+  asked at all is `PreapprovalPolicy` (data): standard installer, an installed app whose installer
+  of record or update owner is someone else — for apps this app installed the commit is silent
+  already, and asking would add a dialog. The request carries the *installed* label and icon
+  (`SessionPreapprover`), which the system checks against the APK. The sweep never asks.
   Nothing calls that use case directly but the `@Singleton` `InstallCoordinator`: the apps list,
   the details page and the background sweep all go through it. It never installs the same app
   twice at once, and publishes `installs` (progress per `InstallKey` — the row
@@ -233,7 +243,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 346, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 362, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.
