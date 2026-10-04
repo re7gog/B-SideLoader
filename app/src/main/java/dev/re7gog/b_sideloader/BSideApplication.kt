@@ -4,10 +4,10 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.background.NotificationCenter
-import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.data.telegram.TdlibClient
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase

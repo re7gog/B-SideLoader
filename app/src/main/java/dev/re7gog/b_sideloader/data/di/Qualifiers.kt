@@ -18,8 +18,3 @@ annotation class ApplicationInterceptors
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class NetworkInterceptors
-
-/** The application-wide [kotlinx.coroutines.CoroutineScope] that outlives any screen. */
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class ApplicationScope

@@ -5,10 +5,13 @@ import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
+import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
+import dev.re7gog.b_sideloader.domain.usecase.InstallKey
 import dev.re7gog.b_sideloader.domain.usecase.ListUpdateCandidatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.OpenInstalledAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SaveTrackedAppUseCase
@@ -28,10 +31,16 @@ import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.release
 import dev.re7gog.b_sideloader.testing.selfApp
 import dev.re7gog.b_sideloader.testing.telegramApp
+import dev.re7gog.b_sideloader.testing.updateCandidate
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -50,6 +59,12 @@ class AppDetailsViewModelTest {
     private val installer = FakeInstallerGateway()
     private val packages = FakePackageInspector(installedPackages = setOf("com.example"))
 
+    /**
+     * The app-wide installs, as the apps list would see them. Built by the first [viewModel]
+     * call, from that call's repositories.
+     */
+    private lateinit var installs: InstallCoordinator
+
     private fun viewModel(
         args: AppDetailsArgs = AppDetailsArgs.Saved(1L),
         appsRepository: AppsRepository = apps,
@@ -58,12 +73,7 @@ class AppDetailsViewModelTest {
         selfInfo: FakeSelfAppInfo = FakeSelfAppInfo(),
     ): AppDetailsViewModel {
         val reconcile = reconcileSelfUpdate(appsRepository, selfUpdates, selfInfo)
-        return AppDetailsViewModel(
-            args = args,
-            appsRepository = appsRepository,
-            githubRepository = github,
-            telegramRepository = telegram,
-            listCandidates = ListUpdateCandidatesUseCase(github, telegram),
+        installs = InstallCoordinator(
             installApp = InstallAppUseCase(
                 installer,
                 appsRepository,
@@ -73,6 +83,16 @@ class AppDetailsViewModelTest {
                 selfInfo,
                 NoopLogger,
             ),
+            scope = CoroutineScope(SupervisorJob() + mainDispatcherRule.dispatcher),
+            logger = NoopLogger,
+        )
+        return AppDetailsViewModel(
+            args = args,
+            appsRepository = appsRepository,
+            githubRepository = github,
+            telegramRepository = telegram,
+            listCandidates = ListUpdateCandidatesUseCase(github, telegram),
+            installCoordinator = installs,
             reconcileSelfUpdate = reconcile,
             saveTrackedApp = SaveTrackedAppUseCase(appsRepository),
             deleteTrackedApps = DeleteTrackedAppsUseCase(appsRepository),
@@ -271,6 +291,63 @@ class AppDetailsViewModelTest {
         assertEquals("Cool Apps", state.app?.name)
         assertEquals(AppSource.Telegram(chatId = -100L, topicId = 0), state.app?.source)
         assertEquals(1, tracked.getApps().size)
+    }
+
+    /**
+     * An update started from the apps list used to leave this page looking idle. It now shows the
+     * same install, and settles on the new version when it lands.
+     */
+    @Test
+    fun `an install started from the list shows on the page`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.beforeVerdict = { gate.await() }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        // What the apps list does for "Update".
+        installs.install(apps.getApp(1L)!!, updateCandidate("v2.0"))
+        runCurrent()
+
+        assertEquals(InstallProgress.Downloading(0.5f), viewModel.uiState.value.install)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.install)
+        assertEquals("v2.0", state.app?.version?.raw)
+        assertFalse(state.hasUnsavedChanges)
+    }
+
+    /** Edits made on the page survive an install the list ran from the stored row. */
+    @Test
+    fun `an install from the list keeps unsaved edits on the page`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onNameChange("Renamed")
+
+        installs.install(apps.getApp(1L)!!, updateCandidate("v2.0"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Renamed", state.app?.name)
+        assertEquals("v2.0", state.app?.version?.raw)
+        assertTrue(state.hasUnsavedChanges)
+    }
+
+    /** And what this page starts is the shared install the list reads. */
+    @Test
+    fun `an install started on the page is visible app-wide`() = runTest {
+        installer.beforeVerdict = { CompletableDeferred<Unit>().await() }
+        // Not on the device, so the primary action installs rather than opens.
+        val viewModel = viewModel(packageInspector = FakePackageInspector())
+        advanceUntilIdle()
+
+        viewModel.onPrimaryAction()
+        runCurrent()
+
+        assertEquals(InstallProgress.Downloading(0.5f), installs.installs.value[InstallKey.App(1L)])
+        assertEquals(InstallProgress.Downloading(0.5f), viewModel.uiState.value.install)
     }
 
     /**

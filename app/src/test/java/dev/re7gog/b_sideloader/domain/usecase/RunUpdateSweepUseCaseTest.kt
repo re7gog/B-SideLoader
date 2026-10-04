@@ -20,7 +20,14 @@ import dev.re7gog.b_sideloader.testing.asset
 import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.release
 import dev.re7gog.b_sideloader.testing.selfApp
+import dev.re7gog.b_sideloader.domain.model.InstallProgress
+import dev.re7gog.b_sideloader.testing.updateCandidate
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -41,6 +48,9 @@ class RunUpdateSweepUseCaseTest {
     private val selfInfo = FakeSelfAppInfo()
     private val selfUpdates = FakeSelfUpdateStateRepository()
 
+    /** The app-wide installs, as the screens see them. Built by [sweep]. */
+    private lateinit var installs: InstallCoordinator
+
     private fun sweep(
         apps: FakeAppsRepository,
         settings: FakeSettingsRepository = FakeSettingsRepository(),
@@ -48,17 +58,10 @@ class RunUpdateSweepUseCaseTest {
         deviceInfo: FakeDeviceInfo = this.deviceInfo,
         packages: FakePackageInspector = this.packages,
         selfInfo: FakeSelfAppInfo = this.selfInfo,
+        scope: CoroutineScope = CoroutineScope(SupervisorJob()),
     ): RunUpdateSweepUseCase {
         val reconcile = ReconcileSelfUpdateUseCase(selfUpdates, apps, selfInfo, NoopLogger)
-        return RunUpdateSweepUseCase(
-            appsRepository = apps,
-            settingsRepository = settings,
-            checkUpdates = CheckUpdatesUseCase(
-                resolveUpdate = ResolveUpdateUseCase(github, telegram, deviceInfo),
-                settingsRepository = settings,
-                packageInspector = packages,
-                logger = NoopLogger,
-            ),
+        installs = InstallCoordinator(
             installApp = InstallAppUseCase(
                 installer,
                 apps,
@@ -68,10 +71,22 @@ class RunUpdateSweepUseCaseTest {
                 selfInfo,
                 NoopLogger,
             ),
+            scope = scope,
+            logger = NoopLogger,
+        )
+        return RunUpdateSweepUseCase(
+            appsRepository = apps,
+            settingsRepository = settings,
+            checkUpdates = CheckUpdatesUseCase(
+                resolveUpdate = ResolveUpdateUseCase(github, telegram, deviceInfo),
+                settingsRepository = settings,
+                packageInspector = packages,
+                logger = NoopLogger,
+            ),
+            installCoordinator = installs,
             reconcileSelfUpdate = reconcile,
             deviceInfo = deviceInfo,
             selfApp = selfInfo,
-            logger = NoopLogger,
         )
     }
 
@@ -251,6 +266,45 @@ class RunUpdateSweepUseCaseTest {
         assertThrows(CancellationException::class.java) {
             kotlinx.coroutines.runBlocking { useCase() }
         }
+    }
+
+    /** A background update is an install like any other: the screens show its progress. */
+    @Test
+    fun `a background install shows in the shared installs`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.beforeVerdict = { gate.await() }
+        val apps = FakeAppsRepository(listOf(githubApp(id = 1, name = "A", version = AppVersion("v1.0"))))
+        val useCase = sweep(apps, scope = backgroundScope)
+
+        val report = async { useCase() }
+        runCurrent()
+
+        assertEquals(InstallProgress.Downloading(0.5f), installs.installs.value[InstallKey.App(1L)])
+
+        gate.complete(Unit)
+        assertEquals(listOf("A"), report.await().installed)
+        assertTrue(installs.installs.value.isEmpty())
+    }
+
+    /**
+     * The user tapped "Update" a moment before the sweep reached the same app. The sweep must wait
+     * for that install and report its result — not start a second one over it.
+     */
+    @Test
+    fun `an app the user is already installing is waited for, not installed twice`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.beforeVerdict = { gate.await() }
+        val apps = FakeAppsRepository(listOf(githubApp(id = 1, name = "A", version = AppVersion("v1.0"))))
+        val useCase = sweep(apps, scope = backgroundScope)
+        installs.install(apps.getApp(1L)!!, updateCandidate("v2.0"))
+        runCurrent()
+
+        val report = async { useCase() }
+        runCurrent()
+        gate.complete(Unit)
+
+        assertEquals(listOf("A"), report.await().installed)
+        assertEquals(1, installer.installed.size)
     }
 
     /** Lets a test override one method without reimplementing the whole interface. */

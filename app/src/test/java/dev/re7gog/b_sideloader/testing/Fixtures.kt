@@ -2,6 +2,7 @@ package dev.re7gog.b_sideloader.testing
 
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.DownloadRef
 import dev.re7gog.b_sideloader.domain.model.FilterMode
 import dev.re7gog.b_sideloader.domain.model.FilterRule
 import dev.re7gog.b_sideloader.domain.model.GithubAsset
@@ -9,6 +10,7 @@ import dev.re7gog.b_sideloader.domain.model.GithubRelease
 import dev.re7gog.b_sideloader.domain.model.SelfApp
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
+import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 
 /**
  * Builders with sane defaults, so a test only states the field it is actually about.
@@ -102,6 +104,13 @@ fun release(
 
 fun asset(name: String, size: Long = 1_000L): GithubAsset =
     GithubAsset(name = name, downloadUrl = "https://example.test/$name", sizeBytes = size)
+
+fun updateCandidate(version: String, fileName: String = "app.apk"): UpdateCandidate =
+    UpdateCandidate(
+        version = AppVersion(version),
+        download = DownloadRef.Http("https://example.test/$fileName"),
+        fileName = fileName,
+    )
 
 fun tgDocument(
     messageId: Long,

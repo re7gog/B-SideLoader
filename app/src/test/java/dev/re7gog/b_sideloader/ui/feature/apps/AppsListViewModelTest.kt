@@ -5,10 +5,13 @@ import app.cash.turbine.test
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
+import dev.re7gog.b_sideloader.domain.usecase.InstallKey
 import dev.re7gog.b_sideloader.domain.usecase.ObserveTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ResolveUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.UninstallAppsUseCase
@@ -28,6 +31,10 @@ import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import dev.re7gog.b_sideloader.testing.release
 import dev.re7gog.b_sideloader.testing.selfApp
 import dev.re7gog.b_sideloader.testing.telegramApp
+import dev.re7gog.b_sideloader.testing.updateCandidate
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,15 +62,8 @@ class AppsListViewModelTest {
     private val selfInfo = FakeSelfAppInfo(versionCode = 2L)
     private val reconcile = reconcileSelfUpdate(apps, selfUpdates, selfInfo)
 
-    private fun viewModel() = AppsListViewModel(
-        observeTrackedApps = ObserveTrackedAppsUseCase(apps, packages),
-        appsRepository = apps,
-        checkUpdates = CheckUpdatesUseCase(
-            resolveUpdate = ResolveUpdateUseCase(github, telegram, FakeDeviceInfo()),
-            settingsRepository = settings,
-            packageInspector = packages,
-            logger = NoopLogger,
-        ),
+    /** The app-wide one, shared with whatever else a test starts installs from. */
+    private val installs = InstallCoordinator(
         installApp = InstallAppUseCase(
             installer,
             apps,
@@ -73,6 +73,20 @@ class AppsListViewModelTest {
             selfInfo,
             NoopLogger,
         ),
+        scope = CoroutineScope(SupervisorJob() + mainDispatcherRule.dispatcher),
+        logger = NoopLogger,
+    )
+
+    private fun viewModel() = AppsListViewModel(
+        observeTrackedApps = ObserveTrackedAppsUseCase(apps, packages),
+        appsRepository = apps,
+        checkUpdates = CheckUpdatesUseCase(
+            resolveUpdate = ResolveUpdateUseCase(github, telegram, FakeDeviceInfo()),
+            settingsRepository = settings,
+            packageInspector = packages,
+            logger = NoopLogger,
+        ),
+        installCoordinator = installs,
         reconcileSelfUpdate = reconcile,
         deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
         uninstallApps = UninstallAppsUseCase(installer, packages),
@@ -283,6 +297,54 @@ class AppsListViewModelTest {
         }
     }
 
+    /**
+     * The list and the details page used to run their installs privately, so an update started on
+     * the app's page left its row looking idle. The row now follows the shared install.
+     */
+    @Test
+    fun `an install started elsewhere shows on its row`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.beforeVerdict = { gate.await() }
+        installer.outcome = InstallOutcome.Success("com.alpha")
+        github.releases = listOf(release("v2.0", assets = arrayOf(asset("app.apk"))))
+        apps.update(githubApp(id = 1, name = "Alpha", packageName = "com.alpha", version = AppVersion("v1.0")))
+
+        viewModel().uiState.test {
+            awaitState { it.apps.any { app -> app.canUpdate } }
+
+            // What the details page does when its primary button is tapped.
+            installs.install(apps.getApp(1L)!!, updateCandidate("v2.0"))
+
+            val installing = awaitState { it.apps.first { app -> app.id == 1L }.updateProgress == 0.5f }
+            assertTrue(installing.apps.first { it.id == 1L }.isUpdating)
+
+            gate.complete(Unit)
+
+            val done = awaitState { it.apps.first { app -> app.id == 1L }.updateState == AppUpdateState.UpToDate }
+            assertFalse(done.apps.first { it.id == 1L }.isUpdating)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** And the other way round: what the list starts is in the shared state for the page to see. */
+    @Test
+    fun `updating from the list goes through the shared installs`() = runTest {
+        installer.beforeVerdict = { CompletableDeferred<Unit>().await() }
+        github.releases = listOf(release("v2.0", assets = arrayOf(asset("app.apk"))))
+        apps.update(githubApp(id = 1, name = "Alpha", packageName = "com.alpha", version = AppVersion("v1.0")))
+
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            awaitState { it.apps.any { app -> app.canUpdate } }
+
+            viewModel.updateApp(1L)
+
+            awaitState { it.apps.first { app -> app.id == 1L }.isUpdating }
+            assertEquals(setOf(InstallKey.App(1L)), installs.installs.value.keys)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     /** The hint is a one-shot: dismissing it writes through to the settings store. */
     @Test
     fun `dismissing the long press hint persists it`() = runTest {
@@ -312,15 +374,7 @@ class AppsListViewModelTest {
                 packageInspector = packages,
                 logger = NoopLogger,
             ),
-            installApp = InstallAppUseCase(
-                installer,
-                apps,
-                telegram,
-                selfUpdates,
-                reconcile,
-                selfInfo,
-                NoopLogger,
-            ),
+            installCoordinator = installs,
             reconcileSelfUpdate = reconcile,
             deleteTrackedApps = DeleteTrackedAppsUseCase(apps),
             uninstallApps = UninstallAppsUseCase(installer, packages),

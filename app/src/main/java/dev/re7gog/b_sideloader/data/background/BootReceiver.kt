@@ -4,10 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.DispatcherProvider
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.core.log.Logger
-import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase
 import kotlinx.coroutines.CoroutineScope

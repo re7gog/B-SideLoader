@@ -1,9 +1,9 @@
 package dev.re7gog.b_sideloader.data.telegram
 
 import dev.re7gog.b_sideloader.BuildConfig
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.runCatchingCancellable
 import dev.re7gog.b_sideloader.core.log.Logger
-import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.domain.error.AppError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow

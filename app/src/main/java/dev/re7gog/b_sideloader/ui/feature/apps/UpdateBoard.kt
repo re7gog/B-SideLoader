@@ -5,24 +5,26 @@ import dev.re7gog.b_sideloader.domain.usecase.TrackedAppStatus
 import dev.re7gog.b_sideloader.domain.usecase.UpdateCheckOutcome
 
 /**
- * The list's private record of what the last check found and what is installing right now.
+ * The list's private record of what the last check found.
  *
- * Kept as one value rather than three `MutableStateFlow`s so a row can never be seen as
- * "up to date" while its download progress is still ticking — every transition below moves the
- * verdict, the candidate and the progress together.
+ * Kept as one value so a row's verdict and its candidate always move together. What is installing
+ * right now is deliberately *not* here: that belongs to the app-wide
+ * [dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator], so an install started from the
+ * details page shows on the list too. A row that is installing renders as
+ * [AppUpdateState.Updating] whatever this board says, and falls back to its verdict here — still
+ * offering the retry — if the install fails.
  */
 internal data class UpdateBoard(
     val states: Map<Long, AppUpdateState> = emptyMap(),
     val candidates: Map<Long, UpdateCandidate> = emptyMap(),
-    /** `null` for a phase with no measurable fraction (preparing, committing). */
-    val progress: Map<Long, Float?> = emptyMap(),
     val isChecking: Boolean = false,
 ) {
     /**
      * Folds a completed check in.
      *
-     * Rows that are mid-install keep their [AppUpdateState.Updating] state: the check that just
-     * finished started before the install did, so its verdict is older than what is on screen.
+     * Rows that are mid-install take the verdict too. It cannot show while the install runs, and
+     * it is what the row should fall back to if the install fails; if it succeeds, [installed]
+     * replaces it.
      */
     fun withCheckResults(outcomes: List<UpdateCheckOutcome>): UpdateBoard {
         val nextStates = states.toMutableMap()
@@ -30,7 +32,6 @@ internal data class UpdateBoard(
 
         outcomes.forEach { outcome ->
             val id = outcome.app.id
-            if (states[id] == AppUpdateState.Updating) return@forEach
             when {
                 outcome.skipped -> {
                     nextStates -= id
@@ -74,26 +75,9 @@ internal data class UpdateBoard(
         return states + settled.associate { it.app.id to AppUpdateState.UpToDate }
     }
 
-    fun starting(id: Long): UpdateBoard = copy(
-        states = states + (id to AppUpdateState.Updating),
-        progress = progress + (id to null),
-    )
-
-    fun progressing(id: Long, fraction: Float?): UpdateBoard =
-        copy(progress = progress + (id to fraction))
-
+    /** An install of this row finished, from this screen or any other. */
     fun installed(id: Long): UpdateBoard = copy(
         states = states + (id to AppUpdateState.UpToDate),
         candidates = candidates - id,
-        progress = progress - id,
-    )
-
-    /**
-     * Puts a failed install back where it was: the candidate is still valid and still newer, so
-     * the row must keep offering the retry rather than pretending the app is up to date.
-     */
-    fun failed(id: Long): UpdateBoard = copy(
-        states = states + (id to if (id in candidates) AppUpdateState.Available else AppUpdateState.Failed),
-        progress = progress - id,
     )
 }

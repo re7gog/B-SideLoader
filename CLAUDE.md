@@ -124,6 +124,15 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   `SessionApkInstaller` (standard `PackageInstaller`, user-confirmed) or `PrivilegedApkInstaller`
   (Shizuku/Sui/Dhizuku via `hidden-api-bypass` + `refine`). Results are matched by request id
   through `InstallEventBus`; sessions are abandoned on failure *and* on cancellation.
+  Nothing calls that use case directly but the `@Singleton` `InstallCoordinator`: the apps list,
+  the details page and the background sweep all go through it. It runs installs one at a time,
+  never the same app twice at once, and publishes `installs` (progress per `InstallKey` — the row
+  id, or a `Draft` ticket for an app opened from search) and `results`, which is what keeps every
+  screen showing the same install. Screens call `install()`, which runs in the application scope
+  so it outlives them; the sweep calls `installAndAwait()`, which runs in its own coroutine so
+  WorkManager can still cancel it, and waits for an install of that app the user already started
+  instead of starting another. `results` is deliberately unbuffered: the entry leaves `installs`
+  only after every subscriber has taken the result, so collect it without suspending.
 - **Background updates.** `SyncBackgroundWorkUseCase` reconciles `WorkManagerBackgroundScheduler`
   with the settings on app start, on boot (`BootReceiver`) and after every relevant toggle.
   `BackgroundMode.Periodic` uses `UpdateCheckWorker`; `Persistent` uses `UpdateMonitorService`
@@ -205,7 +214,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 303, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 326, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

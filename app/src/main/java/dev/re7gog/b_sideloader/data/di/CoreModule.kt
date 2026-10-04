@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.DefaultDispatcherProvider
 import dev.re7gog.b_sideloader.core.coroutines.DispatcherProvider
 import dev.re7gog.b_sideloader.core.log.AndroidLogger

@@ -5,8 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
-import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import dev.re7gog.b_sideloader.domain.installer.ApkStagingArea
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome

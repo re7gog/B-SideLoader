@@ -18,6 +18,7 @@ import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ResolveUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.RunUpdateSweepUseCase
@@ -33,6 +34,8 @@ import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.asset
 import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.release
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -158,19 +161,22 @@ class UpdateCheckWorkerTest {
                 packageInspector = FakePackageInspector(installedPackages = setOf("com.example")),
                 logger = NoopLogger,
             ),
-            installApp = InstallAppUseCase(
-                installer,
-                apps,
-                telegram,
-                selfUpdates,
-                reconcile,
-                selfInfo,
-                NoopLogger,
+            installCoordinator = InstallCoordinator(
+                installApp = InstallAppUseCase(
+                    installer,
+                    apps,
+                    telegram,
+                    selfUpdates,
+                    reconcile,
+                    selfInfo,
+                    NoopLogger,
+                ),
+                scope = CoroutineScope(SupervisorJob()),
+                logger = NoopLogger,
             ),
             reconcileSelfUpdate = reconcile,
             deviceInfo = deviceInfo,
             selfApp = selfInfo,
-            logger = NoopLogger,
         )
     }
 }

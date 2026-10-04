@@ -4,14 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.core.log.Logger
+import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
-import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
-import dev.re7gog.b_sideloader.domain.usecase.AppInstallEvent
 import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
-import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
+import dev.re7gog.b_sideloader.domain.usecase.InstallKey
+import dev.re7gog.b_sideloader.domain.usecase.InstallResult
 import dev.re7gog.b_sideloader.domain.usecase.ObserveTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.TrackedAppStatus
@@ -46,13 +47,17 @@ import javax.inject.Inject
  * A check runs once when the list first appears and again on every pull-to-refresh. Which apps get
  * queried is [CheckUpdatesUseCase]'s decision, not this class's, so the list and the background
  * sweep cannot end up asking different questions.
+ *
+ * Installs are not owned here either: they go through [InstallCoordinator], which every screen
+ * reads, so a row shows the progress of an install started from the app's details page and the
+ * page shows one started from here.
  */
 @HiltViewModel
 class AppsListViewModel @Inject constructor(
     observeTrackedApps: ObserveTrackedAppsUseCase,
     private val appsRepository: AppsRepository,
     private val checkUpdates: CheckUpdatesUseCase,
-    private val installApp: InstallAppUseCase,
+    private val installCoordinator: InstallCoordinator,
     private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val deleteTrackedApps: DeleteTrackedAppsUseCase,
     private val uninstallApps: UninstallAppsUseCase,
@@ -73,7 +78,6 @@ class AppsListViewModel @Inject constructor(
     private var lastKnownApps: List<TrackedAppStatus> = emptyList()
 
     private var checkJob: Job? = null
-    private var installJob: Job? = null
 
     private val longPressHintSeen: StateFlow<Boolean> = settingsRepository.settings
         .map { it.longPressHintSeen }
@@ -89,11 +93,12 @@ class AppsListViewModel @Inject constructor(
         selectedIds,
         updates,
         longPressHintSeen,
-    ) { apps, selected, board, hintSeen ->
+        installCoordinator.installs.map { it.byAppId() }.distinctUntilChanged(),
+    ) { apps, selected, board, hintSeen, installing ->
         lastKnownApps = apps
         // Drop ids of apps that disappeared, otherwise the selection count outlives the rows.
         val liveSelection = selected intersect apps.mapTo(mutableSetOf()) { it.app.id }
-        val items = apps.toListItems(liveSelection, board.statesFor(apps), board.progress)
+        val items = apps.toListItems(liveSelection, board.statesFor(apps), installing)
         AppsListUiState(
             apps = items,
             isLoading = false,
@@ -111,6 +116,7 @@ class AppsListViewModel @Inject constructor(
         // "Check on open": this ViewModel is created when the apps tab is first composed, which is
         // the app's first screen.
         refresh()
+        observeInstallResults()
     }
 
     // ---- update checking --------------------------------------------------------------------
@@ -149,52 +155,43 @@ class AppsListViewModel @Inject constructor(
     // ---- installing -------------------------------------------------------------------------
 
     /** Installs the candidate found for one app by the last check. */
-    fun updateApp(id: Long) = install(listOfNotNull(id))
+    fun updateApp(id: Long) = install(listOf(id))
 
-    /** Installs every app the last check found an update for, one at a time. */
+    /** Installs every app the last check found an update for; they run one at a time. */
     fun updateAll() = install(uiState.value.apps.filter { it.canUpdate }.map { it.id })
 
     /**
-     * Installs run strictly one after another: `PackageInstaller` sessions do not overlap sanely,
-     * and on the unprivileged path each one raises its own confirmation dialog.
+     * Hands the installs to [InstallCoordinator], which runs them one after another and ignores an
+     * app that is already queued — so a second "Update all", or "Update" here after starting the
+     * same app on its page, does not install anything twice.
      */
     private fun install(ids: List<Long>) {
-        if (ids.isEmpty() || installJob?.isActive == true) return
-        installJob = viewModelScope.launch {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
             val apps = appsRepository.getApps().associateBy { it.id }
             ids.forEach { id ->
                 val app = apps[id] ?: return@forEach
                 val candidate = updates.value.candidates[id] ?: return@forEach
-                installOne(app, candidate)
+                installCoordinator.install(app, candidate)
             }
         }
     }
 
-    private suspend fun installOne(app: TrackedApp, candidate: UpdateCandidate) {
-        updates.update { it.starting(app.id) }
-        try {
-            installApp(app, candidate).collect { event ->
-                when (event) {
-                    is AppInstallEvent.Progress ->
-                        updates.update { it.progressing(app.id, event.progress.fraction) }
-
-                    is AppInstallEvent.Completed -> updates.update { it.installed(app.id) }
-
-                    is AppInstallEvent.Failed -> {
-                        updates.update { it.failed(app.id) }
-                        _messages.tryEmit(event.error.toUiText())
-                    }
+    /**
+     * Results of every saved app's install, not just the ones started here: an install from the
+     * details page that finishes must settle this row too. A failure is reported whoever started
+     * it — this snackbar only shows while the list is on screen, and then the list is where the
+     * user is looking.
+     */
+    private fun observeInstallResults() {
+        viewModelScope.launch {
+            installCoordinator.results.collect { result ->
+                val id = (result.key as? InstallKey.App)?.appId ?: return@collect
+                when (result) {
+                    is InstallResult.Installed -> updates.update { it.installed(id) }
+                    is InstallResult.Failed -> _messages.tryEmit(result.error.toUiText())
                 }
             }
-        } catch (e: Throwable) {
-            // Cancellation lands here too; restoring the row's state is correct either way, and
-            // rethrowing keeps the coroutine's cancellation propagating.
-            updates.update { it.failed(app.id) }
-            if (e !is kotlinx.coroutines.CancellationException) {
-                logger.w(TAG, e) { "Update failed for ${app.name}" }
-                _messages.tryEmit(e.toUiText())
-            }
-            throw e
         }
     }
 
@@ -238,6 +235,12 @@ class AppsListViewModel @Inject constructor(
         val selected = selectedIds.value
         return lastKnownApps.filter { it.app.id in selected }.map { it.app }
     }
+
+    /** Saved apps only: one opened from search has no row on this list until it is installed. */
+    private fun Map<InstallKey, InstallProgress>.byAppId(): Map<Long, Float?> =
+        entries.mapNotNull { (key, progress) ->
+            (key as? InstallKey.App)?.let { it.appId to progress.fraction }
+        }.toMap()
 
     private companion object {
         const val TAG = "AppsList"

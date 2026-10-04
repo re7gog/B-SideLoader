@@ -21,9 +21,10 @@ import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import dev.re7gog.b_sideloader.domain.selection.AbiMatcher
-import dev.re7gog.b_sideloader.domain.usecase.AppInstallEvent
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
-import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
+import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
+import dev.re7gog.b_sideloader.domain.usecase.InstallKey
+import dev.re7gog.b_sideloader.domain.usecase.InstallResult
 import dev.re7gog.b_sideloader.domain.usecase.ListUpdateCandidatesUseCase
 import dev.re7gog.b_sideloader.domain.usecase.OpenInstalledAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
@@ -35,8 +36,8 @@ import dev.re7gog.b_sideloader.R
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +49,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -63,10 +66,12 @@ import kotlin.time.Duration.Companion.milliseconds
  *    the "available APKs" list always reflects the filters currently on screen.
  *  - Filter edits re-resolve through a debounced flow, so typing does not fire a request per
  *    keystroke, and an in-flight lookup for an older draft is discarded.
- *  - The install is a flow this ViewModel owns end to end. There is no global install bus and no
- *    `installRequested` flag: an install finishing elsewhere simply cannot be mistaken for ours.
+ *  - Installs go through [InstallCoordinator], keyed by app, so this page shows the progress of
+ *    an install of *this* app whoever started it — the apps list included — and an install
+ *    started here keeps running, and keeps showing on the list, after the page is closed. An
+ *    install of another app cannot be mistaken for ours: everything is matched by [InstallKey].
  */
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = AppDetailsViewModel.Factory::class)
 class AppDetailsViewModel @AssistedInject constructor(
     @Assisted private val args: AppDetailsArgs,
@@ -74,7 +79,7 @@ class AppDetailsViewModel @AssistedInject constructor(
     private val githubRepository: GithubRepository,
     private val telegramRepository: TelegramRepository,
     private val listCandidates: ListUpdateCandidatesUseCase,
-    private val installApp: InstallAppUseCase,
+    private val installCoordinator: InstallCoordinator,
     private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val saveTrackedApp: SaveTrackedAppUseCase,
     private val deleteTrackedApps: DeleteTrackedAppsUseCase,
@@ -102,12 +107,17 @@ class AppDetailsViewModel @AssistedInject constructor(
     /** The draft whose filters drive the lookup. Changed on every edit. */
     private val draft = MutableStateFlow<TrackedApp?>(null)
 
-    private var installJob: Job? = null
+    /**
+     * Which install this page shows: the app's own row once it has one, or the draft install this
+     * page started for an app opened from search. Null until the app is loaded.
+     */
+    private val installKey = MutableStateFlow<InstallKey?>(null)
 
     init {
         viewModelScope.launch { load() }
         observeDraftForCandidates()
         observePackageChanges()
+        observeInstall()
     }
 
     // ---- loading ----------------------------------------------------------------------------
@@ -127,6 +137,7 @@ class AppDetailsViewModel @AssistedInject constructor(
         }
         val (app, headline) = loaded
         draft.value = app
+        installKey.value = installCoordinator.keyOf(app)
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -334,33 +345,56 @@ class AppDetailsViewModel @AssistedInject constructor(
             _messages.tryEmit(UiText.of(R.string.error_no_release_matches))
             return
         }
-        installJob?.cancel()
-        installJob = viewModelScope.launch {
-            installApp(app, candidate).collect { event ->
-                when (event) {
-                    is AppInstallEvent.Progress ->
-                        _uiState.update { it.copy(install = event.progress) }
+        // Null when this app is already installing, started from here or from the list; the page
+        // is showing that install already.
+        installKey.value = installCoordinator.install(app, candidate) ?: return
+    }
 
-                    is AppInstallEvent.Completed -> {
-                        draft.value = event.app
-                        _uiState.update {
-                            it.copy(
-                                app = event.app,
-                                install = null,
-                                hasUnsavedChanges = false,
-                                isInstalled = true,
-                                updateStatus = UpdateCheck(event.app, it.target).status,
-                            )
-                        }
-                    }
-
-                    is AppInstallEvent.Failed -> {
-                        _uiState.update { it.copy(install = null) }
-                        _messages.tryEmit(event.error.toUiText())
-                    }
+    /** Mirrors the install of this page's app, whichever screen started it. */
+    private fun observeInstall() {
+        viewModelScope.launch {
+            installKey
+                .flatMapLatest { key ->
+                    if (key == null) flowOf(null) else installCoordinator.installs.map { it[key] }
+                }
+                .distinctUntilChanged()
+                .collect { progress -> _uiState.update { it.copy(install = progress) } }
+        }
+        viewModelScope.launch {
+            installCoordinator.results.collect { result ->
+                if (result.key != installKey.value) return@collect
+                when (result) {
+                    is InstallResult.Installed -> onInstalled(result.app)
+                    is InstallResult.Failed -> _messages.tryEmit(result.error.toUiText())
                 }
             }
-            _uiState.update { it.copy(install = null) }
+        }
+    }
+
+    /**
+     * Takes from [installed] only what the install decided — the row id, the version and the
+     * package name — and keeps the rest of the draft.
+     *
+     * The install may have been started from the list, from the stored row rather than this
+     * draft, or the user may have kept editing while it ran. Either way their edits survive, and
+     * still count as unsaved. An install started here with nothing edited since persisted exactly
+     * this draft, so the page ends up clean.
+     */
+    private fun onInstalled(installed: TrackedApp) {
+        val merged = (draft.value ?: installed).copy(
+            id = installed.id,
+            version = installed.version,
+            packageName = installed.packageName,
+        )
+        draft.value = merged
+        installKey.value = installCoordinator.keyOf(merged)
+        _uiState.update {
+            it.copy(
+                app = merged,
+                hasUnsavedChanges = merged != installed,
+                isInstalled = true,
+                updateStatus = UpdateCheck(merged, it.target).status,
+            )
         }
     }
 

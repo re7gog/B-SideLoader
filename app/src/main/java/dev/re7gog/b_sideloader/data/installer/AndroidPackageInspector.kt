@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.runCatchingCancellable
 import dev.re7gog.b_sideloader.domain.installer.InstalledPackage
 import dev.re7gog.b_sideloader.domain.installer.PackageChange
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
-import dev.re7gog.b_sideloader.data.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
 

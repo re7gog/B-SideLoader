@@ -319,11 +319,18 @@ class FakeInstallerGateway(
      */
     var onInstall: () -> Unit = {}
 
+    /**
+     * Runs half-way through the download, before the verdict. Suspend in it (on a
+     * `CompletableDeferred`, say) to hold an install in flight while the test looks at it.
+     */
+    var beforeVerdict: suspend () -> Unit = {}
+
     override fun install(source: DownloadRef): Flow<InstallProgress> = flow {
         installed += source
         onInstall()
         emit(InstallProgress.Preparing)
         emit(InstallProgress.Downloading(0.5f))
+        beforeVerdict()
         emit(InstallProgress.Finished(outcome))
     }
 

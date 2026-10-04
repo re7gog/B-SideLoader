@@ -1,7 +1,5 @@
 package dev.re7gog.b_sideloader.domain.usecase
 
-import dev.re7gog.b_sideloader.core.coroutines.rethrowIfCancellation
-import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.device.DeviceInfo
 import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
 import dev.re7gog.b_sideloader.domain.device.isSelf
@@ -66,6 +64,11 @@ data class SweepReport(
  * sequential no matter what that setting says: `PackageInstaller` sessions — and, on the
  * unprivileged path, the confirmation dialogs they raise — do not overlap sanely.
  *
+ * Installs go through [InstallCoordinator], the same queue the screens use. So a background update
+ * waits for one the user started instead of overlapping it, never installs an app the user is
+ * already installing (it waits for that install's result), and shows its progress on the apps
+ * list and the app's page like any other install.
+ *
  * Failure of one app never aborts the sweep — a rate-limited repository or a channel the user left
  * must not stop the other twenty apps from updating — but cancellation always propagates, so
  * WorkManager stopping the worker actually stops the work.
@@ -79,11 +82,10 @@ class RunUpdateSweepUseCase @Inject constructor(
     private val appsRepository: AppsRepository,
     private val settingsRepository: SettingsRepository,
     private val checkUpdates: CheckUpdatesUseCase,
-    private val installApp: InstallAppUseCase,
+    private val installCoordinator: InstallCoordinator,
     private val reconcileSelfUpdate: ReconcileSelfUpdateUseCase,
     private val deviceInfo: DeviceInfo,
     private val selfApp: SelfAppInfo,
-    private val logger: Logger,
 ) {
     suspend operator fun invoke(
         mode: SweepMode = SweepMode.CheckAndInstall,
@@ -123,36 +125,26 @@ class RunUpdateSweepUseCase @Inject constructor(
         return report
     }
 
+    /**
+     * The coordinator never throws but for cancellation, which must propagate; every other failure
+     * comes back as an [InstallResult.Failed].
+     */
     private suspend fun installOne(
         app: TrackedApp,
         candidate: UpdateCandidate,
         report: SweepReport,
         onProgress: suspend (SweepProgress) -> Unit,
-    ): SweepReport = try {
-        var failure: AppError? = null
-        installApp(app, candidate).collect { event ->
-            when (event) {
-                is AppInstallEvent.Progress ->
-                    onProgress(SweepProgress.Installing(app.name, event.progress.fraction))
-
-                is AppInstallEvent.Completed -> Unit
-                is AppInstallEvent.Failed -> failure = event.error
-            }
+    ): SweepReport {
+        val result = installCoordinator.installAndAwait(app, candidate) { progress ->
+            onProgress(SweepProgress.Installing(app.name, progress.fraction))
         }
-        when (val error = failure) {
-            null -> report.copy(installed = report.installed + app.name)
-            else -> report.copy(failed = report.failed + SweepReport.FailedApp(app.name, error))
+        return when (result) {
+            is InstallResult.Installed -> report.copy(installed = report.installed + app.name)
+            is InstallResult.Failed ->
+                report.copy(failed = report.failed + SweepReport.FailedApp(app.name, result.error))
+            // The user's own install of this app was cancelled under it: neither installed nor
+            // failed, and still in `withUpdates` for the next sweep to pick up.
+            null -> report
         }
-    } catch (e: Throwable) {
-        e.rethrowIfCancellation()
-        logger.w(TAG, e) { "Update install failed for ${app.name}" }
-        report.copy(failed = report.failed + SweepReport.FailedApp(app.name, e.asAppError()))
-    }
-
-    private fun Throwable.asAppError(): AppError =
-        this as? AppError ?: AppError.Unexpected(this)
-
-    private companion object {
-        const val TAG = "UpdateSweep"
     }
 }

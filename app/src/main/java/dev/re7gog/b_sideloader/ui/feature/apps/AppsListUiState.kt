@@ -49,6 +49,8 @@ enum class AppUpdateState {
 
     UpToDate,
     Available,
+
+    /** Queued or installing — started from this list, the app's page, or anywhere else. */
     Updating,
 
     /** The last check failed. The row stays usable; the error went to the snackbar. */
@@ -65,7 +67,10 @@ data class AppListItemUi(
     val isSelected: Boolean,
     val sourceKind: AppSourceKind,
     val updateState: AppUpdateState = AppUpdateState.Unknown,
-    /** 0f..1f while this row is installing; `null` when the phase has no measurable progress. */
+    /**
+     * 0f..1f while this row is installing; `null` when the phase has no measurable progress (or
+     * the row is not installing at all — see [isUpdating]).
+     */
     val updateProgress: Float? = null,
 ) {
     val canUpdate: Boolean get() = updateState == AppUpdateState.Available
@@ -74,13 +79,13 @@ data class AppListItemUi(
     /**
      * Ordering rank. Apps with something to do come first, apps that are not on the device sink to
      * the bottom — they cannot be updated and are the least likely thing the user opened the list
-     * for. Everything else keeps the repository's alphabetical order, which survives because
-     * `sortedBy` is stable.
+     * for — unless one is installing right now. Everything else keeps the repository's
+     * alphabetical order, which survives because `sortedBy` is stable.
      */
     val sortRank: Int
         get() = when {
-            !isInstalled -> RANK_NOT_INSTALLED
             canUpdate || isUpdating -> RANK_UPDATABLE
+            !isInstalled -> RANK_NOT_INSTALLED
             else -> RANK_INSTALLED
         }
 
@@ -111,19 +116,26 @@ fun TrackedAppStatus.toListItem(
     updateProgress = updateProgress,
 )
 
+/**
+ * @param installing progress of every row with an install queued or running, keyed by app id —
+ *   presence alone means "installing"; the value is `null` for an indeterminate phase.
+ */
 fun List<TrackedAppStatus>.toListItems(
     selectedIds: Set<Long>,
     updateStates: Map<Long, AppUpdateState> = emptyMap(),
-    updateProgress: Map<Long, Float?> = emptyMap(),
+    installing: Map<Long, Float?> = emptyMap(),
 ): ImmutableList<AppListItemUi> = map { status ->
+    val id = status.app.id
     status.toListItem(
-        isSelected = status.app.id in selectedIds,
-        // An app that is not on the device is never checked, so it has no meaningful state.
-        updateState = if (status.isInstalled) {
-            updateStates[status.app.id] ?: AppUpdateState.Unknown
-        } else {
-            AppUpdateState.Unknown
+        isSelected = id in selectedIds,
+        updateState = when {
+            // Before the device check: an app that is not installed yet can still be installing,
+            // started from its details page.
+            id in installing -> AppUpdateState.Updating
+            // An app that is not on the device is never checked, so it has no meaningful state.
+            status.isInstalled -> updateStates[id] ?: AppUpdateState.Unknown
+            else -> AppUpdateState.Unknown
         },
-        updateProgress = updateProgress[status.app.id],
+        updateProgress = installing[id],
     )
 }.sortedBy { it.sortRank }.toImmutableList()
