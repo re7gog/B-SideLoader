@@ -2,10 +2,10 @@ package dev.re7gog.b_sideloader.ui.feature.search
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.ui.theme.LocalDarkTheme
 
 /**
  * A place apps can come from.
@@ -54,4 +54,4 @@ fun SearchSource.iconRes(): Int = when (this) {
 @Composable
 @ReadOnlyComposable
 fun githubIconRes(): Int =
-    if (isSystemInDarkTheme()) R.drawable.github_invertocat_white else R.drawable.github_invertocat_black
+    if (LocalDarkTheme.current) R.drawable.github_invertocat_white else R.drawable.github_invertocat_black

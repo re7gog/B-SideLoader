@@ -11,6 +11,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 
@@ -268,6 +270,13 @@ fun selectSchemeForContrast(isDark: Boolean): ColorScheme {
     } else return colorScheme
 }
 
+/**
+ * Whether the app is drawn dark — the user's theme choice, not the system's. Read this instead of
+ * `isSystemInDarkTheme()` wherever an asset has a light and a dark version: with the theme pinned
+ * to Dark on a light-mode phone, the system answer is wrong.
+ */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
 fun BSideLoaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -284,9 +293,11 @@ fun BSideLoaderTheme(
         else -> selectSchemeForContrast(darkTheme)
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

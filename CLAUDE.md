@@ -183,6 +183,11 @@ There is no `NavController`. The back stack is app state:
 - `ui/navigation/Navigator.kt` — the only thing allowed to mutate that state; encodes "exit through
   home".
 - `ui/BSideLoaderApp.kt` — one `entryProvider { }` wiring every destination to its screen.
+  It also owns the transitions: opening or closing a page (app details, sub-settings) slides it in
+  from / out to the right, a tab switch only shifts sideways, and predictive back drags the page
+  off to the right (linear, so it tracks the finger) instead of Nav3's default shrink. Which one
+  applies comes from `Navigator.isTabSwitch`, not from scene metadata — a tab whose top is an app
+  page would otherwise be mistaken for opening that page.
 
 Screens receive lambdas, never the navigator. A ViewModel that needs a nav argument takes it via
 assisted injection: `@HiltViewModel(assistedFactory = ...)` plus

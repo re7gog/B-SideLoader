@@ -2,6 +2,9 @@ package dev.re7gog.b_sideloader.ui
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +20,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -146,11 +150,29 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
             ),
             onBack = { navigator.goBack() },
             sceneStrategies = listOf(listDetailStrategy),
-            // Both specs ask the navigator rather than trusting which one NavDisplay picked: its
+            // Slides must not draw over the navigation rail beside the content.
+            modifier = Modifier.clipToBounds(),
+            // The specs ask the navigator rather than trusting which one NavDisplay picked: its
             // pop/push guess is derived from back-stack shape, and a sibling-tab switch looks
-            // identical in both directions to it. See Navigator.direction.
-            transitionSpec = { sharedAxisX(navigator.direction) },
-            popTransitionSpec = { sharedAxisX(navigator.direction) },
+            // identical in both directions to it. See Navigator.direction and isTabSwitch.
+            transitionSpec = {
+                if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageEnter()
+            },
+            popTransitionSpec = {
+                if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageExit()
+            },
+            // Replaces Navigation 3's default, which shrinks the page as if minimizing the app.
+            // The gesture seeks this transition by its progress, so a linear curve is what keeps
+            // the page under the finger. At a tab root, back switches to the home tab instead of
+            // closing a page, so it previews that — and the gesture's release then finishes with
+            // the matching pop spec above rather than jumping to a different motion.
+            predictivePopTransitionSpec = {
+                if (navigator.state.isAtTabRoot) {
+                    sharedAxisX(NavDirection.Backward, easing = LinearEasing)
+                } else {
+                    pageExit(easing = LinearEasing)
+                }
+            },
         )
     }
 }
@@ -192,16 +214,35 @@ private fun navigationSuiteType(
  */
 private fun AnimatedContentTransitionScope<Scene<NavKey>>.sharedAxisX(
     direction: NavDirection,
+    easing: Easing = FastOutSlowInEasing,
 ): ContentTransform {
     val sign = if (direction == NavDirection.Forward) 1 else -1
     return (
-        slideInHorizontally(tween(ENTER_MILLIS)) { width -> sign * width / SLIDE_FRACTION } +
-            fadeIn(tween(ENTER_MILLIS))
+        slideInHorizontally(tween(ENTER_MILLIS, easing = easing)) { width -> sign * width / SLIDE_FRACTION } +
+            fadeIn(tween(ENTER_MILLIS, easing = easing))
         ) togetherWith (
-        slideOutHorizontally(tween(EXIT_MILLIS)) { width -> -sign * width / SLIDE_FRACTION } +
-            fadeOut(tween(EXIT_MILLIS))
+        slideOutHorizontally(tween(EXIT_MILLIS, easing = easing)) { width -> -sign * width / SLIDE_FRACTION } +
+            fadeOut(tween(EXIT_MILLIS, easing = easing))
         )
 }
+
+/**
+ * Opening a page — an app's details, a sub-settings screen: it slides in from the right edge over
+ * the page it was opened from, which drifts a little to the left beneath it.
+ */
+private fun AnimatedContentTransitionScope<Scene<NavKey>>.pageEnter(): ContentTransform =
+    slideInHorizontally(tween(PAGE_MILLIS)) { width -> width } togetherWith
+        slideOutHorizontally(tween(PAGE_MILLIS)) { width -> -width / PAGE_PARALLAX_FRACTION }
+
+/**
+ * Closing a page, the mirror of [pageEnter]: it slides off to the right, uncovering the page
+ * beneath as that drifts back into place. Also what the predictive back gesture drags.
+ */
+private fun AnimatedContentTransitionScope<Scene<NavKey>>.pageExit(
+    easing: Easing = FastOutSlowInEasing,
+): ContentTransform =
+    slideInHorizontally(tween(PAGE_MILLIS, easing = easing)) { width -> -width / PAGE_PARALLAX_FRACTION } togetherWith
+        slideOutHorizontally(tween(PAGE_MILLIS, easing = easing)) { width -> width }
 
 /** The right-hand pane before the user has picked anything. */
 @Composable
@@ -332,3 +373,8 @@ private const val EXIT_MILLIS = 220
 
 /** Slide distance as a fraction of the pane width. A full-width slide reads as a page swipe. */
 private const val SLIDE_FRACTION = 6
+
+private const val PAGE_MILLIS = 350
+
+/** How far the page underneath drifts while another slides over it, as a fraction of the width. */
+private const val PAGE_PARALLAX_FRACTION = 4

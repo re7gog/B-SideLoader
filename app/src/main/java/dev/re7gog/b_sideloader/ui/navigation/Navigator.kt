@@ -33,13 +33,26 @@ class Navigator(val state: NavigationState) {
     var direction: NavDirection by mutableStateOf(NavDirection.Forward)
         private set
 
+    /**
+     * Whether the most recent navigation switched tabs rather than opening or closing a page.
+     *
+     * The two animate differently: a page slides in over the one it was opened from and slides
+     * back out to the right, like a sheet of paper, while a tab switch only shifts sideways. The
+     * display cannot tell them apart from the scenes alone — switching to a tab whose top is an
+     * app page looks exactly like opening that page.
+     */
+    var isTabSwitch: Boolean by mutableStateOf(false)
+        private set
+
     /** Pushes a destination, or switches tab when [route] is a top-level one. */
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
             direction = directionBetween(state.topLevelRoute, route)
+            isTabSwitch = true
             state.topLevelRoute = route
         } else {
             direction = NavDirection.Forward
+            isTabSwitch = false
             state.currentStack.add(route)
         }
     }
@@ -53,6 +66,7 @@ class Navigator(val state: NavigationState) {
      */
     fun goBack() {
         direction = NavDirection.Backward
+        isTabSwitch = state.isAtTabRoot
         if (state.isAtTabRoot) {
             if (state.topLevelRoute != state.startRoute) state.topLevelRoute = state.startRoute
             return
@@ -78,6 +92,7 @@ class Navigator(val state: NavigationState) {
      */
     fun showAppDetails(appId: Long) {
         direction = NavDirection.Forward
+        isTabSwitch = false
         val appsStack = state.backStacks.getValue(AppsRoute)
         while (appsStack.size > 1 && appsStack.last() is SavedAppRoute) {
             appsStack.removeAt(appsStack.lastIndex)

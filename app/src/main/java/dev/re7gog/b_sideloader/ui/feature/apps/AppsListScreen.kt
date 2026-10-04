@@ -66,6 +66,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.ui.common.component.AppIconPlaceholder
 import dev.re7gog.b_sideloader.ui.common.component.ConfirmDialog
 import dev.re7gog.b_sideloader.ui.common.component.EmptyState
 import dev.re7gog.b_sideloader.ui.common.component.SnackbarMessages
@@ -329,16 +330,24 @@ private fun AppListItemCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = icon,
-                contentDescription = stringResource(R.string.cd_app_icon, app.name),
-                modifier = Modifier
-                    .size(48.dp)
-                    .alpha(contentAlpha),
-                placeholder = painterResource(R.drawable.circle_24px),
-                error = painterResource(R.drawable.x_circle_24px),
-                fallback = painterResource(R.drawable.x_circle_24px),
-            )
+            if (icon != null) {
+                AsyncImage(
+                    model = icon,
+                    contentDescription = stringResource(R.string.cd_app_icon, app.name),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .alpha(contentAlpha),
+                    placeholder = painterResource(R.drawable.circle_24px),
+                    error = painterResource(R.drawable.x_circle_24px),
+                )
+            } else {
+                AppIconPlaceholder(
+                    name = app.name,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .alpha(contentAlpha),
+                )
+            }
             Spacer(Modifier.width(16.dp))
             Column(
                 modifier = Modifier

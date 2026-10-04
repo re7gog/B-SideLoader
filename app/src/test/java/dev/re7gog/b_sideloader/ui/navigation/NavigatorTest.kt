@@ -185,4 +185,48 @@ class NavigatorTest {
 
         assertEquals(NavDirection.Forward, navigator.direction)
     }
+
+    // ---- page or tab -------------------------------------------------------------------------
+    //
+    // A page slides in from the right and back out to it; a tab switch only shifts sideways.
+    // Switching to a tab whose top is an app page looks just like opening that page to Navigation
+    // 3, so the navigator says which one happened.
+
+    @Test
+    fun `opening a page from the main list or search is not a tab switch`() {
+        val navigator = navigator()
+
+        navigator.showAppDetails(7L)
+        assertFalse(navigator.isTabSwitch)
+
+        navigator.navigate(SearchRoute)
+        navigator.navigate(NewGithubAppRoute(owner = "octocat", repo = "example", name = "Example"))
+        assertFalse(navigator.isTabSwitch)
+    }
+
+    @Test
+    fun `closing a page is not a tab switch`() {
+        val navigator = navigator()
+        navigator.showAppDetails(7L)
+
+        navigator.goBack()
+
+        assertFalse(navigator.isTabSwitch)
+    }
+
+    @Test
+    fun `switching tabs, by the bar or by back from a tab root, is a tab switch`() {
+        val navigator = navigator()
+
+        navigator.navigate(SearchRoute)
+        assertTrue(navigator.isTabSwitch)
+
+        navigator.navigate(NewGithubAppRoute(owner = "octocat", repo = "example", name = "Example"))
+        navigator.navigate(AppsRoute)
+        assertTrue(navigator.isTabSwitch)
+
+        navigator.navigate(SettingsRoute)
+        navigator.goBack()
+        assertTrue(navigator.isTabSwitch)
+    }
 }
