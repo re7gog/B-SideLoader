@@ -109,8 +109,12 @@
     <string name="settings_persistent_service_subtitle">Keeps a permanent notification to reliably check for updates on phones that kill background apps. Increases battery usage.</string>
     <string name="settings_allow_background">Allow background work</string>
     <string name="settings_allow_background_subtitle">Battery and autostart settings</string>
-    <string name="settings_parallel_checks">Parallel update checks</string>
-    <string name="settings_parallel_checks_subtitle">Check several apps at the same time. Faster, but more likely to hit GitHub\'s hourly request limit without a token.</string>
+    <string name="settings_parallel_updates">Parallel checks and downloads</string>
+    <plurals name="settings_parallel_updates_subtitle">
+        <item quantity="one">Up to %1$d download per source. Without a token, may hit GitHub\'s rate limit.</item>
+        <item quantity="other">Up to %1$d downloads per source. Without a token, may hit GitHub\'s rate limit.</item>
+    </plurals>
+    <string name="settings_downloads_note">Different sources always download in parallel. Installs run one at a time.</string>
     <string name="settings_theme">Theme</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>
@@ -165,6 +169,7 @@
 
     <!-- Manual install -->
     <string name="reading_apk">Reading the APK…</string>
+    <string name="waiting_for_installer">Waiting for another install to finish…</string>
     <string name="choose_apk_file">Choose an APK file</string>
     <string name="install_from_file">Install from a file</string>
     <string name="manual_tip_installer">Pick any APK on this device and it installs with your current installer mode — silently, when you use Shizuku or Dhizuku.</string>

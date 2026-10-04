@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.ui.feature.apps
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
@@ -66,6 +67,7 @@ class AppsListViewModelTest {
     private val installs = InstallCoordinator(
         installApp = InstallAppUseCase(
             installer,
+            InstallScheduler(FakeSettingsRepository()),
             apps,
             telegram,
             selfUpdates,

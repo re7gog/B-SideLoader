@@ -3,6 +3,8 @@ package dev.re7gog.b_sideloader.domain.usecase
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.error.InstallFailure
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
+import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
@@ -13,8 +15,10 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
 import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
+import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.githubApp
+import dev.re7gog.b_sideloader.testing.telegramApp
 import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -36,6 +40,9 @@ class InstallCoordinatorTest {
         listOf(
             githubApp(id = 1L, name = "Alpha", version = AppVersion("v1.0")),
             githubApp(id = 2L, name = "Beta", version = AppVersion("v1.0")),
+            githubApp(id = 3L, name = "Gamma", version = AppVersion("v1.0")),
+            githubApp(id = 4L, name = "Delta", version = AppVersion("v1.0")),
+            telegramApp(id = 5L, name = "Channel app", version = AppVersion("v1.0")),
         ),
     )
 
@@ -49,12 +56,15 @@ class InstallCoordinatorTest {
      * `backgroundScope`: the installs run on the test's scheduler and die with the test. Note that
      * `advanceUntilIdle` does not drain background work, hence `runCurrent` throughout.
      */
-    private fun TestScope.coordinator(): InstallCoordinator {
+    private fun TestScope.coordinator(
+        settings: FakeSettingsRepository = FakeSettingsRepository(),
+    ): InstallCoordinator {
         val selfUpdates = FakeSelfUpdateStateRepository()
         val selfInfo = FakeSelfAppInfo()
         return InstallCoordinator(
             installApp = InstallAppUseCase(
                 installer,
+                InstallScheduler(settings),
                 apps,
                 FakeTelegramRepository(),
                 selfUpdates,
@@ -79,7 +89,7 @@ class InstallCoordinatorTest {
         runCurrent()
 
         assertEquals(InstallKey.App(1L), key)
-        assertEquals(InstallProgress.Downloading(0.5f), coordinator.installs.value[key])
+        assertEquals(InstallProgress.Staging(0.5f), coordinator.installs.value[key])
 
         gate.complete(Unit)
         runCurrent()
@@ -103,11 +113,11 @@ class InstallCoordinatorTest {
     }
 
     /**
-     * Sessions do not overlap sanely, so a second app waits — and is shown as preparing meanwhile
-     * rather than looking like nothing happened.
+     * Sessions do not overlap sanely, so a downloaded app waits for the installer — and is shown
+     * as queued meanwhile rather than looking like nothing happened.
      */
     @Test
-    fun `installs run one at a time and a waiting one reports preparing`() = runTest {
+    fun `installs run one at a time and a waiting one reports queued`() = runTest {
         val gate = CompletableDeferred<Unit>()
         installer.beforeVerdict = { gate.await() }
         val coordinator = coordinator()
@@ -116,15 +126,86 @@ class InstallCoordinatorTest {
         coordinator.install(apps.getApp(2L)!!, candidate)
         runCurrent()
 
-        assertEquals(1, installer.installed.size)
-        assertEquals(InstallProgress.Preparing, coordinator.installs.value[InstallKey.App(2L)])
+        // Both downloaded — one after the other, as they share a source — but only one installs.
+        assertEquals(2, installer.installed.size)
+        assertEquals(1, installer.committed.size)
+        assertEquals(InstallProgress.Queued, coordinator.installs.value[InstallKey.App(2L)])
 
         installer.beforeVerdict = {}
         gate.complete(Unit)
         runCurrent()
 
-        assertEquals(2, installer.installed.size)
+        assertEquals(2, installer.committed.size)
         assertTrue(coordinator.installs.value.isEmpty())
+    }
+
+    /** Off by default: one download per source, but GitHub and Telegram never wait for each other. */
+    @Test
+    fun `downloads from different sources run side by side`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.duringDownload = { gate.await() }
+        val coordinator = coordinator()
+
+        listOf(1L, 2L, 5L).forEach { coordinator.install(apps.getApp(it)!!, candidate) }
+        runCurrent()
+
+        val installs = coordinator.installs.value
+        assertEquals(InstallProgress.Downloading(0.5f), installs[InstallKey.App(1L)])
+        assertEquals(InstallProgress.Queued, installs[InstallKey.App(2L)])
+        assertEquals(InstallProgress.Downloading(0.5f), installs[InstallKey.App(5L)])
+
+        gate.complete(Unit)
+        runCurrent()
+
+        assertTrue(coordinator.installs.value.isEmpty())
+        assertEquals(3, installer.committed.size)
+    }
+
+    @Test
+    fun `with parallel updates on, three apps download from one source at once`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        installer.duringDownload = { gate.await() }
+        val coordinator = coordinator(FakeSettingsRepository(AppSettings(parallelUpdates = true)))
+
+        listOf(1L, 2L, 3L, 4L).forEach { coordinator.install(apps.getApp(it)!!, candidate) }
+        runCurrent()
+
+        val installs = coordinator.installs.value
+        assertEquals(3, installs.values.count { it == InstallProgress.Downloading(0.5f) })
+        assertEquals(InstallProgress.Queued, installs[InstallKey.App(4L)])
+
+        gate.complete(Unit)
+        runCurrent()
+
+        assertEquals(4, installer.committed.size)
+    }
+
+    /** A failed download installs nothing, and leaves nothing to clean up. */
+    @Test
+    fun `a failed download is reported and installs nothing`() = runTest {
+        installer.downloadFailure = AppError.Http(404, "Not Found")
+        val coordinator = coordinator()
+        val result = backgroundScope.async { coordinator.results.first() }
+        runCurrent()
+
+        coordinator.install(apps.getApp(1L)!!, candidate)
+        runCurrent()
+
+        assertTrue((result.await() as InstallResult.Failed).error is AppError.Http)
+        assertTrue(installer.committed.isEmpty())
+        assertTrue(installer.discarded.isEmpty())
+    }
+
+    /** The downloaded APK is handed back whatever happens — here, after a successful install. */
+    @Test
+    fun `the downloaded APK is discarded after the install`() = runTest {
+        val coordinator = coordinator()
+
+        coordinator.install(apps.getApp(1L)!!, candidate)
+        runCurrent()
+
+        assertEquals(installer.committed, installer.discarded)
+        assertEquals(1, installer.discarded.size)
     }
 
     /**

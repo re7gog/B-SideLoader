@@ -41,7 +41,7 @@ data class UpdateCheckOutcome(
  *     still returned, flagged, so a caller can tell "not checked" from "no candidate".
  *  2. **Concurrency is a setting, not a hard-coded choice.** Sequential is the default: a burst of
  *     requests is exactly what trips GitHub's rate limit, and the failure mode there is that
- *     *every* app fails at once. With [AppSettings.parallelUpdateChecks] on, lookups run up to
+ *     *every* app fails at once. With [AppSettings.parallelUpdates] on, lookups run up to
  *     [AppSettings.MAX_PARALLEL_CHECKS] at a time — the cap matters because OkHttp itself only
  *     allows 5 concurrent calls per host, so unbounded fan-out would just queue inside OkHttp while
  *     making the rate limiter angrier.
@@ -69,7 +69,7 @@ class CheckUpdatesUseCase @Inject constructor(
         val skippedOutcomes = skipped.map { UpdateCheckOutcome(it, check = null, skipped = true) }
         if (checkable.isEmpty()) return skippedOutcomes
 
-        val checked = if (settingsRepository.current().parallelUpdateChecks) {
+        val checked = if (settingsRepository.current().parallelUpdates) {
             checkInParallel(checkable, onProgress)
         } else {
             checkSequentially(checkable, onProgress)

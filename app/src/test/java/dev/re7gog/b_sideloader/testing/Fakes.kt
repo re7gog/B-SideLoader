@@ -14,7 +14,9 @@ import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
+import dev.re7gog.b_sideloader.domain.model.DownloadProgress
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
+import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.GithubRelease
 import dev.re7gog.b_sideloader.domain.model.GithubRepoSummary
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
@@ -291,8 +293,8 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun setThemeMode(mode: ThemeMode) =
         state.update { it.copy(themeMode = mode) }
 
-    override suspend fun setParallelUpdateChecks(enabled: Boolean) =
-        state.update { it.copy(parallelUpdateChecks = enabled) }
+    override suspend fun setParallelUpdates(enabled: Boolean) =
+        state.update { it.copy(parallelUpdates = enabled) }
 
     override suspend fun setBackgroundMode(mode: BackgroundMode) =
         state.update { it.copy(backgroundMode = mode) }
@@ -301,17 +303,28 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
         state.update { it.copy(longPressHintSeen = seen) }
 }
 
-/** Records what it was asked to install and replays a scripted outcome. */
+/** Records what it was asked to download and install, and replays a scripted outcome. */
 class FakeInstallerGateway(
     var outcome: InstallOutcome = InstallOutcome.Success("com.example"),
 ) : InstallerGateway {
 
+    /** Every download started — one per install attempt. */
     val installed = mutableListOf<DownloadRef>()
+
+    /** Every install of a downloaded APK started, in order. */
+    val committed = mutableListOf<DownloadedApk>()
+
+    /** Every downloaded APK handed back. */
+    val discarded = mutableListOf<DownloadedApk>()
+
     val uninstalled = mutableListOf<String>()
     var privilegedAccess: PrivilegedAccess = PrivilegedAccess.Granted(PrivilegedIdentity.Adb)
 
+    /** When set, every download fails with it instead of producing a file. */
+    var downloadFailure: AppError? = null
+
     /**
-     * Runs the moment an install begins.
+     * Runs the moment an install begins, at the start of its download.
      *
      * Lets a test observe the world as the installer was handed it, which is the only reliable way
      * to assert "this happened *before* the install": the flow's producer runs ahead of its
@@ -320,18 +333,39 @@ class FakeInstallerGateway(
     var onInstall: () -> Unit = {}
 
     /**
-     * Runs half-way through the download, before the verdict. Suspend in it (on a
-     * `CompletableDeferred`, say) to hold an install in flight while the test looks at it.
+     * Runs half-way through a download. Suspend in it (on a `CompletableDeferred`, say) to hold
+     * downloads in flight while the test looks at them.
+     */
+    var duringDownload: suspend (DownloadRef) -> Unit = {}
+
+    /**
+     * Runs half-way through installing a downloaded APK, before the verdict. Suspend in it to hold
+     * an install in flight while the test looks at it.
      */
     var beforeVerdict: suspend () -> Unit = {}
 
-    override fun install(source: DownloadRef): Flow<InstallProgress> = flow {
+    override fun download(source: DownloadRef): Flow<DownloadProgress> = flow {
         installed += source
         onInstall()
-        emit(InstallProgress.Preparing)
-        emit(InstallProgress.Downloading(0.5f))
+        emit(DownloadProgress.Downloading(0.5f))
+        duringDownload(source)
+        val failure = downloadFailure
+        if (failure != null) {
+            emit(DownloadProgress.Failed(failure))
+        } else {
+            emit(DownloadProgress.Downloaded(DownloadedApk("/fake/${installed.size}.apk", 1_000L, source)))
+        }
+    }
+
+    override fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress> = flow {
+        committed += apk
+        emit(InstallProgress.Staging(0.5f))
         beforeVerdict()
         emit(InstallProgress.Finished(outcome))
+    }
+
+    override suspend fun discard(apk: DownloadedApk) {
+        discarded += apk
     }
 
     val installedLocal = mutableListOf<LocalApk>()

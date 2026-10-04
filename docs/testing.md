@@ -31,7 +31,8 @@ JUnit and never touch it.
 | Error translation | `data/error/ThrowableToAppErrorTest` | IO → `Network`, GitHub's 403-means-rate-limit header quirk, and that cancellation is rethrown rather than mapped |
 | Update resolution | `domain/usecase/ResolveUpdateUseCaseTest` | every `UpdateStatus`, and that source failures propagate instead of silently reading as "no update" |
 | Install | `domain/usecase/InstallAppUseCaseTest` | insert-vs-update on success, nothing written on failure, the Telegram cache copy being dropped |
-| Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, one install at a time, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation) |
+| Install scheduling | `domain/installer/InstallSchedulerTest` | one download per source by default and three with the setting, read live; one install at a time; B-SideLoader's own update waiting for the rest |
+| Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, sources downloading side by side while installs queue, the downloaded APK always discarded, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation) |
 | Self-update | `domain/usecase/ReconcileSelfUpdateUseCaseTest` | judging a pending self-update by the version code in the next process |
 | Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, cancellation propagating, installs going through the shared coordinator |
 | ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine, installs started on one screen showing on the other |

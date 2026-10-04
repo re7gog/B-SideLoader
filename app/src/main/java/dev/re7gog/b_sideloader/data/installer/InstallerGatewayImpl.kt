@@ -1,12 +1,15 @@
 package dev.re7gog.b_sideloader.data.installer
 
 import dev.re7gog.b_sideloader.core.coroutines.DispatcherProvider
+import dev.re7gog.b_sideloader.core.coroutines.rethrowIfCancellation
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.installer.privileged.PrivilegedApkInstallerFactory
 import dev.re7gog.b_sideloader.data.installer.session.SessionApkInstaller
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
+import dev.re7gog.b_sideloader.domain.model.DownloadProgress
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
+import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
@@ -19,8 +22,11 @@ import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,9 +38,14 @@ import javax.inject.Singleton
  * modes in settings while a details screen is open, and the next install should honour the new
  * choice without recreating anything.
  *
- * The whole pipeline runs on [DispatcherProvider.io] via a single `flowOn`, which is what keeps
- * the flow-context invariant intact while still letting the blocking socket/session reads happen
- * off the main thread.
+ * Downloading and installing are separate calls so that downloads can run in parallel while
+ * installs stay one at a time; the gateway itself imposes neither, that is
+ * [dev.re7gog.b_sideloader.domain.installer.InstallScheduler]'s job. Both phases go through a
+ * file: HTTP downloads land in the cache via [HttpApkSource], Telegram ones in TDLib's own store.
+ *
+ * Each pipeline runs on [DispatcherProvider.io] via a single `flowOn`, which is what keeps the
+ * flow-context invariant intact while still letting the blocking socket/session reads happen off
+ * the main thread.
  */
 @Singleton
 class InstallerGatewayImpl @Inject constructor(
@@ -47,35 +58,34 @@ class InstallerGatewayImpl @Inject constructor(
     private val logger: Logger,
 ) : InstallerGateway {
 
-    override fun install(source: DownloadRef): Flow<InstallProgress> = flow {
-        emit(InstallProgress.Preparing)
-        val mode = settingsRepository.current().installerMode
-        val outcome = when (source) {
-            is DownloadRef.Http -> installFromHttp(source, mode)
-            is DownloadRef.TelegramFile -> installFromTelegram(source, mode)
+    override fun download(source: DownloadRef): Flow<DownloadProgress> = flow {
+        val apk = when (source) {
+            is DownloadRef.Http -> downloadFromHttp(source)
+            is DownloadRef.TelegramFile -> downloadFromTelegram(source)
         }
-        emit(InstallProgress.Finished(outcome))
+        emit(DownloadProgress.Downloaded(apk))
+    }.catch { e ->
+        // Upstream failures only — `catch` never sees what the collector throws.
+        e.rethrowIfCancellation()
+        if (e !is AppError) logger.e(TAG, e) { "Download failed" }
+        emit(DownloadProgress.Failed(e as? AppError ?: AppError.Unexpected(e)))
     }.flowOn(dispatchers.io)
+
+    override fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress> =
+        installFile(File(apk.path), fallbackSize = apk.sizeBytes, missing = "Downloaded file is missing")
 
     override fun installLocal(apk: LocalApk): Flow<InstallProgress> = flow {
         emit(InstallProgress.Preparing)
-        val mode = settingsRepository.current().installerMode
-        val file = File(apk.path)
-        if (!file.exists()) {
-            emit(
-                InstallProgress.Finished(
-                    InstallOutcome.Failure(AppError.Storage("The staged APK is gone"))
-                )
-            )
-            return@flow
+        emitAll(installFile(File(apk.path), fallbackSize = apk.sizeBytes, missing = "The staged APK is gone"))
+    }
+
+    override suspend fun discard(apk: DownloadedApk) {
+        if (apk.source !is DownloadRef.Http) return
+        withContext(dispatchers.io) {
+            val file = File(apk.path)
+            if (httpApkSource.owns(file)) file.delete()
         }
-        val outcome = runInstall(mode) { backend ->
-            ApkPayload(file.length(), file.inputStream()).use { payload ->
-                backend.install(payload) { emit(InstallProgress.Staging(it)) }
-            }
-        }
-        emit(InstallProgress.Finished(outcome))
-    }.flowOn(dispatchers.io)
+    }
 
     override suspend fun uninstall(packageName: String): UninstallOutcome {
         val mode = settingsRepository.current().installerMode
@@ -112,51 +122,55 @@ class InstallerGatewayImpl @Inject constructor(
         }
     }
 
-    /**
-     * HTTP streams straight into the session, so there is only one measurable phase and it is
-     * network-bound — reporting it as "downloading" rather than "staging" is what the user sees.
-     */
-    private suspend fun FlowCollector<InstallProgress>.installFromHttp(
+    private suspend fun FlowCollector<DownloadProgress>.downloadFromHttp(
         source: DownloadRef.Http,
-        mode: InstallerMode,
-    ): InstallOutcome = runInstall(mode) { backend ->
-        httpApkSource.open(source.url).use { payload ->
-            backend.install(payload) { emit(InstallProgress.Downloading(it)) }
-        }
+    ): DownloadedApk {
+        val file = httpApkSource.download(source.url) { emit(DownloadProgress.Downloading(it)) }
+        return DownloadedApk(path = file.absolutePath, sizeBytes = file.length(), source = source)
     }
 
     /**
-     * Telegram has two distinct phases: TDLib pulls the file to disk, then we stream that file
-     * into the session. Both are reported, so a large APK no longer looks frozen while TDLib
-     * downloads it — the old code showed nothing at all until the download had finished.
+     * TDLib pulls the file into its own store and reports progress as it goes, so a large APK does
+     * not look frozen while it downloads. The copy is TDLib's, released through
+     * [TelegramRepository] once the install is over.
      */
-    private suspend fun FlowCollector<InstallProgress>.installFromTelegram(
+    private suspend fun FlowCollector<DownloadProgress>.downloadFromTelegram(
         source: DownloadRef.TelegramFile,
-        mode: InstallerMode,
-    ): InstallOutcome {
+    ): DownloadedApk {
         var localPath: String? = null
         telegramRepository.downloadFile(source.fileId).collect { update ->
             when (update) {
-                is TelegramDownload.Progress -> emit(InstallProgress.Downloading(update.fraction))
+                is TelegramDownload.Progress -> emit(DownloadProgress.Downloading(update.fraction))
                 is TelegramDownload.Completed -> localPath = update.localPath
             }
         }
-        val path = localPath
-            ?: return InstallOutcome.Failure(AppError.Storage("Telegram did not return a file"))
-
-        val file = File(path)
-        if (!file.exists()) {
-            return InstallOutcome.Failure(AppError.Storage("Downloaded file is missing"))
-        }
-        return runInstall(mode) { backend ->
-            ApkPayload(
-                lengthBytes = file.length().takeIf { it > 0 } ?: source.sizeBytes,
-                stream = file.inputStream(),
-            ).use { payload ->
-                backend.install(payload) { emit(InstallProgress.Staging(it)) }
-            }
-        }
+        val file = File(localPath ?: throw AppError.Storage("Telegram did not return a file"))
+        if (!file.exists()) throw AppError.Storage("Downloaded file is missing")
+        return DownloadedApk(
+            path = file.absolutePath,
+            sizeBytes = file.length().takeIf { it > 0 } ?: source.sizeBytes,
+            source = source,
+        )
     }
+
+    /** Streams [file] into the backend for the current mode. [missing] explains a vanished file. */
+    private fun installFile(file: File, fallbackSize: Long, missing: String): Flow<InstallProgress> =
+        flow {
+            val mode = settingsRepository.current().installerMode
+            if (!file.exists()) {
+                emit(InstallProgress.Finished(InstallOutcome.Failure(AppError.Storage(missing))))
+                return@flow
+            }
+            val outcome = runInstall(mode) { backend ->
+                ApkPayload(
+                    lengthBytes = file.length().takeIf { it > 0 } ?: fallbackSize,
+                    stream = file.inputStream(),
+                ).use { payload ->
+                    backend.install(payload) { emit(InstallProgress.Staging(it)) }
+                }
+            }
+            emit(InstallProgress.Finished(outcome))
+        }.flowOn(dispatchers.io)
 
     /** Runs [block] against the backend for [mode], turning unexpected failures into an outcome. */
     private suspend fun runInstall(

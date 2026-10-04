@@ -50,7 +50,7 @@ class DataStoreSettingsRepositoryTest {
         repository.setAllowMeteredNetwork(true)
         repository.setUseDynamicColor(true)
         repository.setThemeMode(ThemeMode.Dark)
-        repository.setParallelUpdateChecks(true)
+        repository.setParallelUpdates(true)
         repository.setBackgroundMode(BackgroundMode.Persistent)
         repository.setLongPressHintSeen(true)
 
@@ -64,7 +64,7 @@ class DataStoreSettingsRepositoryTest {
                 allowMeteredNetwork = true,
                 useDynamicColor = true,
                 themeMode = ThemeMode.Dark,
-                parallelUpdateChecks = true,
+                parallelUpdates = true,
                 backgroundMode = BackgroundMode.Persistent,
                 longPressHintSeen = true,
             ),
@@ -92,7 +92,7 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(true, settings.allowMeteredNetwork)
         assertEquals(true, settings.useDynamicColor)
         assertEquals(ThemeMode.Light, settings.themeMode)
-        assertEquals(true, settings.parallelUpdateChecks)
+        assertEquals(true, settings.parallelUpdates)
         assertEquals(true, settings.longPressHintSeen)
     }
 

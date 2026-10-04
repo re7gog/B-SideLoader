@@ -18,7 +18,7 @@ interface SettingsRepository {
     suspend fun setAllowMeteredNetwork(enabled: Boolean)
     suspend fun setUseDynamicColor(enabled: Boolean)
     suspend fun setThemeMode(mode: ThemeMode)
-    suspend fun setParallelUpdateChecks(enabled: Boolean)
+    suspend fun setParallelUpdates(enabled: Boolean)
     suspend fun setBackgroundMode(mode: BackgroundMode)
 
     /** Records that the apps list has shown its long-press hint. Never reset by the UI. */

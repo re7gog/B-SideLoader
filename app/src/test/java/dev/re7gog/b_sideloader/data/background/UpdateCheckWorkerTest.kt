@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
@@ -164,6 +165,7 @@ class UpdateCheckWorkerTest {
             installCoordinator = InstallCoordinator(
                 installApp = InstallAppUseCase(
                     installer,
+                    InstallScheduler(settings),
                     apps,
                     telegram,
                     selfUpdates,

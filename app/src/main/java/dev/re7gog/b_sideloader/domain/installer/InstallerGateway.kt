@@ -1,6 +1,8 @@
 package dev.re7gog.b_sideloader.domain.installer
 
+import dev.re7gog.b_sideloader.domain.model.DownloadProgress
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
+import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.LocalApk
@@ -18,12 +20,26 @@ import kotlinx.coroutines.flow.Flow
 interface InstallerGateway {
 
     /**
-     * Fetches [source] and installs it, emitting every phase and finishing with
+     * Fetches [source] to local storage, finishing with [DownloadProgress.Downloaded] or
+     * [DownloadProgress.Failed]. Touches no installer session, so any number of these may run at
+     * once; how many actually do is [InstallScheduler]'s call. A download that fails or is
+     * cancelled leaves nothing behind for the caller to clean up.
+     */
+    fun download(source: DownloadRef): Flow<DownloadProgress>
+
+    /**
+     * Installs an APK [download] fetched, emitting every phase and finishing with
      * [InstallProgress.Finished]. Never throws for an install failure — a failure is a
      * [dev.re7gog.b_sideloader.domain.model.InstallOutcome.Failure] value — so a caller cannot
-     * accidentally treat "user declined" as a crash.
+     * accidentally treat "user declined" as a crash. Does not discard [apk].
      */
-    fun install(source: DownloadRef): Flow<InstallProgress>
+    fun installDownloaded(apk: DownloadedApk): Flow<InstallProgress>
+
+    /**
+     * Drops this gateway's copy of [apk]. Safe to call more than once. A Telegram file is TDLib's,
+     * not ours, so it is left to [dev.re7gog.b_sideloader.domain.repository.TelegramRepository].
+     */
+    suspend fun discard(apk: DownloadedApk)
 
     /** Installs an APK already on disk (manual install). */
     fun installLocal(apk: LocalApk): Flow<InstallProgress>

@@ -109,8 +109,14 @@
     <string name="settings_persistent_service_subtitle">Показывает постоянное уведомление для надёжной проверки обновлений на телефонах, которые закрывают фоновые приложения. Увеличивает расход батареи.</string>
     <string name="settings_allow_background">Разрешить работу в фоне</string>
     <string name="settings_allow_background_subtitle">Настройки батареи и автозапуска</string>
-    <string name="settings_parallel_checks">Параллельная проверка обновлений</string>
-    <string name="settings_parallel_checks_subtitle">Проверять несколько приложений одновременно. Быстрее, но без токена легче упереться в часовой лимит запросов GitHub.</string>
+    <string name="settings_parallel_updates">Параллельная проверка и загрузка</string>
+    <plurals name="settings_parallel_updates_subtitle">
+        <item quantity="one">До %1$d загрузки из каждого источника. Без токена можно упереться в лимит GitHub.</item>
+        <item quantity="few">До %1$d загрузок из каждого источника. Без токена можно упереться в лимит GitHub.</item>
+        <item quantity="many">До %1$d загрузок из каждого источника. Без токена можно упереться в лимит GitHub.</item>
+        <item quantity="other">До %1$d загрузки из каждого источника. Без токена можно упереться в лимит GitHub.</item>
+    </plurals>
+    <string name="settings_downloads_note">Разные источники всегда загружаются параллельно. Установка — по одному приложению.</string>
     <string name="settings_theme">Тема</string>
     <string name="theme_system">Как в системе</string>
     <string name="theme_light">Светлая</string>
@@ -165,6 +171,7 @@
 
     <!-- Manual install -->
     <string name="reading_apk">Чтение APK…</string>
+    <string name="waiting_for_installer">Ожидание завершения другой установки…</string>
     <string name="choose_apk_file">Выбрать файл APK</string>
     <string name="install_from_file">Установка из файла</string>
     <string name="manual_tip_installer">Выберите любой APK на устройстве, и он установится текущим способом установки — без диалогов, если используете Shizuku или Dhizuku.</string>

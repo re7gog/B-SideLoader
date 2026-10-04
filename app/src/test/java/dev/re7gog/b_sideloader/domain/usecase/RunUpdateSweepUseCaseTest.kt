@@ -2,6 +2,7 @@ package dev.re7gog.b_sideloader.domain.usecase
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
@@ -64,6 +65,7 @@ class RunUpdateSweepUseCaseTest {
         installs = InstallCoordinator(
             installApp = InstallAppUseCase(
                 installer,
+                InstallScheduler(settings),
                 apps,
                 telegram,
                 selfUpdates,
@@ -197,7 +199,7 @@ class RunUpdateSweepUseCaseTest {
                 githubApp(id = 3, name = "C", version = AppVersion("v2.0")),
             ),
         )
-        val settings = FakeSettingsRepository(AppSettings(parallelUpdateChecks = true))
+        val settings = FakeSettingsRepository(AppSettings(parallelUpdates = true))
 
         val report = sweep(apps, settings)()
 
@@ -279,7 +281,7 @@ class RunUpdateSweepUseCaseTest {
         val report = async { useCase() }
         runCurrent()
 
-        assertEquals(InstallProgress.Downloading(0.5f), installs.installs.value[InstallKey.App(1L)])
+        assertEquals(InstallProgress.Staging(0.5f), installs.installs.value[InstallKey.App(1L)])
 
         gate.complete(Unit)
         assertEquals(listOf("A"), report.await().installed)

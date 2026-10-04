@@ -15,10 +15,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.LocalApk
 import dev.re7gog.b_sideloader.testing.FakeApkStagingArea
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
+import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -142,7 +144,12 @@ class ManualInstallPaneTest {
     }
 
     private fun setContent() {
-        val viewModel = ManualInstallViewModel(stagingArea, installer, CoroutineScope(SupervisorJob()))
+        val viewModel = ManualInstallViewModel(
+            stagingArea,
+            installer,
+            InstallScheduler(FakeSettingsRepository()),
+            CoroutineScope(SupervisorJob()),
+        )
         composeRule.setContent {
             BSideLoaderTheme {
                 val snackbarHostState = remember { SnackbarHostState() }

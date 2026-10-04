@@ -133,8 +133,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
     }
 
-    fun setParallelUpdateChecks(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setParallelUpdateChecks(enabled) }
+    fun setParallelUpdates(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setParallelUpdates(enabled) }
     }
 
     fun updateGithubToken(token: String) {

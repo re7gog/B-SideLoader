@@ -8,6 +8,11 @@ import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 /** What the sweep is allowed to do. */
@@ -40,6 +45,10 @@ sealed interface SweepProgress {
      */
     data class Checking(val appName: String, val done: Int, val total: Int) : SweepProgress
 
+    /**
+     * Progress of one install. Several apps can download at once, so consecutive values may be
+     * about different apps; treat [appName] as a label, like [Checking.appName].
+     */
     data class Installing(val appName: String, val fraction: Float?) : SweepProgress
 }
 
@@ -60,21 +69,24 @@ data class SweepReport(
  * Checks every tracked app and, when allowed, installs what is new.
  *
  * The check phase is delegated to [CheckUpdatesUseCase], which owns both the "skip apps that are
- * not installed" rule and the sequential/parallel choice. The install phase stays strictly
- * sequential no matter what that setting says: `PackageInstaller` sessions — and, on the
- * unprivileged path, the confirmation dialogs they raise — do not overlap sanely.
+ * not installed" rule and the sequential/parallel choice. Every update is then handed over at
+ * once, and [dev.re7gog.b_sideloader.domain.installer.InstallScheduler] decides what actually
+ * runs: downloads in parallel within per-source limits, installs strictly one at a time —
+ * `PackageInstaller` sessions, and on the unprivileged path the dialogs they raise, do not overlap
+ * sanely.
  *
- * Installs go through [InstallCoordinator], the same queue the screens use. So a background update
- * waits for one the user started instead of overlapping it, never installs an app the user is
- * already installing (it waits for that install's result), and shows its progress on the apps
- * list and the app's page like any other install.
+ * Installs go through [InstallCoordinator], the same one the screens use. So a background update
+ * shares the limits with one the user started, never installs an app the user is already
+ * installing (it waits for that install's result), and shows its progress on the apps list and
+ * the app's page like any other install.
  *
  * Failure of one app never aborts the sweep — a rate-limited repository or a channel the user left
  * must not stop the other twenty apps from updating — but cancellation always propagates, so
  * WorkManager stopping the worker actually stops the work.
  *
- * B-SideLoader's own update, if there is one, is installed last: replacing the package kills the
- * worker or service running this sweep, and anything queued behind it would simply never happen.
+ * B-SideLoader's own update, if there is one, is started only after every other install has
+ * finished: replacing the package kills the worker or service running this sweep, and anything
+ * still downloading or queued would simply never happen.
  * And its own row is reconciled before anything is read, so a sweep in the process that a
  * self-update just started does not find — and install — that same update again.
  */
@@ -116,12 +128,22 @@ class RunUpdateSweepUseCase @Inject constructor(
         )
         if (effectiveMode == SweepMode.CheckOnly) return report
 
-        // Stable sort, so everything else keeps its check order and only this app moves to the end.
-        updatable.sortedBy { selfApp.isSelf(it.app) }.forEach { outcome ->
-            // hasUpdate implies a candidate, but read it defensively rather than asserting.
-            val candidate = outcome.check?.candidate ?: return@forEach
-            report = installOne(outcome.app, candidate, report, onProgress)
-        }
+        // hasUpdate implies a candidate, but read it defensively rather than asserting.
+        val (self, others) = updatable
+            .mapNotNull { outcome -> outcome.check?.candidate?.let { outcome.app to it } }
+            .partition { (app, _) -> selfApp.isSelf(app) }
+        // Shared by every concurrent install; serialized so a caller can update a notification
+        // from it without inventing its own lock.
+        val progressLock = Mutex()
+        val reportProgress: suspend (SweepProgress) -> Unit = { progressLock.withLock { onProgress(it) } }
+
+        val results = coroutineScope {
+            others.map { (app, candidate) ->
+                async { app to installOne(app, candidate, reportProgress) }
+            }.awaitAll()
+        } + self.map { (app, candidate) -> app to installOne(app, candidate, reportProgress) }
+        // In check order, whatever order the installs finished in.
+        results.forEach { (app, result) -> report = report.with(app, result) }
         return report
     }
 
@@ -132,19 +154,17 @@ class RunUpdateSweepUseCase @Inject constructor(
     private suspend fun installOne(
         app: TrackedApp,
         candidate: UpdateCandidate,
-        report: SweepReport,
         onProgress: suspend (SweepProgress) -> Unit,
-    ): SweepReport {
-        val result = installCoordinator.installAndAwait(app, candidate) { progress ->
-            onProgress(SweepProgress.Installing(app.name, progress.fraction))
-        }
-        return when (result) {
-            is InstallResult.Installed -> report.copy(installed = report.installed + app.name)
-            is InstallResult.Failed ->
-                report.copy(failed = report.failed + SweepReport.FailedApp(app.name, result.error))
+    ): InstallResult? = installCoordinator.installAndAwait(app, candidate) { progress ->
+        onProgress(SweepProgress.Installing(app.name, progress.fraction))
+    }
+
+    private fun SweepReport.with(app: TrackedApp, result: InstallResult?): SweepReport =
+        when (result) {
+            is InstallResult.Installed -> copy(installed = installed + app.name)
+            is InstallResult.Failed -> copy(failed = failed + SweepReport.FailedApp(app.name, result.error))
             // The user's own install of this app was cancelled under it: neither installed nor
             // failed, and still in `withUpdates` for the next sweep to pick up.
-            null -> report
+            null -> this
         }
-    }
 }

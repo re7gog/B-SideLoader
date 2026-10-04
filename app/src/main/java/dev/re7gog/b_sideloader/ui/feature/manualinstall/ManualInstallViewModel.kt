@@ -8,6 +8,7 @@ import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.domain.installer.ApkStagingArea
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
@@ -48,11 +49,14 @@ sealed interface ManualInstallUiState {
  * update checks. It also no longer listens on a global install bus — the install flow it started
  * *is* the source of the result, so a background update finishing mid-dialog cannot be mistaken
  * for this one.
+ *
+ * It does wait its turn for the installer, like every other install — see [InstallScheduler].
  */
 @HiltViewModel
 class ManualInstallViewModel @Inject constructor(
     private val stagingArea: ApkStagingArea,
     private val installerGateway: InstallerGateway,
+    private val installScheduler: InstallScheduler,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -100,19 +104,21 @@ class ManualInstallViewModel @Inject constructor(
             return
         }
         installJob = viewModelScope.launch {
-            _uiState.value = ManualInstallUiState.Installing(apk, InstallProgress.Preparing)
-            installerGateway.installLocal(apk).collect { progress ->
-                if (progress !is InstallProgress.Finished) {
-                    _uiState.value = ManualInstallUiState.Installing(apk, progress)
-                    return@collect
-                }
-                _messages.tryEmit(
-                    when (val outcome = progress.outcome) {
-                        is InstallOutcome.Success -> UiText.of(R.string.installed_app, apk.label)
-                        is InstallOutcome.Failure -> outcome.error.toUiText()
+            _uiState.value = ManualInstallUiState.Installing(apk, InstallProgress.Queued)
+            installScheduler.install {
+                installerGateway.installLocal(apk).collect { progress ->
+                    if (progress !is InstallProgress.Finished) {
+                        _uiState.value = ManualInstallUiState.Installing(apk, progress)
+                        return@collect
                     }
-                )
-                reset()
+                    _messages.tryEmit(
+                        when (val outcome = progress.outcome) {
+                            is InstallOutcome.Success -> UiText.of(R.string.installed_app, apk.label)
+                            is InstallOutcome.Failure -> outcome.error.toUiText()
+                        }
+                    )
+                    reset()
+                }
             }
         }
     }

@@ -77,6 +77,22 @@ class SettingsScreenTest {
         assertEquals(BackgroundMode.Persistent, scheduler.synced.last().backgroundMode)
     }
 
+    /**
+     * One switch for parallel checks *and* downloads, with the note saying what it cannot turn
+     * off: different sources always download side by side, installs never overlap.
+     */
+    @Test
+    fun theParallelSwitchStoresTheSettingAndExplainsDownloads() {
+        setContent()
+        scrollTo(hasText(string(R.string.settings_downloads_note)))
+        composeRule.onNodeWithText(string(R.string.settings_downloads_note)).assertIsDisplayed()
+
+        composeRule.onNodeWithText(string(R.string.settings_parallel_updates)).performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(current().parallelUpdates)
+    }
+
     /** A privileged mode that cannot work is never stored — every install would silently fail. */
     @Test
     fun anUnavailablePrivilegedInstallerIsNotSelected() {

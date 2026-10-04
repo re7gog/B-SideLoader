@@ -207,6 +207,7 @@ private fun InstallProgressRow(progress: InstallProgress) {
                     ((progress.fraction ?: 0f) * PERCENT).toInt(),
                 )
 
+                InstallProgress.Queued -> stringResource(R.string.waiting_for_installer)
                 InstallProgress.Preparing -> stringResource(R.string.reading_apk)
                 InstallProgress.Committing, is InstallProgress.Finished ->
                     stringResource(R.string.finishing_install)

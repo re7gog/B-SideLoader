@@ -118,15 +118,21 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
 - **Update resolution.** `ResolveUpdateUseCase` asks the source repository for raw releases or
   messages and hands them to the matching `domain/selection` selector, which applies the app's
   filters and then `AbiMatcher`. `UpdateCheck.status` compares the winner with what is installed.
-- **Install.** `InstallAppUseCase` streams `InstallerGateway.install(DownloadRef)` and persists the
-  app on success — install and database write are one operation, so nothing has to be correlated
-  afterwards. `InstallerGatewayImpl` picks a backend per call from the current settings:
+- **Install.** `InstallAppUseCase` downloads (`InstallerGateway.download`), installs
+  (`installDownloaded`), discards the file and persists the app on success — install and database
+  write are one operation, so nothing has to be correlated afterwards. The two phases are separate
+  so that downloads can overlap while installs cannot: `InstallScheduler` (domain, `@Singleton`)
+  gives each source its own download slots — 1, or `MAX_PARALLEL_DOWNLOADS_PER_SOURCE` with
+  `AppSettings.parallelUpdates` on, so GitHub and Telegram always download side by side — and lets
+  one install run at a time, B-SideLoader's own last (it kills the process). Manual installs take
+  the same install slot. HTTP downloads land in `cacheDir/downloads` (`HttpApkSource`), Telegram
+  ones in TDLib's store. `InstallerGatewayImpl` picks a backend per call from the current settings:
   `SessionApkInstaller` (standard `PackageInstaller`, user-confirmed) or `PrivilegedApkInstaller`
   (Shizuku/Sui/Dhizuku via `hidden-api-bypass` + `refine`). Results are matched by request id
   through `InstallEventBus`; sessions are abandoned on failure *and* on cancellation.
   Nothing calls that use case directly but the `@Singleton` `InstallCoordinator`: the apps list,
-  the details page and the background sweep all go through it. It runs installs one at a time,
-  never the same app twice at once, and publishes `installs` (progress per `InstallKey` — the row
+  the details page and the background sweep all go through it. It never installs the same app
+  twice at once, and publishes `installs` (progress per `InstallKey` — the row
   id, or a `Draft` ticket for an app opened from search) and `results`, which is what keeps every
   screen showing the same install. Screens call `install()`, which runs in the application scope
   so it outlives them; the sweep calls `installAndAwait()`, which runs in its own coroutine so
@@ -137,7 +143,9 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   with the settings on app start, on boot (`BootReceiver`) and after every relevant toggle.
   `BackgroundMode.Periodic` uses `UpdateCheckWorker`; `Persistent` uses `UpdateMonitorService`
   (a `specialUse` foreground service — `dataSync` is capped at ~6 h/day on Android 14+).
-  `RunUpdateSweepUseCase` isolates per-app failures but always propagates cancellation.
+  `RunUpdateSweepUseCase` hands every update to the coordinator at once (the scheduler bounds
+  them) and B-SideLoader's own only after the rest; it isolates per-app failures but always
+  propagates cancellation.
 - **Self-update.** The app tracks itself like any other app: `SelfAppSeed` writes a row pointing at
   `SelfApp.source` (`re7gog/B-SideLoader`) — from `onCreate` for a new database, from the 1 -> 2
   migration for an existing one. A release build knows which release it is: CI passes the tag as
@@ -214,7 +222,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 326, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 336, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

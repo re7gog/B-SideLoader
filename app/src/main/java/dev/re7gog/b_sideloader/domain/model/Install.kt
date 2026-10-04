@@ -14,6 +14,14 @@ sealed interface InstallProgress {
     /** 0f..1f when the phase is measurable, `null` when it is indeterminate. */
     val fraction: Float?
 
+    /**
+     * Waiting for its turn: for a download slot on its source, or — downloaded — for the
+     * installer, which takes one app at a time. Indeterminate.
+     */
+    data object Queued : InstallProgress {
+        override val fraction: Float? get() = null
+    }
+
     /** Resolving the download / opening a session. Indeterminate. */
     data object Preparing : InstallProgress {
         override val fraction: Float? get() = null
@@ -35,6 +43,31 @@ sealed interface InstallProgress {
         override val fraction: Float? get() = null
     }
 }
+
+/** Progress of fetching an APK to local storage, the first half of an install. */
+sealed interface DownloadProgress {
+    data class Downloading(val fraction: Float) : DownloadProgress
+
+    /** Terminal. The flow completes right after emitting this. */
+    data class Downloaded(val apk: DownloadedApk) : DownloadProgress
+
+    /** Terminal. A failure is a value here too, never an exception. */
+    data class Failed(val error: AppError) : DownloadProgress
+}
+
+/**
+ * An APK fetched to local storage and waiting to be installed.
+ *
+ * Downloads and installs are separate steps so downloads can run in parallel while installs stay
+ * strictly one at a time. Whoever downloaded it must hand it back to
+ * [dev.re7gog.b_sideloader.domain.installer.InstallerGateway.discard] once done with it.
+ */
+data class DownloadedApk(
+    val path: String,
+    val sizeBytes: Long,
+    /** Where it came from, which decides who owns the file and how it is cleaned up. */
+    val source: DownloadRef,
+)
 
 /** How an install ended. */
 sealed interface InstallOutcome {

@@ -4,10 +4,13 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
@@ -39,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -47,6 +51,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
@@ -117,11 +122,16 @@ fun SettingsScreen(
                         )
                     }
                     SwitchRow(
-                        title = stringResource(R.string.settings_parallel_checks),
-                        subtitle = stringResource(R.string.settings_parallel_checks_subtitle),
-                        checked = uiState.settings.parallelUpdateChecks,
-                        onCheckedChange = viewModel::setParallelUpdateChecks,
+                        title = stringResource(R.string.settings_parallel_updates),
+                        subtitle = pluralStringResource(
+                            R.plurals.settings_parallel_updates_subtitle,
+                            AppSettings.MAX_PARALLEL_DOWNLOADS_PER_SOURCE,
+                            AppSettings.MAX_PARALLEL_DOWNLOADS_PER_SOURCE,
+                        ),
+                        checked = uiState.settings.parallelUpdates,
+                        onCheckedChange = viewModel::setParallelUpdates,
                     )
+                    DownloadsNote()
                     NavigationRow(
                         title = stringResource(R.string.settings_background_reliability),
                         subtitle = stringResource(R.string.settings_background_reliability_subtitle),
@@ -162,6 +172,31 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Says what the parallel switch cannot turn off: downloads from different sources always overlap,
+ * and installs never do. Without it, "off" reads as "one download at a time".
+ */
+@Composable
+private fun DownloadsNote() {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.info_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.settings_downloads_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.feature.appdetails
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
@@ -23,6 +24,7 @@ import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
 import dev.re7gog.b_sideloader.testing.FakePackageInspector
 import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
+import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.MainDispatcherRule
 import dev.re7gog.b_sideloader.testing.asset
@@ -76,6 +78,7 @@ class AppDetailsViewModelTest {
         installs = InstallCoordinator(
             installApp = InstallAppUseCase(
                 installer,
+                InstallScheduler(FakeSettingsRepository()),
                 appsRepository,
                 telegram,
                 selfUpdates,
@@ -308,7 +311,7 @@ class AppDetailsViewModelTest {
         installs.install(apps.getApp(1L)!!, updateCandidate("v2.0"))
         runCurrent()
 
-        assertEquals(InstallProgress.Downloading(0.5f), viewModel.uiState.value.install)
+        assertEquals(InstallProgress.Staging(0.5f), viewModel.uiState.value.install)
 
         gate.complete(Unit)
         advanceUntilIdle()
@@ -346,8 +349,8 @@ class AppDetailsViewModelTest {
         viewModel.onPrimaryAction()
         runCurrent()
 
-        assertEquals(InstallProgress.Downloading(0.5f), installs.installs.value[InstallKey.App(1L)])
-        assertEquals(InstallProgress.Downloading(0.5f), viewModel.uiState.value.install)
+        assertEquals(InstallProgress.Staging(0.5f), installs.installs.value[InstallKey.App(1L)])
+        assertEquals(InstallProgress.Staging(0.5f), viewModel.uiState.value.install)
     }
 
     /**

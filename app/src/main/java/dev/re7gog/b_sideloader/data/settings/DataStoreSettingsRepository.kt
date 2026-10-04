@@ -67,8 +67,8 @@ class DataStoreSettingsRepository @Inject constructor(
         it[Keys.THEME_MODE] = mode.name
     }
 
-    override suspend fun setParallelUpdateChecks(enabled: Boolean) = edit {
-        it[Keys.PARALLEL_CHECKS] = enabled
+    override suspend fun setParallelUpdates(enabled: Boolean) = edit {
+        it[Keys.PARALLEL_UPDATES] = enabled
     }
 
     override suspend fun setBackgroundMode(mode: BackgroundMode) = edit {
@@ -89,7 +89,7 @@ class DataStoreSettingsRepository @Inject constructor(
         allowMeteredNetwork = this[Keys.ALLOW_METERED] ?: AppSettings().allowMeteredNetwork,
         useDynamicColor = this[Keys.DYNAMIC_COLOR] ?: AppSettings().useDynamicColor,
         themeMode = ThemeMode.fromStoredName(this[Keys.THEME_MODE]),
-        parallelUpdateChecks = this[Keys.PARALLEL_CHECKS] ?: AppSettings().parallelUpdateChecks,
+        parallelUpdates = this[Keys.PARALLEL_UPDATES] ?: AppSettings().parallelUpdates,
         backgroundMode = resolveBackgroundMode(this),
         longPressHintSeen = this[Keys.LONG_PRESS_HINT_SEEN] ?: AppSettings().longPressHintSeen,
     )
@@ -113,7 +113,8 @@ class DataStoreSettingsRepository @Inject constructor(
         val ALLOW_METERED = booleanPreferencesKey("use_mobile_data")
         val DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val PARALLEL_CHECKS = booleanPreferencesKey("parallel_update_checks")
+        // Named from when the setting covered checks only; renaming it would reset everyone's choice.
+        val PARALLEL_UPDATES = booleanPreferencesKey("parallel_update_checks")
         val BACKGROUND_MODE = stringPreferencesKey("background_mode")
         val LONG_PRESS_HINT_SEEN = booleanPreferencesKey("long_press_hint_seen")
 

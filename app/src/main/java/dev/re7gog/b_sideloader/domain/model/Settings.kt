@@ -19,13 +19,17 @@ data class AppSettings(
     val useDynamicColor: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.Default,
     /**
-     * Query several sources at once when checking many apps.
+     * Check several apps at once, and download up to [MAX_PARALLEL_DOWNLOADS_PER_SOURCE] apps at
+     * once from each source.
      *
      * Off by default: a burst of requests is what pushes an unauthenticated user over GitHub's
      * hourly quota, and the failure mode (everything rate-limited at once) is worse than a slow
-     * sequential sweep.
+     * sequential sweep. Off, apps from *different* sources still download side by side — one from
+     * GitHub, one from Telegram — since they compete for nothing. Installs are one at a time
+     * either way. Stored under its old key, `parallel_update_checks`, from when it only covered
+     * checks.
      */
-    val parallelUpdateChecks: Boolean = false,
+    val parallelUpdates: Boolean = false,
     /** Run a persistent foreground service instead of a periodic WorkManager job. */
     val backgroundMode: BackgroundMode = BackgroundMode.Periodic,
     val checkInterval: Duration = DEFAULT_CHECK_INTERVAL,
@@ -42,8 +46,11 @@ data class AppSettings(
         /** WorkManager refuses periodic work with a shorter interval than this. */
         val MIN_CHECK_INTERVAL: Duration = 15.minutes
 
-        /** How many source lookups may be in flight when [parallelUpdateChecks] is on. */
+        /** How many source lookups may be in flight when [parallelUpdates] is on. */
         const val MAX_PARALLEL_CHECKS: Int = 4
+
+        /** How many downloads from one source may run at once when [parallelUpdates] is on. */
+        const val MAX_PARALLEL_DOWNLOADS_PER_SOURCE: Int = 3
     }
 }
 

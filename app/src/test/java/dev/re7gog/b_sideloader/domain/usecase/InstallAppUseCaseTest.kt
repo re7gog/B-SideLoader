@@ -1,12 +1,13 @@
 package dev.re7gog.b_sideloader.domain.usecase
 
-import app.cash.turbine.test
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.error.InstallFailure
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppVersion
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
+import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
@@ -14,6 +15,7 @@ import dev.re7gog.b_sideloader.testing.FakeAppsRepository
 import dev.re7gog.b_sideloader.testing.FakeInstallerGateway
 import dev.re7gog.b_sideloader.testing.FakeSelfAppInfo
 import dev.re7gog.b_sideloader.testing.FakeSelfUpdateStateRepository
+import dev.re7gog.b_sideloader.testing.FakeSettingsRepository
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.testing.githubApp
 import dev.re7gog.b_sideloader.testing.reconcileSelfUpdate
@@ -36,6 +38,7 @@ class InstallAppUseCaseTest {
 
     private fun useCase(apps: FakeAppsRepository) = InstallAppUseCase(
         installer,
+        InstallScheduler(FakeSettingsRepository()),
         apps,
         telegram,
         selfUpdates,
@@ -105,12 +108,22 @@ class InstallAppUseCaseTest {
     fun `progress is forwarded before the terminal event`() = runTest {
         val apps = FakeAppsRepository()
 
-        useCase(apps).invoke(githubApp(id = TrackedApp.NEW_APP_ID), httpCandidate).test {
-            assertTrue(awaitItem() is AppInstallEvent.Progress)
-            assertTrue(awaitItem() is AppInstallEvent.Progress)
-            assertTrue(awaitItem() is AppInstallEvent.Completed)
-            awaitComplete()
-        }
+        val events = useCase(apps).invoke(githubApp(id = TrackedApp.NEW_APP_ID), httpCandidate).toList()
+
+        // Every phase in order — waiting, downloading, waiting for the installer, installing —
+        // and only then the verdict.
+        val progress = events.dropLast(1).map { (it as AppInstallEvent.Progress).progress }
+        assertEquals(
+            listOf(
+                InstallProgress.Queued,
+                InstallProgress.Preparing,
+                InstallProgress.Downloading(0.5f),
+                InstallProgress.Queued,
+                InstallProgress.Staging(0.5f),
+            ),
+            progress,
+        )
+        assertTrue(events.last() is AppInstallEvent.Completed)
     }
 
     /**

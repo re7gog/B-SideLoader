@@ -5,8 +5,11 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.domain.device.SelfAppInfo
 import dev.re7gog.b_sideloader.domain.device.isSelf
 import dev.re7gog.b_sideloader.domain.error.AppError
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
+import dev.re7gog.b_sideloader.domain.model.DownloadProgress
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
+import dev.re7gog.b_sideloader.domain.model.DownloadedApk
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
@@ -15,9 +18,12 @@ import dev.re7gog.b_sideloader.domain.model.UpdateCandidate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.SelfUpdateStateRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /** What the caller of [InstallAppUseCase] observes. */
@@ -50,11 +56,16 @@ sealed interface AppInstallEvent {
  * [ReconcileSelfUpdateUseCase] in the next process, which records the release only if the version
  * code proves it landed.
  *
- * The returned flow is cold and cancellable. Abandoning it cancels the download and drops any
- * temporary Telegram copy — see [onCompletion] below.
+ * Downloading and installing are two steps, each gated by [InstallScheduler]: the download waits
+ * for a free slot on the app's source, then the install waits for the installer, which takes one
+ * app at a time. So several apps can download at once while their installs still queue up.
+ *
+ * The returned flow is cold and cancellable. Abandoning it cancels the download and drops both the
+ * downloaded APK and any temporary Telegram copy.
  */
 class InstallAppUseCase @Inject constructor(
     private val installerGateway: InstallerGateway,
+    private val scheduler: InstallScheduler,
     private val appsRepository: AppsRepository,
     private val telegramRepository: TelegramRepository,
     private val selfUpdates: SelfUpdateStateRepository,
@@ -65,7 +76,54 @@ class InstallAppUseCase @Inject constructor(
     operator fun invoke(app: TrackedApp, candidate: UpdateCandidate): Flow<AppInstallEvent> = flow {
         val isSelfUpdate = selfApp.isSelf(app) && app.isSaved
         if (isSelfUpdate) recordSelfUpdate(app, candidate)
-        installerGateway.install(candidate.download).collect { progress ->
+        scheduler.track {
+            emit(AppInstallEvent.Progress(InstallProgress.Queued))
+            val apk = scheduler.download(app.source.kind) {
+                download(candidate.download, isSelfUpdate)
+            } ?: return@track
+            try {
+                emit(AppInstallEvent.Progress(InstallProgress.Queued))
+                // B-SideLoader's own update replaces this process, so it waits for the others.
+                scheduler.install(last = isSelfUpdate) { install(app, candidate, apk, isSelfUpdate) }
+            } finally {
+                // Also when cancelled while waiting for the installer.
+                withContext(NonCancellable) { installerGateway.discard(apk) }
+            }
+        }
+    }.onCompletion {
+        // Runs on success, failure *and* cancellation. TDLib keeps a full copy of every file it
+        // downloads; without this the cache grows by one APK per install attempt.
+        releaseTelegramCopy(candidate.download)
+    }
+
+    /** Fetches the APK, or reports why not and returns null. */
+    private suspend fun FlowCollector<AppInstallEvent>.download(
+        source: DownloadRef,
+        isSelfUpdate: Boolean,
+    ): DownloadedApk? {
+        emit(AppInstallEvent.Progress(InstallProgress.Preparing))
+        var error: AppError = AppError.Storage("The download ended without a file")
+        var apk: DownloadedApk? = null
+        installerGateway.download(source).collect { progress ->
+            when (progress) {
+                is DownloadProgress.Downloading ->
+                    emit(AppInstallEvent.Progress(InstallProgress.Downloading(progress.fraction)))
+
+                is DownloadProgress.Downloaded -> apk = progress.apk
+                is DownloadProgress.Failed -> error = progress.error
+            }
+        }
+        if (apk == null) fail(error, isSelfUpdate)
+        return apk
+    }
+
+    private suspend fun FlowCollector<AppInstallEvent>.install(
+        app: TrackedApp,
+        candidate: UpdateCandidate,
+        apk: DownloadedApk,
+        isSelfUpdate: Boolean,
+    ) {
+        installerGateway.installDownloaded(apk).collect { progress ->
             if (progress !is InstallProgress.Finished) {
                 emit(AppInstallEvent.Progress(progress))
                 return@collect
@@ -83,17 +141,15 @@ class InstallAppUseCase @Inject constructor(
                     emit(AppInstallEvent.Completed(installed))
                 }
 
-                is InstallOutcome.Failure -> {
-                    // Seen by the process that started it, so there is nothing to judge later.
-                    if (isSelfUpdate) selfUpdates.clearPending()
-                    emit(AppInstallEvent.Failed(outcome.error))
-                }
+                is InstallOutcome.Failure -> fail(outcome.error, isSelfUpdate)
             }
         }
-    }.onCompletion {
-        // Runs on success, failure *and* cancellation. TDLib keeps a full copy of every file it
-        // downloads; without this the cache grows by one APK per install attempt.
-        releaseTelegramCopy(candidate.download)
+    }
+
+    private suspend fun FlowCollector<AppInstallEvent>.fail(error: AppError, isSelfUpdate: Boolean) {
+        // Seen by the process that started it, so there is nothing to judge later.
+        if (isSelfUpdate) selfUpdates.clearPending()
+        emit(AppInstallEvent.Failed(error))
     }
 
     private suspend fun persist(

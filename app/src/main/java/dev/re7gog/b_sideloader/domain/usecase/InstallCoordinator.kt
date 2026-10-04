@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.domain.usecase
 import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.rethrowIfCancellation
 import dev.re7gog.b_sideloader.core.log.Logger
+import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
@@ -20,8 +21,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -68,11 +67,11 @@ sealed interface InstallResult {
  *  - [installAndAwait] is for the sweep: it runs in the caller's coroutine and returns the result,
  *    so cancelling the caller — WorkManager stopping the worker — still stops the install.
  *
- * Installs run strictly one after another, whoever queued them: `PackageInstaller` sessions do not
- * overlap sanely, and on the unprivileged path each one raises its own confirmation dialog. An
- * install waiting for its turn is reported as [InstallProgress.Preparing]. An app is installed at
- * most once at a time: [install] ignores an app already queued, and [installAndAwait] waits for
- * that install's result instead of starting another.
+ * When each install may download and when it may install is [InstallScheduler]'s call, applied
+ * inside [InstallAppUseCase]: downloads run in parallel within per-source limits, installs one at
+ * a time. A waiting install is reported as [InstallProgress.Queued]. What this class adds is that
+ * an app is installed at most once at a time: [install] ignores an app already queued, and
+ * [installAndAwait] waits for that install's result instead of starting another.
  *
  * Ordering guarantee: a screen collecting both streams handles an install's [InstallResult]
  * before it sees the install leave [installs], so it never shows "not installing any more" over
@@ -109,7 +108,6 @@ class InstallCoordinator @Inject constructor(
      */
     private val endings = HashMap<InstallKey, CompletableDeferred<InstallResult?>>()
 
-    private val queue = Mutex()
     private val tickets = AtomicLong()
 
     /** The key a saved app's install is reported under, or null for an app with no row yet. */
@@ -160,7 +158,7 @@ class InstallCoordinator @Inject constructor(
         endings[key]?.let { return Claim(it, isNew = false) }
         val ending = CompletableDeferred<InstallResult?>()
         endings[key] = ending
-        _installs.update { it + (key to InstallProgress.Preparing) }
+        _installs.update { it + (key to InstallProgress.Queued) }
         Claim(ending, isNew = true)
     }
 
@@ -173,21 +171,19 @@ class InstallCoordinator @Inject constructor(
     ): InstallResult? {
         var result: InstallResult? = null
         try {
-            onProgress(InstallProgress.Preparing)
-            queue.withLock {
-                installApp(app, candidate).collect { event ->
-                    when (event) {
-                        is AppInstallEvent.Progress -> {
-                            _installs.update { it + (key to event.progress) }
-                            onProgress(event.progress)
-                        }
-
-                        is AppInstallEvent.Completed ->
-                            result = InstallResult.Installed(key, event.app).also { _results.emit(it) }
-
-                        is AppInstallEvent.Failed ->
-                            result = InstallResult.Failed(key, app, event.error).also { _results.emit(it) }
+            onProgress(InstallProgress.Queued)
+            installApp(app, candidate).collect { event ->
+                when (event) {
+                    is AppInstallEvent.Progress -> {
+                        _installs.update { it + (key to event.progress) }
+                        onProgress(event.progress)
                     }
+
+                    is AppInstallEvent.Completed ->
+                        result = InstallResult.Installed(key, event.app).also { _results.emit(it) }
+
+                    is AppInstallEvent.Failed ->
+                        result = InstallResult.Failed(key, app, event.error).also { _results.emit(it) }
                 }
             }
         } catch (e: Throwable) {
