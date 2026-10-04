@@ -6,6 +6,7 @@ import dev.re7gog.b_sideloader.data.remote.api.GithubApi
 import dev.re7gog.b_sideloader.data.remote.mapper.toDomain
 import dev.re7gog.b_sideloader.domain.model.GithubRelease
 import dev.re7gog.b_sideloader.domain.model.GithubRepoSummary
+import dev.re7gog.b_sideloader.domain.model.ResultPage
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -21,12 +22,18 @@ class GithubRepositoryImpl @Inject constructor(
     private val dispatchers: DispatcherProvider,
 ) : GithubRepository {
 
-    override suspend fun searchRepositories(query: String, page: Int?): List<GithubRepoSummary> =
+    override suspend fun searchRepositories(query: String, page: Int): ResultPage<GithubRepoSummary> =
         withContext(dispatchers.io) {
-            if (query.isBlank()) return@withContext emptyList()
-            apiCall { api.searchRepositories(query = query, page = page) }
-                .items
-                .map { it.toDomain() }
+            if (query.isBlank()) return@withContext ResultPage(emptyList(), hasMore = false)
+            val found = apiCall {
+                api.searchRepositories(query = query, page = page, perPage = GithubApi.DEFAULT_PAGE_SIZE)
+            }
+            // Search serves only the first 1000 matches; asking past them is a 422, not an empty page.
+            val reachable = minOf(found.totalCount, SEARCH_RESULT_CAP)
+            ResultPage(
+                items = found.items.map { it.toDomain() },
+                hasMore = found.items.isNotEmpty() && page * GithubApi.DEFAULT_PAGE_SIZE < reachable,
+            )
         }
 
     override suspend fun getRepository(owner: String, repo: String): GithubRepoSummary =
@@ -38,4 +45,8 @@ class GithubRepositoryImpl @Inject constructor(
         withContext(dispatchers.io) {
             apiCall { api.getReleases(owner, repo, page) }.toDomain()
         }
+
+    private companion object {
+        const val SEARCH_RESULT_CAP = 1000
+    }
 }

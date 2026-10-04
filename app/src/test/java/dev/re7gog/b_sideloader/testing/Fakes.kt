@@ -28,6 +28,7 @@ import dev.re7gog.b_sideloader.domain.model.PreapprovalSession
 import dev.re7gog.b_sideloader.domain.model.LocalApk
 import dev.re7gog.b_sideloader.domain.model.PrivilegedAccess
 import dev.re7gog.b_sideloader.domain.model.PrivilegedIdentity
+import dev.re7gog.b_sideloader.domain.model.ResultPage
 import dev.re7gog.b_sideloader.domain.model.SelfUpdateState
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
@@ -177,9 +178,14 @@ class FakeGithubRepository(
     var releaseCallCount = 0
         private set
 
-    override suspend fun searchRepositories(query: String, page: Int?): List<GithubRepoSummary> {
+    /** Results per search page; the matches are served [pageSize] at a time. */
+    var pageSize = Int.MAX_VALUE
+    val searchedPages = mutableListOf<Int>()
+
+    override suspend fun searchRepositories(query: String, page: Int): ResultPage<GithubRepoSummary> {
+        searchedPages += page
         failure?.let { throw it }
-        return repositories.filter { it.name.contains(query, ignoreCase = true) }
+        return repositories.filter { it.name.contains(query, ignoreCase = true) }.page(page - 1, pageSize)
     }
 
     override suspend fun getRepository(owner: String, repo: String): GithubRepoSummary {
@@ -242,9 +248,13 @@ class FakeTelegramRepository(
     override suspend fun getAccount(): TelegramAccount? =
         if (_authState.value is TelegramAuthState.Ready) TelegramAccount("Tester", "tester") else null
 
-    override suspend fun searchChats(query: String, limit: Int): List<TelegramChatSummary> {
+    val searchedQueries = mutableListOf<String>()
+
+    override suspend fun searchChats(query: String, offset: Int, limit: Int): ResultPage<TelegramChatSummary> {
+        searchedQueries += query
         failure?.let { throw it }
-        return chats.filter { it.title.contains(query, ignoreCase = true) }
+        val found = chats.filter { it.title.contains(query, ignoreCase = true) }
+        return ResultPage(found.drop(offset).take(limit), hasMore = found.size > offset + limit)
     }
 
     override suspend fun getChat(chatId: Long): TelegramChatSummary? =
@@ -495,4 +505,11 @@ class FakeApkStagingArea(var staged: LocalApk? = null) : ApkStagingArea {
     override suspend fun clear() {
         cleared++
     }
+}
+
+private fun <T> List<T>.page(index: Int, size: Int): ResultPage<T> {
+    val from = index.toLong() * size
+    if (from >= this.size) return ResultPage(emptyList(), hasMore = false)
+    val to = minOf(from + size, this.size.toLong()).toInt()
+    return ResultPage(subList(from.toInt(), to), hasMore = to < this.size)
 }

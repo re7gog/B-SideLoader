@@ -17,7 +17,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -33,14 +32,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -57,11 +54,11 @@ import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.ui.common.component.NavigationRow
+import dev.re7gog.b_sideloader.ui.common.component.PasteIconButton
 import dev.re7gog.b_sideloader.ui.common.component.SectionLabel
 import dev.re7gog.b_sideloader.ui.common.component.SettingsGroup
 import dev.re7gog.b_sideloader.ui.common.component.SnackbarMessages
 import dev.re7gog.b_sideloader.ui.common.component.SwitchRow
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -313,9 +310,6 @@ private fun GithubTokenRow(
     token: String,
     onTokenChange: (String) -> Unit,
 ) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-
     OutlinedTextField(
         value = token,
         onValueChange = onTokenChange,
@@ -324,26 +318,7 @@ private fun GithubTokenRow(
             .padding(16.dp),
         label = { Text(stringResource(R.string.settings_github_token_label)) },
         placeholder = { Text(stringResource(R.string.settings_github_token_placeholder)) },
-        trailingIcon = {
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        val pasted = clipboard.getClipEntry()
-                            ?.clipData
-                            ?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)
-                            ?.text
-                            ?.toString()
-                        if (!pasted.isNullOrBlank()) onTokenChange(pasted.trim())
-                    }
-                }
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.content_paste_24px),
-                    contentDescription = stringResource(R.string.cd_paste),
-                )
-            }
-        },
+        trailingIcon = { PasteIconButton(onPaste = onTokenChange) },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
     )

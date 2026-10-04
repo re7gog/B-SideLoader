@@ -5,16 +5,19 @@ import androidx.annotation.StringRes
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.GithubRepoSummary
 import dev.re7gog.b_sideloader.domain.model.TelegramChatSummary
 import dev.re7gog.b_sideloader.domain.model.TelegramTopicSummary
+import dev.re7gog.b_sideloader.ui.common.text.UiText
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -138,6 +141,114 @@ class SearchScreenTest {
         assertEquals(SearchSource.Telegram, selected)
     }
 
+    @Test
+    fun theEmptyGithubPageTakesARepositoryLink() {
+        val typed = mutableListOf<String>()
+        var opened = false
+        setContent(
+            SearchUiState(directLink = DirectLinkState(text = "octocat/hello-world")),
+            onDirectLinkChange = { typed += it },
+            onOpenDirectLink = { opened = true },
+        )
+
+        composeRule.onNodeWithText(string(R.string.search_or)).assertIsDisplayed()
+        composeRule.onNodeWithText("octocat/hello-world").performTextReplacement("octocat/other")
+        composeRule.onNodeWithText(string(R.string.search_link_open)).performClick()
+
+        assertEquals("octocat/other", typed.last())
+        assertTrue(opened)
+    }
+
+    @Test
+    fun openingALinkNeedsOneToBeEntered() {
+        setContent(SearchUiState())
+
+        composeRule.onNodeWithText(string(R.string.search_link_open)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aLinkThatCannotBeOpenedSaysWhy() {
+        setContent(
+            SearchUiState(
+                directLink = DirectLinkState(
+                    text = "nope",
+                    error = UiText.of(R.string.search_link_invalid),
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText(string(R.string.search_link_invalid)).assertIsDisplayed()
+    }
+
+    /** Once there is a query the page is about its results, and the link form steps aside. */
+    @Test
+    fun theLinkFormIsOnlyOnTheEmptyPage() {
+        setContent(SearchUiState(query = "zzzz"))
+
+        composeRule.onNodeWithText(string(R.string.search_link_open)).assertDoesNotExist()
+    }
+
+    @Test
+    fun signedOutOfTelegramItAsksForALogin() {
+        var loginClicked = false
+        setContent(
+            SearchUiState(source = SearchSource.Telegram, query = "builds", telegramNeedsLogin = true),
+            onTelegramLoginClick = { loginClicked = true },
+        )
+
+        composeRule.onNodeWithText(string(R.string.search_telegram_login_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.search_telegram_login_action)).performClick()
+
+        assertTrue(loginClicked)
+    }
+
+    /** A first page shorter than the screen cannot be scrolled, so it asks for more by itself. */
+    @Test
+    fun aShortListWithMoreToComeAsksForTheNextPage() {
+        var loadMoreCalls = 0
+        setContent(
+            SearchUiState(
+                query = "hello",
+                githubResults = persistentListOf(repo),
+                paging = SearchPaging.MoreAvailable,
+            ),
+            onLoadMore = { loadMoreCalls++ },
+        )
+        composeRule.waitForIdle()
+
+        assertEquals(1, loadMoreCalls)
+    }
+
+    @Test
+    fun aListThatHasEverythingAsksForNothing() {
+        var loadMoreCalls = 0
+        setContent(
+            SearchUiState(query = "hello", githubResults = persistentListOf(repo)),
+            onLoadMore = { loadMoreCalls++ },
+        )
+        composeRule.waitForIdle()
+
+        assertEquals(0, loadMoreCalls)
+    }
+
+    @Test
+    fun aFailedPageOffersARetry() {
+        var loadMoreCalls = 0
+        setContent(
+            SearchUiState(
+                query = "hello",
+                githubResults = persistentListOf(repo),
+                paging = SearchPaging.Failed,
+            ),
+            onLoadMore = { loadMoreCalls++ },
+        )
+
+        composeRule.onNodeWithText(string(R.string.search_load_more_failed)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.search_load_more_retry)).performClick()
+
+        assertEquals(1, loadMoreCalls)
+    }
+
     private fun setContent(
         uiState: SearchUiState,
         onQueryChange: (String) -> Unit = {},
@@ -147,6 +258,10 @@ class SearchScreenTest {
         onChatClick: (TelegramChatSummary) -> Unit = {},
         onTopicClick: (TelegramTopicSummary) -> Unit = {},
         onBackToChats: () -> Unit = {},
+        onLoadMore: () -> Unit = {},
+        onDirectLinkChange: (String) -> Unit = {},
+        onOpenDirectLink: () -> Unit = {},
+        onTelegramLoginClick: () -> Unit = {},
     ) {
         composeRule.setContent {
             BSideLoaderTheme {
@@ -160,6 +275,10 @@ class SearchScreenTest {
                     onChatClick = onChatClick,
                     onTopicClick = onTopicClick,
                     onBackToChats = onBackToChats,
+                    onLoadMore = onLoadMore,
+                    onDirectLinkChange = onDirectLinkChange,
+                    onOpenDirectLink = onOpenDirectLink,
+                    onTelegramLoginClick = onTelegramLoginClick,
                     downloadPhoto = { null },
                 )
             }

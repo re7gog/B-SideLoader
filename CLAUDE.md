@@ -243,7 +243,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 362, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 383, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

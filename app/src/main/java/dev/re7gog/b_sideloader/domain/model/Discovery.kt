@@ -7,6 +7,15 @@ package dev.re7gog.b_sideloader.domain.model
  * changes.
  */
 
+/**
+ * One page of search results. [hasMore] says whether asking for the next page can return anything,
+ * so the list knows when to stop asking.
+ */
+data class ResultPage<out T>(
+    val items: List<T>,
+    val hasMore: Boolean,
+)
+
 /** A GitHub repository returned by search or a direct lookup. */
 data class GithubRepoSummary(
     val owner: String,

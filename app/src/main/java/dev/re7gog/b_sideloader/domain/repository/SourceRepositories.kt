@@ -2,6 +2,7 @@ package dev.re7gog.b_sideloader.domain.repository
 
 import dev.re7gog.b_sideloader.domain.model.GithubRelease
 import dev.re7gog.b_sideloader.domain.model.GithubRepoSummary
+import dev.re7gog.b_sideloader.domain.model.ResultPage
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
@@ -23,8 +24,8 @@ import kotlinx.coroutines.flow.Flow
  */
 interface GithubRepository {
 
-    /** Repositories matching a free-text query. */
-    suspend fun searchRepositories(query: String, page: Int? = null): List<GithubRepoSummary>
+    /** Repositories matching a free-text query; [page] counts from 1. */
+    suspend fun searchRepositories(query: String, page: Int = 1): ResultPage<GithubRepoSummary>
 
     /** Metadata for one repository, for the details header. */
     suspend fun getRepository(owner: String, repo: String): GithubRepoSummary
@@ -49,8 +50,16 @@ interface TelegramRepository {
     /** The signed-in account, or `null` when signed out. */
     suspend fun getAccount(): TelegramAccount?
 
-    /** Server-side chat search, limited to channels and supergroups. */
-    suspend fun searchChats(query: String, limit: Int = DEFAULT_SEARCH_LIMIT): List<TelegramChatSummary>
+    /**
+     * Server-side chat search, limited to channels and supergroups. [offset] and [limit] count the
+     * server's results before that filter, so a page can hold fewer than [limit] chats and still
+     * not be the last one.
+     */
+    suspend fun searchChats(
+        query: String,
+        offset: Int = 0,
+        limit: Int = DEFAULT_SEARCH_LIMIT,
+    ): ResultPage<TelegramChatSummary>
 
     suspend fun getChat(chatId: Long): TelegramChatSummary?
 

@@ -171,6 +171,16 @@
     <string name="repo_subtitle">%1$s · %2$s</string>
     <string name="cd_change_source">Сменить источник</string>
     <string name="search_request_error">Ошибка поискового запроса</string>
+    <string name="search_or">или</string>
+    <string name="search_link_label">Ссылка на репозиторий</string>
+    <string name="search_link_open">Открыть</string>
+    <string name="search_link_invalid">Это не ссылка на репозиторий GitHub</string>
+    <string name="search_link_not_found">Такого репозитория нет, или он закрытый</string>
+    <string name="search_telegram_login_title">Войдите, чтобы искать в Telegram</string>
+    <string name="search_telegram_login_subtitle">Каналы ищутся через ваш аккаунт Telegram</string>
+    <string name="search_telegram_login_action">Войти</string>
+    <string name="search_load_more_failed">Не удалось загрузить ещё</string>
+    <string name="search_load_more_retry">Повторить</string>
 
     <!-- Manual install -->
     <string name="reading_apk">Чтение APK…</string>

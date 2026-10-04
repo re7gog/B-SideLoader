@@ -300,6 +300,7 @@ private fun rememberEntryProvider(
                     onTelegramTargetClick = { chatId, topicId, title ->
                         navigator.navigate(NewTelegramAppRoute(chatId, topicId, title))
                     },
+                    onTelegramLoginClick = { navigator.navigate(TelegramLoginRoute) },
                 )
             }
 

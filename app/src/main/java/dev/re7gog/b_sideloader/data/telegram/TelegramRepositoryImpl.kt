@@ -6,6 +6,7 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.telegram.mapper.toApkDocuments
 import dev.re7gog.b_sideloader.data.telegram.mapper.toAuthState
 import dev.re7gog.b_sideloader.data.telegram.mapper.toDomain
+import dev.re7gog.b_sideloader.domain.model.ResultPage
 import dev.re7gog.b_sideloader.domain.model.TelegramAccount
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
@@ -69,19 +70,28 @@ class TelegramRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun searchChats(query: String, limit: Int): List<TelegramChatSummary> =
-        withContext(dispatchers.io) {
-            if (query.isBlank()) return@withContext emptyList()
-            val found = client.requestOrNull<TdApi.Chats>(TdApi.SearchChatsOnServer(query, limit))
-                ?: return@withContext emptyList()
-            // TDLib delivers the chats themselves via UpdateNewChat *before* it answers the
-            // search, so the cache already holds them and no extra round trip is needed.
-            found.chatIds
-                .toList()
-                .mapNotNull { client.cachedChat(it) }
-                .filter { it.type is TdApi.ChatTypeSupergroup }
-                .map { it.toDomain(isForum = false) }
-        }
+    override suspend fun searchChats(
+        query: String,
+        offset: Int,
+        limit: Int,
+    ): ResultPage<TelegramChatSummary> = withContext(dispatchers.io) {
+        val nothing = ResultPage<TelegramChatSummary>(emptyList(), hasMore = false)
+        if (query.isBlank()) return@withContext nothing
+        // SearchChatsOnServer has no offset, only a limit, and answers in a stable order (the
+        // main chat list's). A later page is therefore the tail of a longer request, and the list
+        // ends once TDLib returns fewer chats than were asked for.
+        val wanted = offset + limit
+        val found = client.requestOrNull<TdApi.Chats>(TdApi.SearchChatsOnServer(query, wanted))
+            ?: return@withContext nothing
+        // TDLib delivers the chats themselves via UpdateNewChat *before* it answers the
+        // search, so the cache already holds them and no extra round trip is needed.
+        val chats = found.chatIds
+            .drop(offset)
+            .mapNotNull { client.cachedChat(it) }
+            .filter { it.type is TdApi.ChatTypeSupergroup }
+            .map { it.toDomain(isForum = false) }
+        ResultPage(chats, hasMore = found.chatIds.size >= wanted)
+    }
 
     override suspend fun getChat(chatId: Long): TelegramChatSummary? = withContext(dispatchers.io) {
         val chat = client.requestOrNull<TdApi.Chat>(TdApi.GetChat(chatId)) ?: return@withContext null

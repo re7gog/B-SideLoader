@@ -169,6 +169,17 @@
     <string name="repo_subtitle">%1$s · %2$s</string>
     <string name="cd_change_source">Change source</string>
     <string name="search_request_error">Search request error</string>
+    <string name="search_or">or</string>
+    <string name="search_link_label">Repository link</string>
+    <string name="search_link_placeholder" translatable="false">https://github.com/owner/repo</string>
+    <string name="search_link_open">Open</string>
+    <string name="search_link_invalid">That is not a link to a GitHub repository</string>
+    <string name="search_link_not_found">No such repository, or it is private</string>
+    <string name="search_telegram_login_title">Log in to search Telegram</string>
+    <string name="search_telegram_login_subtitle">Channels are searched through your Telegram account</string>
+    <string name="search_telegram_login_action">Log in</string>
+    <string name="search_load_more_failed">Could not load more results</string>
+    <string name="search_load_more_retry">Retry</string>
 
     <!-- Manual install -->
     <string name="reading_apk">Reading the APK…</string>

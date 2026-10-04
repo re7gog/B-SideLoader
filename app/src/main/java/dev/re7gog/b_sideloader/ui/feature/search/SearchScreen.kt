@@ -2,30 +2,48 @@ package dev.re7gog.b_sideloader.ui.feature.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -34,13 +52,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -51,10 +74,14 @@ import dev.re7gog.b_sideloader.domain.model.GithubRepoSummary
 import dev.re7gog.b_sideloader.domain.model.TelegramChatSummary
 import dev.re7gog.b_sideloader.domain.model.TelegramTopicSummary
 import dev.re7gog.b_sideloader.ui.common.component.EmptyState
+import dev.re7gog.b_sideloader.ui.common.component.PasteIconButton
 import dev.re7gog.b_sideloader.ui.common.component.SnackbarMessages
 import dev.re7gog.b_sideloader.ui.common.component.TelegramAvatar
+import dev.re7gog.b_sideloader.ui.common.text.asString
 import dev.re7gog.b_sideloader.ui.feature.manualinstall.ManualInstallPane
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 
 /**
  * Unified search.
@@ -68,6 +95,7 @@ import kotlinx.collections.immutable.ImmutableList
 fun SearchScreen(
     onGithubRepoClick: (GithubRepoSummary) -> Unit,
     onTelegramTargetClick: (chatId: Long, topicId: Int, title: String) -> Unit,
+    onTelegramLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -94,6 +122,10 @@ fun SearchScreen(
             }
         },
         onBackToChats = viewModel::onBackToChats,
+        onLoadMore = viewModel::loadMore,
+        onDirectLinkChange = viewModel::onDirectLinkChange,
+        onOpenDirectLink = { viewModel.openDirectLink(onGithubRepoClick) },
+        onTelegramLoginClick = onTelegramLoginClick,
         downloadPhoto = { fileId -> viewModel.downloadPhoto(fileId) },
         modifier = modifier,
     )
@@ -111,6 +143,10 @@ fun SearchScreen(
     onChatClick: (TelegramChatSummary) -> Unit,
     onTopicClick: (TelegramTopicSummary) -> Unit,
     onBackToChats: () -> Unit,
+    onLoadMore: () -> Unit,
+    onDirectLinkChange: (String) -> Unit,
+    onOpenDirectLink: () -> Unit,
+    onTelegramLoginClick: () -> Unit,
     downloadPhoto: suspend (Int) -> String?,
     modifier: Modifier = Modifier,
 ) {
@@ -144,31 +180,50 @@ fun SearchScreen(
                     uiState.source == SearchSource.LocalFile ->
                         ManualInstallPane(snackbarHostState = snackbarHostState)
 
-                    uiState.source == SearchSource.GitHub ->
-                        if (uiState.githubResults.isEmpty() && !uiState.isLoading) {
-                            SearchEmptyState(
-                                iconRes = githubIconRes(),
-                                hasQuery = uiState.query.isNotBlank(),
-                                emptyTitle = R.string.search_github_empty_title,
-                                emptySubtitle = R.string.search_github_empty_subtitle,
-                                notFoundTitle = R.string.no_repositories_found,
-                            )
-                        } else {
-                            GithubResultsList(uiState.githubResults, onGithubRepoClick)
-                        }
+                    uiState.source == SearchSource.GitHub -> when {
+                        uiState.githubResults.isNotEmpty() || uiState.isLoading -> GithubResultsList(
+                            repos = uiState.githubResults,
+                            query = uiState.query,
+                            paging = uiState.paging,
+                            onLoadMore = onLoadMore,
+                            onRepoClick = onGithubRepoClick,
+                        )
 
-                    else ->
-                        if (uiState.telegramChats.isEmpty() && !uiState.isLoading) {
-                            SearchEmptyState(
-                                iconRes = R.drawable.telegram,
-                                hasQuery = uiState.query.isNotBlank(),
-                                emptyTitle = R.string.search_telegram_empty_title,
-                                emptySubtitle = R.string.search_telegram_empty_subtitle,
-                                notFoundTitle = R.string.no_channels_found,
-                            )
-                        } else {
-                            TelegramResultsList(uiState.telegramChats, downloadPhoto, onChatClick)
-                        }
+                        uiState.query.isBlank() -> GithubStartState(
+                            link = uiState.directLink,
+                            onLinkChange = onDirectLinkChange,
+                            onOpenLink = onOpenDirectLink,
+                        )
+
+                        else -> SearchEmptyState(
+                            iconRes = githubIconRes(),
+                            hasQuery = true,
+                            emptyTitle = R.string.search_github_empty_title,
+                            emptySubtitle = R.string.search_github_empty_subtitle,
+                            notFoundTitle = R.string.no_repositories_found,
+                        )
+                    }
+
+                    else -> when {
+                        uiState.telegramNeedsLogin -> TelegramLoginState(onTelegramLoginClick)
+
+                        uiState.telegramChats.isEmpty() && !uiState.isLoading -> SearchEmptyState(
+                            iconRes = R.drawable.telegram,
+                            hasQuery = uiState.query.isNotBlank(),
+                            emptyTitle = R.string.search_telegram_empty_title,
+                            emptySubtitle = R.string.search_telegram_empty_subtitle,
+                            notFoundTitle = R.string.no_channels_found,
+                        )
+
+                        else -> TelegramResultsList(
+                            chats = uiState.telegramChats,
+                            query = uiState.query,
+                            paging = uiState.paging,
+                            onLoadMore = onLoadMore,
+                            downloadPhoto = downloadPhoto,
+                            onChatClick = onChatClick,
+                        )
+                    }
                 }
             }
             SnackbarHost(
@@ -264,15 +319,93 @@ private fun SearchInputField(
     )
 }
 
+/**
+ * GitHub's empty page: what the search field is for and, below it, a way around search for when
+ * it does not rank the wanted repository anywhere useful — the repository's own link.
+ */
+@Composable
+private fun GithubStartState(
+    link: DirectLinkState,
+    onLinkChange: (String) -> Unit,
+    onOpenLink: () -> Unit,
+) {
+    EmptyState(
+        iconRes = githubIconRes(),
+        title = stringResource(R.string.search_github_empty_title),
+        subtitle = stringResource(R.string.search_github_empty_subtitle),
+        // Keeps the field and its button above the keyboard rather than under it.
+        modifier = Modifier.imePadding(),
+    ) {
+        Row(
+            modifier = Modifier.widthIn(max = LINK_FORM_MAX_WIDTH),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.search_or),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(
+            value = link.text,
+            onValueChange = onLinkChange,
+            modifier = Modifier
+                .widthIn(max = LINK_FORM_MAX_WIDTH)
+                .fillMaxWidth(),
+            label = { Text(stringResource(R.string.search_link_label)) },
+            placeholder = { Text(stringResource(R.string.search_link_placeholder)) },
+            trailingIcon = { PasteIconButton(onPaste = onLinkChange) },
+            isError = link.error != null,
+            supportingText = link.error?.let { error -> { Text(error.asString()) } },
+            enabled = !link.isOpening,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+            keyboardActions = KeyboardActions(onGo = { onOpenLink() }),
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onOpenLink,
+            enabled = link.text.isNotBlank() && !link.isOpening,
+        ) {
+            if (link.isOpening) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            }
+            Text(stringResource(R.string.search_link_open))
+        }
+    }
+}
+
+/** Telegram's search runs through the user's account, so signed out there is nothing to search. */
+@Composable
+private fun TelegramLoginState(onLoginClick: () -> Unit) {
+    EmptyState(
+        iconRes = R.drawable.telegram,
+        title = stringResource(R.string.search_telegram_login_title),
+        subtitle = stringResource(R.string.search_telegram_login_subtitle),
+    ) {
+        Button(onClick = onLoginClick) {
+            Text(stringResource(R.string.search_telegram_login_action))
+        }
+    }
+}
+
 @Composable
 private fun GithubResultsList(
     repos: ImmutableList<GithubRepoSummary>,
+    query: String,
+    paging: SearchPaging,
+    onLoadMore: () -> Unit,
     onRepoClick: (GithubRepoSummary) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
-    ) {
+    PagedResultsList(query = query, paging = paging, onLoadMore = onLoadMore) {
         items(repos, key = { it.slug }) { repo ->
             SearchResultRow(
                 title = repo.name,
@@ -302,13 +435,13 @@ private fun GithubResultsList(
 @Composable
 private fun TelegramResultsList(
     chats: ImmutableList<TelegramChatSummary>,
+    query: String,
+    paging: SearchPaging,
+    onLoadMore: () -> Unit,
     downloadPhoto: suspend (Int) -> String?,
     onChatClick: (TelegramChatSummary) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
-    ) {
+    PagedResultsList(query = query, paging = paging, onLoadMore = onLoadMore) {
         items(chats, key = { it.id }) { chat ->
             SearchResultRow(
                 title = chat.title,
@@ -323,6 +456,98 @@ private fun TelegramResultsList(
                 },
                 onClick = { onChatClick(chat) },
             )
+        }
+    }
+}
+
+/**
+ * A result list that asks for its next page once the user scrolls near the end, with a footer for
+ * the page on its way or one that failed.
+ *
+ * The scroll position belongs to one [query]: a new query starts at the top, while coming back
+ * from a result restores where the user was.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PagedResultsList(
+    query: String,
+    paging: SearchPaging,
+    onLoadMore: () -> Unit,
+    content: LazyListScope.() -> Unit,
+) {
+    val listState = rememberSaveable(query, saver = LazyListState.Saver) { LazyListState() }
+    LoadMoreEffect(listState = listState, paging = paging, onLoadMore = onLoadMore)
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 8.dp),
+    ) {
+        content()
+        when (paging) {
+            SearchPaging.Loading -> item(key = FOOTER_KEY, contentType = FOOTER_KEY) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LoadingIndicator()
+                }
+            }
+
+            SearchPaging.Failed -> item(key = FOOTER_KEY, contentType = FOOTER_KEY) {
+                LoadMoreFailedRow(onRetry = onLoadMore)
+            }
+
+            SearchPaging.MoreAvailable, SearchPaging.Exhausted -> Unit
+        }
+    }
+}
+
+/**
+ * Calls [onLoadMore] when the end of the list comes within [LOAD_MORE_THRESHOLD] rows while more
+ * is available — straight away, too, when the first page does not fill the screen. It fires once
+ * per approach: the next call waits for that page to arrive and the end to come close again.
+ */
+@Composable
+private fun LoadMoreEffect(
+    listState: LazyListState,
+    paging: SearchPaging,
+    onLoadMore: () -> Unit,
+) {
+    val canLoadMore by rememberUpdatedState(paging == SearchPaging.MoreAvailable)
+    val currentOnLoadMore by rememberUpdatedState(onLoadMore)
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
+            canLoadMore && lastVisible >= layout.totalItemsCount - LOAD_MORE_THRESHOLD
+        }
+            .distinctUntilChanged()
+            .filter { it }
+            .collect { currentOnLoadMore() }
+    }
+}
+
+@Composable
+private fun LoadMoreFailedRow(onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.search_load_more_failed),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(8.dp))
+        TextButton(onClick = onRetry) {
+            Text(stringResource(R.string.search_load_more_retry))
         }
     }
 }
@@ -428,6 +653,13 @@ private fun SearchEmptyState(
         subtitle = stringResource(if (hasQuery) R.string.try_different_name else emptySubtitle),
     )
 }
+
+private const val FOOTER_KEY = "footer"
+
+/** How close to the end of the list, in rows, the next page is asked for. */
+private const val LOAD_MORE_THRESHOLD = 5
+
+private val LINK_FORM_MAX_WIDTH = 480.dp
 
 private const val OPAQUE_ALPHA = 0xFF000000.toInt()
 private const val RGB_MASK = 0xFFFFFF

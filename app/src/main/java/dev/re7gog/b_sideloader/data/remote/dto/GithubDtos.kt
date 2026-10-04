@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class GithubSearchResponseDto(
+    @SerialName("total_count") val totalCount: Int = 0,
     val items: List<GithubRepoDto> = emptyList(),
 )
 
