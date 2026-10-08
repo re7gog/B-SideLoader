@@ -17,6 +17,7 @@ cmake_install.cmake
 
 # Signed build outputs
 /app/release
+/app/dev
 
 # Local config and secrets (sdk.dir, ID_SECRET, MASK_SECRET, HASH_SECRET)
 local.properties
