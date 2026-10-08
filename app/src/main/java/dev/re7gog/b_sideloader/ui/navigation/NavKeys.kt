@@ -61,6 +61,10 @@ data object TelegramLoginRoute : NavKey
 @Serializable
 data object BackgroundSettingsRoute : NavKey
 
+/** AI model choice and keys, reached from settings. */
+@Serializable
+data object AiSettingsRoute : NavKey
+
 /** One entry in the navigation bar / rail. */
 @Immutable
 data class TopLevelDestination(

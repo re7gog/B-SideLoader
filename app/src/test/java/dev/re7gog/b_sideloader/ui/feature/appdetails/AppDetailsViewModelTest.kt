@@ -5,10 +5,13 @@ import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.FilterMode
+import dev.re7gog.b_sideloader.domain.model.FilterRule
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
+import dev.re7gog.b_sideloader.domain.suggestion.FilterProposal
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallAppUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
@@ -117,6 +120,20 @@ class AppDetailsViewModelTest {
         assertEquals("Renamed", viewModel.uiState.value.app?.name)
         assertTrue(viewModel.uiState.value.hasUnsavedChanges)
         assertEquals(PrimaryAction.SaveChanges, viewModel.uiState.value.primaryAction)
+    }
+
+    @Test
+    fun `applying a suggestion edits only the draft, which then needs saving`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val proposal = FilterProposal(FilterMode.Regex, FilterRule(include = "foss"), FilterRule(exclude = "beta"), true)
+
+        viewModel.applyFilterProposal(proposal)
+        advanceUntilIdle()
+
+        assertEquals(proposal, FilterProposal.of(viewModel.uiState.value.app!!))
+        assertTrue(viewModel.uiState.value.hasUnsavedChanges)
+        assertEquals(FilterRule.None, apps.getApps().single().assetFilter)
     }
 
     @Test

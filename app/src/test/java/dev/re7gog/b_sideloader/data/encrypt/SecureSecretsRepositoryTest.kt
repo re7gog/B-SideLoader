@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.core.coroutines.DefaultDispatcherProvider
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -122,4 +123,19 @@ class SecureSecretsRepositoryTest {
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+
+    @Test
+    fun aiKeysAreSealedPerProvider() = runTest {
+        repository().setAiApiKey(AiProvider.OpenAi, "sk-openai")
+        repository().setAiApiKey(AiProvider.Gemini, "gm-key")
+
+        assertEquals("sk-openai", repository().getAiApiKey(AiProvider.OpenAi))
+        assertEquals("gm-key", repository().getAiApiKey(AiProvider.Gemini))
+        assertNull(repository().getAiApiKey(AiProvider.Anthropic))
+        assertFalse(prefs.all.values.joinToString().contains("sk-openai"))
+
+        repository().setAiApiKey(AiProvider.OpenAi, "")
+        assertNull(repository().getAiApiKey(AiProvider.OpenAi))
+        assertEquals("gm-key", repository().getAiApiKey(AiProvider.Gemini))
+    }
 }

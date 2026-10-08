@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.error.AiFailure
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.error.InstallFailure
 import dev.re7gog.b_sideloader.domain.error.PrivilegedFailure
@@ -49,6 +50,8 @@ class AppErrorTextTest {
             AppError.Install(InstallFailure.Conflict, "INSTALL_FAILED_DUPLICATE_PERMISSION") to
                 "INSTALL_FAILED_DUPLICATE_PERMISSION",
             AppError.Install(InstallFailure.Rejected, "policy") to "policy",
+            AppError.Ai(AiFailure.Service, "model not found") to "model not found",
+            AppError.Ai(AiFailure.QuotaExceeded, "insufficient_quota") to "insufficient_quota",
         )
         for (locale in locales) {
             for ((error, detail) in cases) {
@@ -110,6 +113,10 @@ class AppErrorTextTest {
             add(AppError.Install(it, detail = "INSTALL_FAILED_SOMETHING"))
         }
         PrivilegedFailure.entries.forEach { add(AppError.Privileged(it)) }
+        AiFailure.entries.forEach {
+            add(AppError.Ai(it))
+            add(AppError.Ai(it, detail = "model not found"))
+        }
         add(AppError.Unexpected(IllegalStateException("boom")))
         add(AppError.Unexpected(null))
     }

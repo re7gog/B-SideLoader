@@ -59,6 +59,13 @@ sealed class AppError(
     class Privileged(val reason: PrivilegedFailure, cause: Throwable? = null) :
         AppError("Privileged installer unavailable (${reason.name})", cause)
 
+    /**
+     * A language model could not answer. [detail] is the provider's own message, when it sent one
+     * — for [AiFailure.Service] it is the only thing that says what went wrong.
+     */
+    class Ai(val reason: AiFailure, val detail: String? = null, cause: Throwable? = null) :
+        AppError("AI unavailable (${reason.name})${detail?.let { ": $it" }.orEmpty()}", cause)
+
     /** Anything not yet classified. Keeps the hierarchy exhaustive without losing the cause. */
     class Unexpected(cause: Throwable?) : AppError(cause?.message ?: "Unexpected error", cause)
 }
@@ -108,4 +115,31 @@ enum class PrivilegedFailure {
 
     /** Android 8.0 + ADB cannot register a uid observer, so silent installs cannot work. */
     UnsupportedOnThisAndroid,
+}
+
+/** Why a language model did not answer. */
+enum class AiFailure {
+    /** AI is turned off in settings. */
+    Disabled,
+
+    /** The on-device model does not exist on this phone, or AICore is not ready. */
+    Unsupported,
+
+    /** The chosen provider needs an API key and none is stored. */
+    MissingApiKey,
+
+    /** The provider rejected the key. */
+    InvalidApiKey,
+
+    /** Out of quota or credit, or rate-limited — at the provider, or AICore's per-app quota. */
+    QuotaExceeded,
+
+    /** The on-device model is busy, still downloading, or could not be downloaded. */
+    ModelUnavailable,
+
+    /** The model answered with nothing usable (a refusal, an empty reply). */
+    EmptyResponse,
+
+    /** Anything else the provider reported; see [AppError.Ai.detail]. */
+    Service,
 }

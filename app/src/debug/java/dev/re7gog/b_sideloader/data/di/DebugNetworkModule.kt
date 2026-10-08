@@ -70,6 +70,9 @@ private class BodyAwareLoggingInterceptor : Interceptor {
         redactHeader("Authorization")
         redactHeader("Cookie")
         redactHeader("Set-Cookie")
+        // AI providers' API keys: Anthropic's and Gemini's own headers.
+        redactHeader("x-api-key")
+        redactHeader("x-goog-api-key")
     }
 
     private fun logLine(message: String) {

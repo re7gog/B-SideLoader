@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +78,7 @@ import dev.re7gog.b_sideloader.ui.common.component.SnackbarMessages
 import dev.re7gog.b_sideloader.ui.common.component.SwitchCard
 import dev.re7gog.b_sideloader.ui.common.component.TelegramAvatar
 import dev.re7gog.b_sideloader.ui.common.component.rememberInstalledAppIcon
+import dev.re7gog.b_sideloader.ui.feature.filtersuggestion.FilterSuggestionSheet
 
 /**
  * App details, for either source.
@@ -102,6 +104,7 @@ fun AppDetailsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showSuggestions by rememberSaveable { mutableStateOf(false) }
 
     SnackbarMessages(messages = viewModel.messages, hostState = snackbarHostState)
 
@@ -123,9 +126,22 @@ fun AppDetailsScreen(
         onMessageIncludeChange = viewModel::onMessageIncludeChange,
         onMessageExcludeChange = viewModel::onMessageExcludeChange,
         downloadPhoto = viewModel::downloadPhoto,
+        onSuggestFilters = { showSuggestions = true },
         modifier = modifier,
         showBackAffordance = showBackAffordance,
     )
+
+    val app = uiState.app
+    if (showSuggestions && app != null) {
+        FilterSuggestionSheet(
+            app = app,
+            onApply = { proposal ->
+                viewModel.applyFilterProposal(proposal)
+                showSuggestions = false
+            },
+            onDismiss = { showSuggestions = false },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,6 +165,7 @@ fun AppDetailsScreen(
     onMessageExcludeChange: (String) -> Unit,
     downloadPhoto: suspend (Int) -> String?,
     modifier: Modifier = Modifier,
+    onSuggestFilters: () -> Unit = {},
     showBackAffordance: Boolean = true,
 ) {
     BackHandler(enabled = showBackAffordance, onBack = onBack)
@@ -239,7 +256,23 @@ fun AppDetailsScreen(
                 )
             }
 
-            item { SectionLabel(stringResource(R.string.filters)) }
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    SectionLabel(stringResource(R.string.filters), Modifier.weight(1f))
+                    FilledTonalButton(onClick = onSuggestFilters) {
+                        Icon(
+                            painter = painterResource(R.drawable.auto_awesome_24px),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.suggest_filters_button))
+                    }
+                }
+            }
             item {
                 SwitchCard(
                     title = stringResource(R.string.advanced_filters),

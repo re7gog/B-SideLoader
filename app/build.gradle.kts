@@ -232,6 +232,9 @@ dependencies {
     // Notifications
     implementation(libs.accompanist.permissions)
 
+    // On-device AI (Gemini Nano)
+    implementation(libs.mlkit.genai.prompt)
+
     // ---- Local (JVM) tests ----
     //
     // Pure logic (selection, mappers, use cases, ViewModels, navigation) runs as plain JUnit.

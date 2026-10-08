@@ -75,6 +75,8 @@ domain/     model/       TrackedApp, AppSource, UpdateCandidate, InstallProgress
             device/      DeviceInfo
             selection/   NameMatcher, AbiMatcher, Github/TelegramApkSelector, TargetSelector
                          (pure, unit-tested)
+            ai/          LanguageModelGateway - the one port to Gemini Nano or a cloud model
+            suggestion/  ExampleFilterDeriver, ProposalVerifier, FilterPrompt (pure)
             usecase/     ObserveTrackedApps, ResolveUpdate, InstallApp, RunUpdateSweep, ...
 
 data/       local/       Room database, DAO, entities  (+ exported schemas in app/schemas)
@@ -84,6 +86,7 @@ data/       local/       Room database, DAO, entities  (+ exported schemas in ap
             background/  WorkManager scheduler, worker, monitor service, notifications, OEM quirks
             settings/    DataStore-backed settings
             encrypt/     Keystore AES-GCM + SecureSecretsRepository
+            ai/          Gemini Nano (ML Kit Prompt API), OpenAI/Anthropic/Gemini over OkHttp
             mapper/      entity <-> domain
             error/       Throwable -> AppError
             device/      AndroidDeviceInfo
@@ -155,6 +158,19 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   WorkManager can still cancel it, and waits for an install of that app the user already started
   instead of starting another. `results` is deliberately unbuffered: the entry leaves `installs`
   only after every subscriber has taken the result, so collect it without suspending.
+- **Filter suggestions.** The details page's "Suggest" sheet (`ui/feature/filtersuggestion`)
+  proposes filters from a file the user picks in the newest release, from their own words, or
+  both. An example alone is solved without a model (`ExampleFilterDeriver`: the words that set it
+  apart from its siblings, never an ABI marker unless that is the only way). Words go to the
+  model behind `LanguageModelGateway`; every reply is a flat JSON object (`FilterPrompt`) and is
+  checked by running it — the real selectors over a `SourceSnapshot` fetched once
+  (`ProposalVerifier`) — and sent back with what failed, up to `SuggestFiltersUseCase.MAX_ATTEMPTS`.
+  The AI never decides what installs: a passing proposal is shown with what each recent release
+  would install, and Apply only edits the draft. `LanguageModelGatewayImpl` picks the backend per
+  call from `AppSettings.ai` (Off / OnDevice / ApiKey); API keys are in `SecureSecretsRepository`,
+  one per provider. Cloud calls use their own `@AiHttpClient` (none of GitHub's interceptors) and
+  raw JSON (`CloudProtocol`), no provider SDKs. Gemini Nano only runs in the foreground, so
+  nothing in background work may call the gateway with `AiMode.OnDevice`.
 - **Background updates.** `SyncBackgroundWorkUseCase` reconciles `WorkManagerBackgroundScheduler`
   with the settings on app start, on boot (`BootReceiver`) and after every relevant toggle.
   `BackgroundMode.Periodic` uses `UpdateCheckWorker`; `Persistent` uses `UpdateMonitorService`
@@ -243,7 +259,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 383, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 449, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

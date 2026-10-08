@@ -39,6 +39,8 @@ data class AppSettings(
      * exactly one preference store, and a second one for a single boolean would be worse.
      */
     val longPressHintSeen: Boolean = false,
+    /** Which model the AI-assisted features use. */
+    val ai: AiSettings = AiSettings(),
 ) {
     companion object {
         val DEFAULT_CHECK_INTERVAL: Duration = 6.hours

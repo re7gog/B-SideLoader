@@ -21,6 +21,7 @@ import dev.re7gog.b_sideloader.domain.repository.AppsRepository
 import dev.re7gog.b_sideloader.domain.repository.GithubRepository
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import dev.re7gog.b_sideloader.domain.selection.TargetSelector
+import dev.re7gog.b_sideloader.domain.suggestion.FilterProposal
 import dev.re7gog.b_sideloader.domain.usecase.DeleteTrackedAppsUseCase
 import dev.re7gog.b_sideloader.domain.usecase.InstallCoordinator
 import dev.re7gog.b_sideloader.domain.usecase.InstallKey
@@ -309,6 +310,12 @@ class AppDetailsViewModel @AssistedInject constructor(
     fun onMessageExcludeChange(value: String) = editTelegram { source, app ->
         app.copy(source = source.copy(messageFilter = source.messageFilter.copy(exclude = value)))
     }
+
+    /**
+     * Takes a suggestion's filters into the draft — only the draft: like any edit, it is kept by
+     * saving or installing, and until then shows as unsaved.
+     */
+    fun applyFilterProposal(proposal: FilterProposal) = edit { proposal.applyTo(it) }
 
     private inline fun edit(transform: (TrackedApp) -> TrackedApp) {
         val current = draft.value ?: return

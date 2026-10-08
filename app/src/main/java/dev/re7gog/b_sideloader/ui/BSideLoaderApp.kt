@@ -35,11 +35,13 @@ import dev.re7gog.b_sideloader.ui.common.component.EmptyState
 import dev.re7gog.b_sideloader.ui.feature.appdetails.AppDetailsArgs
 import dev.re7gog.b_sideloader.ui.feature.appdetails.AppDetailsScreen
 import dev.re7gog.b_sideloader.ui.feature.apps.AppsListScreen
+import dev.re7gog.b_sideloader.ui.feature.aisettings.AiSettingsScreen
 import dev.re7gog.b_sideloader.ui.feature.background.BackgroundSettingsScreen
 import dev.re7gog.b_sideloader.ui.feature.search.SearchScreen
 import dev.re7gog.b_sideloader.ui.feature.settings.SettingsScreen
 import dev.re7gog.b_sideloader.ui.feature.telegramlogin.TelegramLoginScreen
 import dev.re7gog.b_sideloader.ui.navigation.AppsRoute
+import dev.re7gog.b_sideloader.ui.navigation.AiSettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.BackgroundSettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.ListDetailPane
 import dev.re7gog.b_sideloader.ui.navigation.ListDetailSceneStrategy
@@ -308,6 +310,7 @@ private fun rememberEntryProvider(
                 SettingsScreen(
                     onTelegramLoginClick = { navigator.navigate(TelegramLoginRoute) },
                     onBackgroundSettingsClick = { navigator.navigate(BackgroundSettingsRoute) },
+                    onAiSettingsClick = { navigator.navigate(AiSettingsRoute) },
                 )
             }
 
@@ -354,6 +357,10 @@ private fun rememberEntryProvider(
 
             entry<BackgroundSettingsRoute> {
                 BackgroundSettingsScreen(onBack = { navigator.goBack() })
+            }
+
+            entry<AiSettingsRoute> {
+                AiSettingsScreen(onBack = { navigator.goBack() })
             }
         }
     }

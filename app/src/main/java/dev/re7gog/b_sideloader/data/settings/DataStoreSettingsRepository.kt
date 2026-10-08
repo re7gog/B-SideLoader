@@ -8,6 +8,9 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.re7gog.b_sideloader.core.log.Logger
+import dev.re7gog.b_sideloader.domain.model.AiMode
+import dev.re7gog.b_sideloader.domain.model.AiProvider
+import dev.re7gog.b_sideloader.domain.model.AiSettings
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
@@ -79,6 +82,23 @@ class DataStoreSettingsRepository @Inject constructor(
         it[Keys.LONG_PRESS_HINT_SEEN] = seen
     }
 
+    override suspend fun setAiMode(mode: AiMode) = edit {
+        it[Keys.AI_MODE] = mode.name
+    }
+
+    override suspend fun setAiProvider(provider: AiProvider) = edit {
+        it[Keys.AI_PROVIDER] = provider.name
+    }
+
+    override suspend fun setAiModel(provider: AiProvider, model: String) = edit {
+        val key = Keys.aiModel(provider)
+        if (model.isBlank()) it.remove(key) else it[key] = model.trim()
+    }
+
+    override suspend fun setOpenAiBaseUrl(url: String) = edit {
+        if (url.isBlank()) it.remove(Keys.AI_OPENAI_BASE_URL) else it[Keys.AI_OPENAI_BASE_URL] = url.trim()
+    }
+
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.appPreferences.edit(block)
     }
@@ -92,6 +112,14 @@ class DataStoreSettingsRepository @Inject constructor(
         parallelUpdates = this[Keys.PARALLEL_UPDATES] ?: AppSettings().parallelUpdates,
         backgroundMode = resolveBackgroundMode(this),
         longPressHintSeen = this[Keys.LONG_PRESS_HINT_SEEN] ?: AppSettings().longPressHintSeen,
+        ai = AiSettings(
+            mode = AiMode.fromStoredName(this[Keys.AI_MODE]),
+            provider = AiProvider.fromStoredName(this[Keys.AI_PROVIDER]),
+            models = AiProvider.entries.mapNotNull { provider ->
+                this[Keys.aiModel(provider)]?.let { provider to it }
+            }.toMap(),
+            openAiBaseUrl = this[Keys.AI_OPENAI_BASE_URL].orEmpty(),
+        ),
     )
 
     /**
@@ -117,6 +145,12 @@ class DataStoreSettingsRepository @Inject constructor(
         val PARALLEL_UPDATES = booleanPreferencesKey("parallel_update_checks")
         val BACKGROUND_MODE = stringPreferencesKey("background_mode")
         val LONG_PRESS_HINT_SEEN = booleanPreferencesKey("long_press_hint_seen")
+        val AI_MODE = stringPreferencesKey("ai_mode")
+        val AI_PROVIDER = stringPreferencesKey("ai_provider")
+        val AI_OPENAI_BASE_URL = stringPreferencesKey("ai_openai_base_url")
+
+        /** One per provider, so switching providers does not lose the model typed for another. */
+        fun aiModel(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.name.lowercase()}")
 
         /** Written by versions before [BACKGROUND_MODE] existed. */
         val LEGACY_FOREGROUND_SERVICE = booleanPreferencesKey("use_foreground_service")

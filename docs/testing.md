@@ -37,7 +37,9 @@ JUnit and never touch it.
 | Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, sources downloading side by side while installs queue, the downloaded APK always discarded, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation) |
 | Self-update | `domain/usecase/ReconcileSelfUpdateUseCaseTest` | judging a pending self-update by the version code in the next process |
 | Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, cancellation propagating, installs going through the shared coordinator |
-| ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine, installs started on one screen showing on the other |
+| Filter suggestions | `domain/suggestion/*Test`, `domain/usecase/SuggestFiltersUseCaseTest` | the example-only filter (flavor words, ABI siblings, versions never in a filter), checking a proposal by running it, reading a sloppy model reply, words -> regex equivalence, the retry loop feeding failures back |
+| AI backends | `data/ai/CloudProtocolTest`, `data/ai/LanguageModelGatewayImplTest` | each provider's request and reply shape, errors keeping the provider's message, the backend chosen per call from the settings |
+| ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest`, `ui/feature/filtersuggestion/FilterSuggestionViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine, installs started on one screen showing on the other |
 | Navigation | `ui/navigation/NavigatorTest` | per-tab back stacks, "exit through home" |
 
 ### Framework-bound — Robolectric
@@ -48,7 +50,7 @@ JUnit and never touch it.
 | Migrations | `data/local/AppsDatabaseMigrationTest` | a version-1 database built from `schemas/1.json`, opened through `DatabaseModule`, gains the self row exactly once and keeps its data |
 | Self row | `data/local/SelfAppSeedTest` | a new database tracks the app itself; a row the user deleted stays deleted |
 | Repository | `data/repository/RoomAppsRepositoryTest` | app and details rows written together on insert and update, lookups by source, observed flows |
-| Settings | `data/settings/DataStoreSettingsRepositoryTest` | the on-disk key names, defaults, the legacy background flag, no re-emission for unrelated keys |
+| Settings | `data/settings/DataStoreSettingsRepositoryTest` | the on-disk key names, defaults, the legacy background flag, no re-emission for unrelated keys, AI settings with a model per provider |
 | Self-update state | `data/settings/DataStoreSelfUpdateStateRepositoryTest` | the pending record surviving a new instance, partial records ignored, legacy keys cleaned |
 | Secrets | `data/encrypt/SecureSecretsRepositoryTest` | the token never stored in plaintext, a lost Keystore key discarding its ciphertext, the TDLib key reused and migrated |
 | Device | `data/device/AndroidDeviceInfoTest` | vendor detection, the TDLib display name, silent self-updates only from Android 12 |
@@ -60,7 +62,7 @@ JUnit and never touch it.
 | Manual install staging | `data/installer/CacheApkStagingAreaTest` | reading a real APK's manifest from a content URI, rejecting a non-APK, keeping one staged copy |
 | Session installs | `data/installer/SessionApkInstallerTest` | session → commit → receiver → bus → outcome; request-id matching, the confirmation dialog, conflict splitting, sessions abandoned on failure and cancellation |
 | Error text | `ui/common/error/AppErrorTextTest` | every `AppError` rendered in English and Russian, with its details intact |
-| Screens | `ui/feature/*/…ScreenTest`, `ManualInstallPaneTest` | apps list, app details, search, settings, Telegram sign-in, background checklist, manual install |
+| Screens | `ui/feature/*/…ScreenTest`, `ManualInstallPaneTest`, `FilterSuggestionContentTest` | apps list, app details, search, settings, AI settings, Telegram sign-in, background checklist, manual install, the suggestion sheet |
 
 ## Writing tests
 

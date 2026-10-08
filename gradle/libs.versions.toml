@@ -30,11 +30,13 @@ material = "1.14.0"
 androidxAnnotation = "1.11.0"
 runtime = "1.12.1"
 datastorePref = "1.2.1"
-material3 = "1.5.0-alpha29"
+material3 = "1.5.0-beta01"
 # Window size classes / posture. Already arrives transitively with the navigation-suite artifact;
 # declared explicitly because `currentWindowAdaptiveInfo()` is now used directly.
 material3Adaptive = "1.3.0"
 accompanist = "0.37.3"
+# On-device Gemini Nano through AICore (Prompt API). Still beta; there is no stable release.
+mlkitGenaiPrompt = "1.0.0-beta4"
 # Testing
 turbine = "1.2.1"
 mockk = "1.14.11"
@@ -104,6 +106,7 @@ androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePref" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
+mlkit-genai-prompt = { group = "com.google.mlkit", name = "genai-prompt", version.ref = "mlkitGenaiPrompt" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

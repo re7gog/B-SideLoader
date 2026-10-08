@@ -1,6 +1,7 @@
 package dev.re7gog.b_sideloader.ui.common.error
 
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.error.AiFailure
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.error.InstallFailure
 import dev.re7gog.b_sideloader.domain.error.PrivilegedFailure
@@ -58,6 +59,23 @@ fun AppError.toUiText(): UiText = when (this) {
         PrivilegedFailure.Denied -> UiText.of(R.string.error_privileged_denied)
         PrivilegedFailure.OutdatedShizuku -> UiText.of(R.string.error_privileged_outdated)
         PrivilegedFailure.UnsupportedOnThisAndroid -> UiText.of(R.string.error_privileged_unsupported)
+    }
+
+    is AppError.Ai -> when (reason) {
+        AiFailure.Disabled -> UiText.of(R.string.error_ai_disabled)
+        AiFailure.Unsupported -> UiText.of(R.string.error_ai_unsupported)
+        AiFailure.MissingApiKey -> UiText.of(R.string.error_ai_missing_key)
+        AiFailure.InvalidApiKey -> UiText.of(R.string.error_ai_invalid_key)
+        AiFailure.QuotaExceeded -> detail
+            ?.let { UiText.of(R.string.error_ai_quota_detail, it) }
+            ?: UiText.of(R.string.error_ai_quota)
+
+        AiFailure.ModelUnavailable -> UiText.of(R.string.error_ai_model_unavailable)
+        AiFailure.EmptyResponse -> UiText.of(R.string.error_ai_empty)
+        // The provider's own words are the only thing that says what went wrong.
+        AiFailure.Service -> detail
+            ?.let { UiText.of(R.string.error_ai_service_detail, it) }
+            ?: UiText.of(R.string.error_ai_service)
     }
 
     // The cause's own message, not this error's: without one, `message` is an English placeholder

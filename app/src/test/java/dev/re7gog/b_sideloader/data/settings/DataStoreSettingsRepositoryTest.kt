@@ -9,6 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.model.AiMode
+import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
@@ -147,5 +149,32 @@ class DataStoreSettingsRepositoryTest {
             assertEquals(ThemeMode.Dark, awaitItem().themeMode)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun aiSettingsAreReadBackWithAModelPerProvider() = runTest {
+        repository.setAiMode(AiMode.ApiKey)
+        repository.setAiProvider(AiProvider.Gemini)
+        repository.setAiModel(AiProvider.OpenAi, " qwen3:8b ")
+        repository.setAiModel(AiProvider.Gemini, "gemini-x")
+        repository.setOpenAiBaseUrl("http://localhost:11434/v1")
+
+        val ai = DataStoreSettingsRepository(context, NoopLogger).current().ai
+
+        assertEquals(AiMode.ApiKey, ai.mode)
+        assertEquals(AiProvider.Gemini, ai.provider)
+        assertEquals("qwen3:8b", ai.modelFor(AiProvider.OpenAi))
+        assertEquals("gemini-x", ai.modelFor(AiProvider.Gemini))
+        assertEquals(AiProvider.Anthropic.defaultModel, ai.modelFor(AiProvider.Anthropic))
+        assertEquals("http://localhost:11434/v1", ai.openAiBaseUrl)
+    }
+
+    @Test
+    fun aBlankAiModelGoesBackToTheDefault() = runTest {
+        repository.setAiModel(AiProvider.OpenAi, "custom")
+
+        repository.setAiModel(AiProvider.OpenAi, "  ")
+
+        assertEquals(AiProvider.OpenAi.defaultModel, repository.current().ai.modelFor(AiProvider.OpenAi))
     }
 }

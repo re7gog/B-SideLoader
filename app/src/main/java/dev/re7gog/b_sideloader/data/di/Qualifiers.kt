@@ -18,3 +18,12 @@ annotation class ApplicationInterceptors
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class NetworkInterceptors
+
+/**
+ * The OkHttp client for language-model providers. It shares the app client's connection pool and
+ * network interceptors (debug logging) but none of its application interceptors: those add GitHub's
+ * headers to every request, and a provider has no business receiving them.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AiHttpClient

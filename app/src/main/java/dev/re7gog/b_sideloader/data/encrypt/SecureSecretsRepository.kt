@@ -8,6 +8,7 @@ import dev.re7gog.b_sideloader.core.coroutines.DispatcherProvider
 import dev.re7gog.b_sideloader.core.coroutines.runCatchingCancellable
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.remote.interceptor.AuthTokenSource
+import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.repository.SecretsRepository
 import kotlinx.coroutines.withContext
 import java.security.SecureRandom
@@ -15,8 +16,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Private data at rest: the TDLib database key and the GitHub token, sealed with a Keystore-backed
- * master key and stored as ciphertext in `SharedPreferences`.
+ * Private data at rest: the TDLib database key, the GitHub token and the AI providers' API keys,
+ * sealed with a Keystore-backed master key and stored as ciphertext in `SharedPreferences`.
  *
  * Also implements [AuthTokenSource] so the OkHttp auth interceptor can read the token without
  * blocking: the plaintext token is cached in memory after the first read and invalidated on write.
@@ -53,6 +54,22 @@ class SecureSecretsRepository @Inject constructor(
             putString(KEY_TOKEN_IV, sealed.iv.encode())
         }
         cachedToken = CachedToken.Present(token)
+    }
+
+    override suspend fun getAiApiKey(provider: AiProvider): String? = withContext(dispatchers.io) {
+        readSealed(aiKeyData(provider), aiKeyIv(provider))?.toString(Charsets.UTF_8)
+    }
+
+    override suspend fun setAiApiKey(provider: AiProvider, key: String) = withContext(dispatchers.io) {
+        if (key.isBlank()) {
+            prefs.edit { remove(aiKeyData(provider)).remove(aiKeyIv(provider)) }
+            return@withContext
+        }
+        val sealed = encryption.seal(key.trim().toByteArray(Charsets.UTF_8))
+        prefs.edit {
+            putString(aiKeyData(provider), sealed.ciphertext.encode())
+            putString(aiKeyIv(provider), sealed.iv.encode())
+        }
     }
 
     override fun currentToken(): String? {
@@ -119,6 +136,9 @@ class SecureSecretsRepository @Inject constructor(
             }
             .getOrNull()
     }
+
+    private fun aiKeyData(provider: AiProvider) = "ai_key_${provider.name.lowercase()}_bytes"
+    private fun aiKeyIv(provider: AiProvider) = "ai_key_${provider.name.lowercase()}_iv"
 
     private fun ByteArray.encode(): String = Base64.encodeToString(this, Base64.NO_WRAP)
     private fun String.decode(): ByteArray = Base64.decode(this, Base64.NO_WRAP)

@@ -59,6 +59,7 @@ import dev.re7gog.b_sideloader.ui.common.component.SectionLabel
 import dev.re7gog.b_sideloader.ui.common.component.SettingsGroup
 import dev.re7gog.b_sideloader.ui.common.component.SnackbarMessages
 import dev.re7gog.b_sideloader.ui.common.component.SwitchRow
+import dev.re7gog.b_sideloader.ui.feature.aisettings.labelRes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +67,7 @@ fun SettingsScreen(
     onTelegramLoginClick: () -> Unit,
     onBackgroundSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onAiSettingsClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -150,6 +152,17 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_dynamic_color_subtitle),
                         checked = uiState.settings.useDynamicColor,
                         onCheckedChange = viewModel::setDynamicColor,
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.settings_ai), Modifier.padding(top = 16.dp)) }
+            item {
+                SettingsGroup {
+                    NavigationRow(
+                        title = stringResource(R.string.ai_settings_title),
+                        subtitle = stringResource(uiState.settings.ai.mode.labelRes),
+                        onClick = onAiSettingsClick,
                     )
                 }
             }

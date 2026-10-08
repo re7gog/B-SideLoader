@@ -10,6 +10,12 @@ import dev.re7gog.b_sideloader.domain.installer.InstalledPackage
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.installer.PackageChange
 import dev.re7gog.b_sideloader.domain.installer.PackageInspector
+import dev.re7gog.b_sideloader.domain.ai.LanguageModelGateway
+import dev.re7gog.b_sideloader.domain.model.AiAvailability
+import dev.re7gog.b_sideloader.domain.model.AiBackend
+import dev.re7gog.b_sideloader.domain.model.AiMode
+import dev.re7gog.b_sideloader.domain.model.AiPrompt
+import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
@@ -313,6 +319,18 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
 
     override suspend fun setLongPressHintSeen(seen: Boolean) =
         state.update { it.copy(longPressHintSeen = seen) }
+
+    override suspend fun setAiMode(mode: AiMode) =
+        state.update { it.copy(ai = it.ai.copy(mode = mode)) }
+
+    override suspend fun setAiProvider(provider: AiProvider) =
+        state.update { it.copy(ai = it.ai.copy(provider = provider)) }
+
+    override suspend fun setAiModel(provider: AiProvider, model: String) =
+        state.update { it.copy(ai = it.ai.copy(models = it.ai.models + (provider to model))) }
+
+    override suspend fun setOpenAiBaseUrl(url: String) =
+        state.update { it.copy(ai = it.ai.copy(openAiBaseUrl = url)) }
 }
 
 /** Records what it was asked to download and install, and replays a scripted outcome. */
@@ -473,10 +491,51 @@ class FakeDeviceInfo(
 ) : DeviceInfo
 
 class FakeSecretsRepository(var githubToken: String? = null) : SecretsRepository {
+    val aiKeys = mutableMapOf<AiProvider, String>()
+
     override suspend fun getGithubToken(): String? = githubToken
 
     override suspend fun setGithubToken(token: String) {
         githubToken = token.takeIf { it.isNotBlank() }
+    }
+
+    override suspend fun getAiApiKey(provider: AiProvider): String? = aiKeys[provider]
+
+    override suspend fun setAiApiKey(provider: AiProvider, key: String) {
+        if (key.isBlank()) aiKeys.remove(provider) else aiKeys[provider] = key
+    }
+}
+
+/**
+ * A language model that answers from a script: each [generate] takes the next reply, and records
+ * the prompt it was given so a test can assert on what the model was told.
+ */
+class FakeLanguageModelGateway(
+    var availability: AiAvailability = AiAvailability.Available(AiBackend.OnDevice),
+    replies: List<String> = emptyList(),
+) : LanguageModelGateway {
+
+    private val replies = ArrayDeque(replies)
+    val prompts = mutableListOf<AiPrompt>()
+
+    /** Bytes [prepare] reports, as if downloading. */
+    var downloadProgress: List<Long> = emptyList()
+
+    /** Set to have [generate] throw. */
+    var failure: AppError? = null
+
+    fun reply(vararg texts: String) {
+        replies.addAll(texts)
+    }
+
+    override suspend fun availability(): AiAvailability = availability
+
+    override fun prepare(): Flow<Long> = flow { downloadProgress.forEach { emit(it) } }
+
+    override suspend fun generate(prompt: AiPrompt): String {
+        prompts += prompt
+        failure?.let { throw it }
+        return replies.removeFirstOrNull() ?: error("No scripted reply left")
     }
 }
 

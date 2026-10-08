@@ -50,6 +50,8 @@ class CurlLoggingInterceptor(
         const val TAG = "BSide/Curl"
         const val REDACTED = "<redacted>"
         const val MAX_BODY_BYTES = 8L * 1024
-        val REDACTED_HEADERS = setOf("authorization", "cookie", "set-cookie", "proxy-authorization")
+        val REDACTED_HEADERS = setOf(
+            "authorization", "cookie", "set-cookie", "proxy-authorization", "x-api-key", "x-goog-api-key",
+        )
     }
 }
