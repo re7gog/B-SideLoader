@@ -9,6 +9,10 @@ APKs published on **GitHub releases** and in **Telegram channels** — an Obtain
 It can also install a local APK. Targets Android 8.0+ (`minSdk 26`), `compileSdk`/`targetSdk` 37.
 More sources may be added later; the architecture is built for that (see *Adding a source*).
 
+**Code search goes through `ast-index` first** — the Grep tool, `grep -r`/`rg` and subagents
+included. `.claude/rules/ast-index.md` has the commands and the exceptions; a PreToolUse hook
+(`.claude/hooks/ast-index-gate.sh`) bounces the first symbol grep of a session.
+
 ## Build & run
 
 Gradle wrapper (`./gradlew` / `gradlew.bat`), version catalog at `gradle/libs.versions.toml` — add
@@ -16,13 +20,41 @@ or bump dependencies **there**, referenced as `libs.*` aliases.
 
 ```bash
 ./gradlew assembleDebug                       # debug APK (per-ABI splits + universal)
+./gradlew :app:assembleDev                    # release candidate as dev.re7gog.b_sideloader.dev
 ./gradlew :app:testDebugUnitTest              # every automated test: JVM + Robolectric, no device
-./gradlew :app:assembleRelease                # runs R8; the only way to catch a missing keep rule
-./gradlew lint
+./gradlew :app:assembleRelease                # runs R8; needs the release keystore env vars
+./gradlew :app:minifyReleaseWithR8            # the release R8 pass without signing (no keystore)
+./gradlew lint                                # every check on, every warning fatal — must pass
 ./gradlew installDebug                        # the user's command, see below — never run it
 ```
 
 Two modules: `:app` and `:tdlib` (Telegram native wrapper — see below).
+
+### Build types
+
+| | `debug` | `dev` | `release` |
+|---|---|---|---|
+| Package | `dev.re7gog.b_sideloader` | `dev.re7gog.b_sideloader.dev` | `dev.re7gog.b_sideloader` |
+| R8 / shrinking | off | on | on |
+| LeakCanary, HTTP logging (`src/debug`) | yes | no | no |
+| Signed with | debug key | debug key | release keystore (CI) |
+| Tracks its own releases (`TRACKS_ITSELF`) | yes | no | yes |
+
+`dev` is `release` with a package suffix (`initWith`): it installs **next to** the published app,
+with its own data, so the developer can try what is about to ship — AI features included — on
+their own phone. It is labelled "B-SideLoader Dev" with an amber icon (`app/src/dev/res`). It
+never claims a release tag and seeds no self row (`SelfAppSeed`): the published releases are the
+release package, so they cannot update it. The suffix is safe because the Shizuku authority is
+`${applicationId}.shizuku` and the install result `PendingIntent`s name their receiver explicitly.
+
+### Lint
+
+`lint` blocks in both modules turn on every check (`checkAllWarnings`, test sources included,
+plus Slack's Compose rules via `lintChecks`) and fail on any warning (`warningsAsErrors`). There
+is no baseline. CI runs `./gradlew lint` before it builds a release. Project-wide exceptions live
+in the root `lint.xml`, each with its reason; one-off ones go next to the code (`@Suppress("Id")`,
+`tools:ignore="Id"`). A new finding is fixed, not suppressed, unless it is a false positive —
+and then the suppression says why.
 
 ### Devices, the emulator and manual testing
 
@@ -180,7 +212,8 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   propagates cancellation.
 - **Self-update.** The app tracks itself like any other app: `SelfAppSeed` writes a row pointing at
   `SelfApp.source` (`re7gog/B-SideLoader`) — from `onCreate` for a new database, from the 1 -> 2
-  migration for an existing one. A release build knows which release it is: CI passes the tag as
+  migration for an existing one — except in a `dev` build (`BuildConfig.TRACKS_ITSELF` false),
+  which no published release can update. A release build knows which release it is: CI passes the tag as
   `RELEASE_TAG`, and `app/build.gradle.kts` turns it into `BuildConfig.RELEASE_TAG`, `versionName`
   and a `versionCode` that rises with every tag (`v1.2.3` -> `1020399`; pre-release suffixes sort
   below the release). The workflow names each release exactly after its tag, because a GitHub

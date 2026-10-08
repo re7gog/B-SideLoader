@@ -54,6 +54,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Lint
+        # Every check on, every warning fatal (see `lint` in app/build.gradle.kts and lint.xml), so
+        # a release cannot be published past a lint finding.
+        run: ./gradlew lint
+
       - name: Build release APK
         env:
           # Becomes versionName, versionCode and BuildConfig.RELEASE_TAG (see app/build.gradle.kts).

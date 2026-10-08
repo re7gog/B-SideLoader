@@ -6,9 +6,9 @@ import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.core.log.NoopLogger
@@ -122,7 +122,7 @@ class AndroidBackgroundRestrictionsTest {
 
         val started = checkNotNull(shadowOf(application).nextStartedActivity)
         assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, started.action)
-        assertEquals(Uri.parse("package:${application.packageName}"), started.data)
+        assertEquals("package:${application.packageName}".toUri(), started.data)
     }
 
     @Test

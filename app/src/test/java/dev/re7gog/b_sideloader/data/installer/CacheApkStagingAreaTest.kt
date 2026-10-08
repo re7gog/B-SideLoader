@@ -1,7 +1,7 @@
 package dev.re7gog.b_sideloader.data.installer
 
 import android.app.Application
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.BuildConfig
@@ -85,7 +85,7 @@ class CacheApkStagingAreaTest {
 
     /** Registers [bytes] behind a content URI, the way a document picker hands a file over. */
     private fun pick(bytes: ByteArray, name: String = "picked.apk"): String {
-        val uri = Uri.parse("content://com.example.documents/document/$name")
+        val uri = "content://com.example.documents/document/$name".toUri()
         shadowOf(application.contentResolver).registerInputStream(uri, ByteArrayInputStream(bytes))
         return uri.toString()
     }

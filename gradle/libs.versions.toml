@@ -47,6 +47,8 @@ robolectric = "4.17"
 # Debug builds only. The 3.0 alphas are the only releases since 2.14 (2024); alpha 9 has the
 # Compose state inspector fix and the Android 15+ layout fix for LeakCanary's own leak screen.
 leakcanary = "3.0-alpha-9"
+# Compose rules for Android Lint (slackhq/compose-lints), added with `lintChecks`.
+composeLintChecks = "1.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -122,6 +124,7 @@ mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+compose-lint-checks = { group = "com.slack.lint.compose", name = "compose-lint-checks", version.ref = "composeLintChecks" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

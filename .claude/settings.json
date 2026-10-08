@@ -1,6 +1,6 @@
 {
   "extraKnownMarketplaces": {
-    "ast-index": {
+    "ast-index-marketplace": {
       "source": {
         "source": "github",
         "repo": "defendend/Claude-ast-index-search"
@@ -8,12 +8,26 @@
     }
   },
   "enabledPlugins": {
-    "ast-index@ast-index": true
+    "ast-index@ast-index-marketplace": true
   },
   "permissions": {
     "allow": [
       "Bash(ya tool ast-index *)",
       "Bash(ast-index *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Grep|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ast-index-gate.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

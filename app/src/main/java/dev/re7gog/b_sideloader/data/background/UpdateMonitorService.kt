@@ -22,7 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -68,7 +68,7 @@ class UpdateMonitorService : Service() {
     }
 
     private suspend fun monitorLoop() {
-        while (scope.isActive) {
+        while (scope.coroutineContext.job.isActive) {
             try {
                 runCheck()
             } catch (e: Throwable) {

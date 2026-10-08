@@ -5,8 +5,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageInfo
-import android.net.Uri
 import android.os.Looper
+import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
@@ -120,7 +120,7 @@ class AndroidPackageInspectorTest {
     }
 
     private fun TestScope.broadcast(action: String, packageName: String) {
-        application.sendBroadcast(Intent(action, Uri.parse("package:$packageName")))
+        application.sendBroadcast(Intent(action, "package:$packageName".toUri()))
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
     }

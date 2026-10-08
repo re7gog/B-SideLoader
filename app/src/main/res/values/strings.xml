@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">B-SideLoader</string>
 
     <!-- Navigation / common -->
     <string name="apps">Apps</string>
-    <string name="add">Add</string>
     <string name="settings">Settings</string>
     <string name="search">Search</string>
     <string name="cancel">Cancel</string>
@@ -24,14 +23,17 @@
     <string name="cd_selected">Selected</string>
 
     <!-- Apps list -->
-    <string name="selection_count">%1$d selected</string>
+    <string name="selection_count">Selected: %1$d</string>
     <string name="clear_selection">Clear selection</string>
     <string name="select_all">Select all</string>
     <string name="more_actions">More actions</string>
     <string name="remove_from_list">Remove from list</string>
     <string name="uninstall_from_device">Uninstall from device</string>
     <string name="remove_apps_title">Remove apps</string>
-    <string name="remove_apps_message">Remove %1$d app(s) from your list? This only deletes them here and does not uninstall them from your device.</string>
+    <plurals name="remove_apps_message">
+        <item quantity="one">Remove %1$d app from your list? This only deletes it here and does not uninstall it from your device.</item>
+        <item quantity="other">Remove %1$d apps from your list? This only deletes them here and does not uninstall them from your device.</item>
+    </plurals>
     <string name="uninstall_apps_title">Uninstall apps</string>
     <string name="uninstall_apps_message">Uninstall the selected app(s) from your device? You may be asked to confirm each one.</string>
     <string name="no_apps_title">No apps yet</string>
@@ -46,7 +48,7 @@
 
     <!-- App details (shared) -->
     <string name="app_name_label">App name</string>
-    <string name="app_name_required">The name can\'t be empty</string>
+    <string name="app_name_required">The name can’t be empty</string>
     <string name="no_description">No description</string>
     <string name="version_label">Version: %1$s</string>
     <string name="stars_count">%1$d ⭐</string>
@@ -54,7 +56,7 @@
     <string name="autoupdate">Autoupdate</string>
     <string name="autoupdate_description">Keep this app up to date automatically</string>
     <string name="remove_app_title">Remove app</string>
-    <string name="remove_app_message">Remove \"%1$s\" from your list? This only deletes it here and does not uninstall it from your device.</string>
+    <string name="remove_app_message">Remove “%1$s” from your list? This only deletes it here and does not uninstall it from your device.</string>
 
     <!-- Advanced (regex) filtering -->
     <string name="advanced_filters">Advanced filters</string>
@@ -76,12 +78,7 @@
 
     <!-- Telegram app details -->
     <string name="telegram_channel">Telegram channel</string>
-    <string name="installed_message_id">Installed message id: %1$s</string>
     <string name="filters">Filters</string>
-    <string name="tg_apk_must_contain">APK name must contain (space-separated)</string>
-    <string name="tg_apk_must_not_contain">APK name must not contain</string>
-    <string name="tg_apk_regex_include">APK name regex (must match)</string>
-    <string name="tg_apk_regex_exclude">APK name regex (must not match)</string>
     <string name="message_must_contain">Message text must contain</string>
     <string name="message_must_not_contain">Message text must not contain</string>
     <string name="message_regex_include">Message text regex (must match)</string>
@@ -94,11 +91,7 @@
     <string name="apk_other_architecture">Other architecture</string>
 
     <!-- App details snackbars -->
-    <string name="installation_error">Installation error</string>
-    <string name="uninstall_failed">Uninstall failed</string>
     <string name="unable_to_open_app">Unable to open the app</string>
-    <string name="no_release_matches">No release matches the current filters</string>
-    <string name="failed_to_check_updates">Failed to check for updates</string>
 
     <!-- Settings -->
     <string name="settings_general">General</string>
@@ -110,12 +103,10 @@
     <string name="settings_metered_subtitle">Allow updates on metered networks</string>
     <string name="settings_persistent_service">Persistent update service</string>
     <string name="settings_persistent_service_subtitle">Keeps a permanent notification to reliably check for updates on phones that kill background apps. Increases battery usage.</string>
-    <string name="settings_allow_background">Allow background work</string>
-    <string name="settings_allow_background_subtitle">Battery and autostart settings</string>
     <string name="settings_parallel_updates">Parallel checks and downloads</string>
     <plurals name="settings_parallel_updates_subtitle">
-        <item quantity="one">Up to %1$d download per source. Without a token, may hit GitHub\'s rate limit.</item>
-        <item quantity="other">Up to %1$d downloads per source. Without a token, may hit GitHub\'s rate limit.</item>
+        <item quantity="one">Up to %1$d download per source. Without a token, may hit GitHub’s rate limit.</item>
+        <item quantity="other">Up to %1$d downloads per source. Without a token, may hit GitHub’s rate limit.</item>
     </plurals>
     <string name="settings_downloads_note">Different sources always download in parallel. Installs run one at a time.</string>
     <string name="settings_theme">Theme</string>
@@ -130,7 +121,6 @@
     <string name="settings_github_token_label">GitHub token for increasing API limit</string>
     <string name="settings_github_token_placeholder">github_pat_****************</string>
     <string name="cd_paste">Paste</string>
-    <string name="pasted">Pasted!</string>
     <string name="log_out">Log out</string>
     <string name="telegram">Telegram</string>
     <string name="telegram_account">Telegram account</string>
@@ -142,11 +132,6 @@
     <string name="installer_shizuku">Shizuku / Sui</string>
     <string name="installer_dhizuku">Dhizuku</string>
     <string name="installer_enabled">%1$s installer enabled</string>
-    <string name="installer_permission_denied">%1$s permission denied</string>
-    <string name="dhizuku_not_found">Dhizuku not found, not installed or not running</string>
-    <string name="shizuku_not_found">Shizuku/Sui not found, not installed or not running</string>
-    <string name="please_update_shizuku">Please update Shizuku</string>
-    <string name="shizuku_old_android">Android 8.1 or newer is required for Shizuku over ADB, use Sui (Root) or Dhizuku instead</string>
 
     <!-- Search -->
     <string name="source_github_title">GitHub</string>
@@ -168,7 +153,6 @@
     <string name="app_source">App source</string>
     <string name="repo_subtitle">%1$s · %2$s</string>
     <string name="cd_change_source">Change source</string>
-    <string name="search_request_error">Search request error</string>
     <string name="search_or">or</string>
     <string name="search_link_label">Repository link</string>
     <string name="search_link_placeholder" translatable="false">https://github.com/owner/repo</string>
@@ -198,17 +182,15 @@
     <string name="apk_version_format">%1$s (%2$s)</string>
     <string name="apk_downgrade_warning">This is older than the installed version. Android will refuse the install unless you uninstall the current app first.</string>
     <string name="apk_replace_warning">This will replace the installed app. Its data is kept only if both APKs are signed with the same key.</string>
-    <string name="apk_not_tracked_warning">This app won\'t be added to your list and won\'t receive updates.</string>
-    <string name="cant_read_apk">Can\'t read the selected APK</string>
+    <string name="apk_not_tracked_warning">This app won’t be added to your list and won’t receive updates.</string>
     <string name="installed_app">Installed %1$s</string>
-    <string name="installed">Installed</string>
 
     <!-- Telegram login -->
     <string name="login_to_telegram">Log in to Telegram</string>
     <string name="initializing_telegram">Initializing Telegram…</string>
     <string name="auth_phone_title">Your phone number</string>
-    <string name="auth_phone_description">Type your number with the country code in any format. We\'ll send you a code.</string>
-    <string name="auth_phone_placeholder">e.g. +1 (555) 000-0000</string>
+    <string name="auth_phone_description">Type your number with the country code in any format. We’ll send you a code.</string>
+    <string name="auth_phone_placeholder" tools:ignore="TypographyDashes">e.g. +1 (555) 000-0000</string>
     <string name="auth_code_title">Enter the code</string>
     <string name="auth_code_description">We sent a code to your Telegram app or via SMS.</string>
     <string name="auth_code_placeholder">12345</string>
@@ -250,8 +232,8 @@
     <string name="error_network">No connection. Check your network and try again.</string>
     <string name="error_http">The server returned an error (%1$d).</string>
     <string name="error_unauthorized">GitHub rejected the request. Check your token in Settings.</string>
-    <string name="error_rate_limited">GitHub\'s hourly request limit is used up. Add a token in Settings to raise it.</string>
-    <string name="error_rate_limited_until">GitHub\'s request limit is used up until %1$s. Add a token in Settings to raise it.</string>
+    <string name="error_rate_limited">GitHub’s hourly request limit is used up. Add a token in Settings to raise it.</string>
+    <string name="error_rate_limited_until">GitHub’s request limit is used up until %1$s. Add a token in Settings to raise it.</string>
     <string name="error_not_found">Not found. It may have been renamed or deleted.</string>
     <string name="error_telegram">Telegram: %1$s</string>
     <string name="error_telegram_signed_out">Sign in to Telegram first.</string>
@@ -260,8 +242,8 @@
     <string name="error_install_storage">Not enough free space to install.</string>
     <string name="error_install_bad_payload">The download was incomplete. Try again.</string>
     <string name="error_install_downgrade">This version is older than the installed one. Uninstall the current app first.</string>
-    <string name="error_install_downgrade_versions">Can\'t install %1$s over the installed %2$s — Android refuses downgrades. Uninstall the current app first.</string>
-    <string name="error_install_signature_mismatch">This APK is signed with a different key than the installed app, so it can\'t replace it. Uninstall the current app first — its data will be lost.</string>
+    <string name="error_install_downgrade_versions">Can’t install %1$s over the installed %2$s — Android refuses downgrades. Uninstall the current app first.</string>
+    <string name="error_install_signature_mismatch">This APK is signed with a different key than the installed app, so it can’t replace it. Uninstall the current app first — its data will be lost.</string>
     <string name="error_install_conflict">This APK conflicts with an app already on the device.</string>
     <string name="error_install_conflict_detail">This APK conflicts with an app already on the device: %1$s</string>
     <string name="error_install_rejected">Android refused the install.</string>
@@ -281,7 +263,7 @@
     <string name="background_summary_ok">Background updates should work</string>
     <string name="background_summary_issues">Background updates may not run</string>
     <string name="background_summary_device">Detected: %1$s</string>
-    <string name="background_could_not_open">Couldn\'t open that settings screen on this device.</string>
+    <string name="background_could_not_open">Couldn’t open that settings screen on this device.</string>
     <string name="background_open_app_settings">Open app settings</string>
     <string name="background_battery_title">Battery optimisation</string>
     <string name="background_battery_description">Android delays or skips background work for optimised apps.</string>
@@ -327,8 +309,8 @@
     <string name="error_ai_unsupported">On-device AI is not available on this phone.</string>
     <string name="error_ai_missing_key">Add an API key in Settings → AI assistant first.</string>
     <string name="error_ai_invalid_key">The AI provider rejected the API key.</string>
-    <string name="error_ai_quota">The AI provider\'s quota or credit is used up. Try again later.</string>
-    <string name="error_ai_quota_detail">The AI provider\'s quota or credit is used up: %1$s</string>
+    <string name="error_ai_quota">The AI provider’s quota or credit is used up. Try again later.</string>
+    <string name="error_ai_quota_detail">The AI provider’s quota or credit is used up: %1$s</string>
     <string name="error_ai_model_unavailable">The on-device model is busy or not ready yet. Try again in a moment.</string>
     <string name="error_ai_empty">The model gave no usable answer.</string>
     <string name="error_ai_service">The AI provider reported an error.</string>
@@ -361,7 +343,7 @@
     <string name="ai_settings_model_name">Model</string>
     <string name="ai_settings_base_url">Server address</string>
     <string name="ai_settings_base_url_hint">Any OpenAI-compatible server: OpenRouter, Groq, Ollama, LM Studio…</string>
-    <string name="ai_settings_privacy">When you ask for a suggestion, the names of the app\'s releases or messages and its APK files, and what you type, are sent to %1$s. The key is stored encrypted on this phone.</string>
+    <string name="ai_settings_privacy">When you ask for a suggestion, the names of the app’s releases or messages and its APK files, and what you type, are sent to %1$s. The key is stored encrypted on this phone.</string>
 
     <!-- Filter suggestions -->
     <string name="suggest_filters_button">Suggest</string>
@@ -413,7 +395,7 @@
     <string name="suggest_problem_example_message_rejected">They skipped the message with your example.</string>
     <string name="suggest_problem_example_file_rejected">They left out your example, %1$s.</string>
     <string name="suggest_problem_other_file_chosen">%1$s would be installed instead of your example.</string>
-    <string name="suggest_problem_unreadable">The model\'s answer could not be read.</string>
+    <string name="suggest_problem_unreadable">The model’s answer could not be read.</string>
     <string name="suggest_mode_words">Words</string>
     <string name="suggest_mode_regex">Regular expressions</string>
     <string name="suggest_state_on">On</string>

@@ -115,8 +115,9 @@ fun SourcePickerSheet(
     currentSource: SearchSource,
     onSourceSelected: (SearchSource) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             Text(
                 text = stringResource(R.string.app_source),

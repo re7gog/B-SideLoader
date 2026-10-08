@@ -595,8 +595,8 @@ private fun TopicResultsList(
 private fun SearchResultRow(
     title: String,
     subtitle: String?,
-    leadingContent: @Composable () -> Unit,
     onClick: () -> Unit,
+    leadingContent: @Composable () -> Unit,
 ) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),

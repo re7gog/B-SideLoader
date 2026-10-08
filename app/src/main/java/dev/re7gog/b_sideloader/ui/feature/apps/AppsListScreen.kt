@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -202,8 +203,12 @@ fun AppsListScreen(
         ConfirmDialog(
             title = stringResource(action.titleRes),
             message = when (action) {
-                BulkAction.Remove -> stringResource(action.messageRes, uiState.selectedCount)
-                BulkAction.Uninstall -> stringResource(action.messageRes)
+                BulkAction.Remove -> pluralStringResource(
+                    R.plurals.remove_apps_message,
+                    uiState.selectedCount,
+                    uiState.selectedCount,
+                )
+                BulkAction.Uninstall -> stringResource(R.string.uninstall_apps_message)
             },
             confirmLabel = stringResource(action.confirmRes),
             onConfirm = {
@@ -219,9 +224,9 @@ fun AppsListScreen(
 }
 
 /** The two destructive bulk actions, so the dialog is written once. */
-private enum class BulkAction(val titleRes: Int, val messageRes: Int, val confirmRes: Int) {
-    Remove(R.string.remove_apps_title, R.string.remove_apps_message, R.string.remove),
-    Uninstall(R.string.uninstall_apps_title, R.string.uninstall_apps_message, R.string.uninstall),
+private enum class BulkAction(val titleRes: Int, val confirmRes: Int) {
+    Remove(R.string.remove_apps_title, R.string.remove),
+    Uninstall(R.string.uninstall_apps_title, R.string.uninstall),
 }
 
 /**

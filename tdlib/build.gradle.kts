@@ -41,6 +41,16 @@ android {
             isMinifyEnabled = false
         }
     }
+    // Same bar as :app (see its `lint` block); the root lint.xml skips the generated TdApi.java.
+    lint {
+        lintConfig = rootProject.file("lint.xml")
+        checkAllWarnings = true
+        warningsAsErrors = true
+        abortOnError = true
+        explainIssues = true
+        textReport = true
+        sarifReport = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

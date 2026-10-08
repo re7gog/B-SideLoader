@@ -1,0 +1,2 @@
+# Shell scripts run under bash (the Claude Code hooks in .claude/hooks): a CRLF checkout breaks them.
+*.sh text eol=lf

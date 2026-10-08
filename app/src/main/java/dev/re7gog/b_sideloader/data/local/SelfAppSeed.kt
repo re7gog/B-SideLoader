@@ -26,11 +26,14 @@ import dev.re7gog.b_sideloader.domain.model.SelfApp
  *
  * Nothing here re-creates a deleted row: the seed is skipped when this repository is already
  * tracked, and it never runs again afterwards. A user who removes the row means it.
+ *
+ * A `dev` build seeds nothing (`BuildConfig.TRACKS_ITSELF`): it lives under its own package, which
+ * none of the published releases is, so no release can update it.
  */
 internal object SelfAppSeed {
 
     fun insertInto(db: SupportSQLiteDatabase) {
-        if (isTracked(db)) return
+        if (!BuildConfig.TRACKS_ITSELF || isTracked(db)) return
 
         val appId = db.insert(TABLE_APPS, SQLiteDatabase.CONFLICT_ABORT, appValues())
         // -1 means the insert was rolled back; writing details for a row that does not exist would

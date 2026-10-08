@@ -566,7 +566,7 @@ class FakeApkStagingArea(var staged: LocalApk? = null) : ApkStagingArea {
     }
 }
 
-private fun <T> List<T>.page(index: Int, size: Int): ResultPage<T> {
+internal fun <T> List<T>.page(index: Int, size: Int): ResultPage<T> {
     val from = index.toLong() * size
     if (from >= this.size) return ResultPage(emptyList(), hasMore = false)
     val to = minOf(from + size, this.size.toLong()).toInt()

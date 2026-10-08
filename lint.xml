@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Shared Android Lint configuration for :app and :tdlib (`lintConfig` in each build script).
+
+    The build turns on every check (`checkAllWarnings`) and fails on any warning
+    (`warningsAsErrors`). This file is where an issue is switched off for the whole project, and
+    every entry has to say why. A one-off exception belongs next to the code instead:
+    `@Suppress("Id")` in Kotlin, `tools:ignore="Id"` in XML.
+-->
+<lint>
+    <!--
+        Vendored TDLib Java bindings: TdApi.java is generated (4.8 MB, too big for lint to parse)
+        and Client.java is upstream's. Neither is ours to change.
+    -->
+    <issue id="all">
+        <ignore regexp="org[/\\]drinkless[/\\]tdlib[/\\](TdApi|Client)\.java" />
+    </issue>
+    <issue id="LintError">
+        <ignore regexp="TdApi\.java" />
+    </issue>
+
+    <!--
+        "A newer version is available" makes the verdict depend on what was published to Maven
+        today: a commit that passed yesterday fails tomorrow with no change. Upgrades are a
+        decision, made in gradle/libs.versions.toml.
+    -->
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+
+    <!--
+        The same English word in two places is usually two meanings (a "Back" button vs. a "Back"
+        content description) that other languages translate differently. Merging them would tie
+        unrelated strings together.
+    -->
+    <issue id="DuplicateStrings" severity="ignore" />
+
+    <!--
+        Slots here are named for the role they play, as Material 3 names its own (`leadingContent`,
+        `action`); `content` is reserved for a component's main body. The position rule
+        (ComposableLambdaParameterPosition) stays on.
+    -->
+    <issue id="ComposableLambdaParameterNaming" severity="ignore" />
+
+    <!-- Composition locals this project defines on purpose; anything new has to be added here. -->
+    <issue id="ComposeCompositionLocalUsage">
+        <!-- The app's own dark/light choice, which can differ from the system's: ui/theme/Theme.kt -->
+        <option name="allowed-composition-locals" value="LocalDarkTheme" />
+    </issue>
+
+    <!--
+        Test sources run on Robolectric at an SDK chosen per test (`@Config(sdk = ...)`, targetSdk
+        by default), which lint cannot see — API-level checks there only produce false alarms.
+        BatteryLife is a Play policy check on *requesting* the exemption; a test asserting which
+        screen opens is not that.
+    -->
+    <issue id="NewApi">
+        <ignore regexp="src[/\\]test[/\\]" />
+    </issue>
+    <issue id="InlinedApi">
+        <ignore regexp="src[/\\]test[/\\]" />
+    </issue>
+    <issue id="BatteryLife">
+        <ignore regexp="src[/\\]test[/\\]" />
+    </issue>
+</lint>

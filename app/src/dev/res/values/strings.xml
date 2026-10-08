@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dev build installs next to the published app; its launcher label tells them apart. -->
+<resources>
+    <string name="app_name">B-SideLoader Dev</string>
+</resources>

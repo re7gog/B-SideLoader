@@ -46,6 +46,9 @@ android {
         versionName = releaseVersion?.name ?: "1.0.1"
         // parseReleaseTag only lets [0-9A-Za-z.-] through, so the tag needs no escaping.
         buildConfigField("String", "RELEASE_TAG", "\"$releaseTag\"")
+        // Whether the app seeds a row that tracks its own GitHub releases (`SelfAppSeed`). Only a
+        // build that shares the published package can be updated by those releases.
+        buildConfigField("boolean", "TRACKS_ITSELF", "true")
 
         testInstrumentationRunner = "dev.re7gog.b_sideloader.HiltTestRunner"
     }
@@ -70,9 +73,35 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            // Keeps the two builds distinguishable in logs/crash reports without a suffix,
-            // which would break the Shizuku provider authority and the install receivers.
             isMinifyEnabled = false
+        }
+        /*
+         * A release candidate for the developer's own phone: `dev.re7gog.b_sideloader.dev`, so it
+         * installs next to the published app instead of over it, with separate data (database,
+         * TDLib session, API keys, settings).
+         *
+         * Everything else is the release build — R8, resource shrinking, no LeakCanary, no HTTP
+         * logging, `BuildConfig.DEBUG` false — because the point is to try what is about to ship,
+         * keep rules included. It is signed with the local debug key, so `assembleDev` works
+         * without the release keystore; the different package means the signatures never meet.
+         *
+         * The package suffix is safe: the Shizuku provider authority is `${applicationId}.shizuku`,
+         * and the install/uninstall result PendingIntents name their receiver explicitly.
+         *
+         * It does not track itself: B-SideLoader's releases are published under the release
+         * package, so "updating" a dev build to one would install the release app beside it and
+         * then offer the same update forever. It also never claims a release tag, even when CI
+         * sets one.
+         */
+        create("dev") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            signingConfig = signingConfigs.getByName("debug")
+            // :tdlib only has debug and release.
+            matchingFallbacks += listOf("release")
+            buildConfigField("String", "RELEASE_TAG", "\"\"")
+            buildConfigField("boolean", "TRACKS_ITSELF", "false")
         }
     }
     compileOptions {
@@ -82,6 +111,26 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    // Every lint check on, every warning fatal: `./gradlew lint` fails on any finding, and CI runs
+    // it before a release is built. Project-wide exceptions, each with its reason, are in the root
+    // `lint.xml`; single ones go next to the code (`@Suppress` / `tools:ignore`). No baseline:
+    // a finding is fixed or explicitly suppressed, never parked.
+    lint {
+        lintConfig = rootProject.file("lint.xml")
+        checkAllWarnings = true
+        warningsAsErrors = true
+        abortOnError = true
+        checkReleaseBuilds = true
+        // Tests are code too; a leaky test or a wrong API level in one is still a bug.
+        checkTestSources = true
+        // TDLib wrapper is linted by its own module, against the same rules.
+        checkDependencies = false
+        // Hilt/Room/KSP output: a finding there cannot be fixed where it is reported.
+        checkGeneratedSources = false
+        explainIssues = true
+        textReport = true
+        sarifReport = true
     }
     dependenciesInfo {
         includeInApk = false
@@ -234,6 +283,9 @@ dependencies {
 
     // On-device AI (Gemini Nano)
     implementation(libs.mlkit.genai.prompt)
+
+    // Compose-specific lint rules (modifier order, state hoisting, naming, ...), run by `lint`.
+    lintChecks(libs.compose.lint.checks)
 
     // ---- Local (JVM) tests ----
     //

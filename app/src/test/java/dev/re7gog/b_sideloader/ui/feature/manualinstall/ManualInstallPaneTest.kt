@@ -2,7 +2,6 @@ package dev.re7gog.b_sideloader.ui.feature.manualinstall
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -13,6 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.core.net.toUri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
@@ -138,7 +138,7 @@ class ManualInstallPaneTest {
         shadowActivity.receiveResult(
             request.intent,
             Activity.RESULT_OK,
-            Intent().setData(Uri.parse(PICKED_URI)),
+            Intent().setData(PICKED_URI.toUri()),
         )
         composeRule.waitForIdle()
     }
