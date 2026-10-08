@@ -159,8 +159,10 @@ class PrivilegedApkInstaller(
 
     // ---- install / uninstall ---------------------------------------------------------------
 
+    /** Never asks the user, so [interactive] changes nothing. */
     override suspend fun install(
         payload: ApkPayload,
+        interactive: Boolean,
         onProgress: suspend (Float) -> Unit,
     ): InstallOutcome {
         var session: PackageInstaller.Session? = null

@@ -196,6 +196,61 @@ class InstallAppUseCaseTest {
     }
 
     /**
+     * The background sweep must not download an update only to raise a dialog nobody sees. When
+     * the gateway says the update would ask, it ends there, before the queue and the download.
+     */
+    @Test
+    fun `a background update that would ask ends before downloading`() = runTest {
+        installer.requiringConfirmation += "com.example"
+        val saved = githubApp(id = 5L, version = AppVersion("v1.0"))
+        val apps = FakeAppsRepository(listOf(saved))
+
+        val events = useCase(apps).invoke(saved, httpCandidate, interactive = false).toList()
+
+        assertEquals(listOf(AppInstallEvent.NeedsConfirmation), events)
+        assertTrue(installer.installed.isEmpty())
+        assertEquals("v1.0", apps.getApps().single().version.raw)
+    }
+
+    /** The user is there to answer: nothing is predicted, and the installer may ask. */
+    @Test
+    fun `an interactive install is never held back by the prediction`() = runTest {
+        installer.requiringConfirmation += "com.example"
+        val saved = githubApp(id = 5L, version = AppVersion("v1.0"))
+
+        val events = useCase(FakeAppsRepository(listOf(saved))).invoke(saved, httpCandidate, interactive = true).toList()
+
+        assertTrue(installer.confirmationChecks.isEmpty())
+        assertEquals(listOf(true), installer.committedInteractive)
+        assertTrue(events.last() is AppInstallEvent.Completed)
+    }
+
+    @Test
+    fun `an install the system wanted confirmed writes nothing and is not a failure`() = runTest {
+        installer.outcome = InstallOutcome.NeedsConfirmation
+        val saved = githubApp(id = 5L, version = AppVersion("v1.0"))
+        val apps = FakeAppsRepository(listOf(saved))
+
+        val events = useCase(apps).invoke(saved, httpCandidate).toList()
+
+        assertEquals(listOf(false), installer.committedInteractive)
+        assertEquals(AppInstallEvent.NeedsConfirmation, events.last())
+        assertEquals("v1.0", apps.getApps().single().version.raw)
+    }
+
+    /** Nothing was installed over this process, so there is nothing for the next one to judge. */
+    @Test
+    fun `a self-install that needed confirming drops the record`() = runTest {
+        installer.outcome = InstallOutcome.NeedsConfirmation
+        val self = selfApp(id = 3L)
+        val apps = FakeAppsRepository(listOf(self))
+
+        useCase(apps).invoke(self, httpCandidate).toList()
+
+        assertNull(selfUpdates.pending)
+    }
+
+    /**
      * TDLib keeps a full copy of every file it downloads. Without this the cache grows by one APK
      * per install attempt, which on a phone tracking a dozen apps is gigabytes.
      */

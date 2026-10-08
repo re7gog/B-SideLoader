@@ -26,6 +26,7 @@ import javax.inject.Inject
 class SessionPreapprover @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val installer: SessionApkInstaller,
+    private val facts: UpdateFactsReader,
     private val logger: Logger,
 ) {
     private val packageManager: PackageManager get() = context.packageManager
@@ -36,17 +37,7 @@ class SessionPreapprover @Inject constructor(
      */
     fun open(packageName: String, mode: InstallerMode): PreapprovalSession? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
-        val source = runCatchingCancellable { packageManager.getInstallSourceInfo(packageName) }
-            .getOrNull()
-            ?: return null // not installed
-        val worthAsking = PreapprovalPolicy.sparesADialog(
-            sdkInt = Build.VERSION.SDK_INT,
-            mode = mode,
-            installerOfRecord = source.installingPackageName,
-            updateOwner = source.updateOwnerPackageName,
-            self = context.packageName,
-        )
-        if (!worthAsking) return null
+        if (!PreapprovalPolicy.sparesADialog(mode, facts.read(packageName))) return null
         return runCatchingCancellable { PreapprovalSession(installer.createSession(), packageName) }
             .onFailure { logger.w(TAG, it) { "Could not open a session for $packageName" } }
             .getOrNull()

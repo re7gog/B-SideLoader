@@ -17,6 +17,7 @@ import dev.re7gog.b_sideloader.MainActivity
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.core.coroutines.runCatchingCancellable
 import dev.re7gog.b_sideloader.core.log.Logger
+import dev.re7gog.b_sideloader.domain.usecase.SweepReport
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -86,16 +87,23 @@ class NotificationCenter @Inject constructor(
             .build()
     }
 
-    /** "Updates are available" alert, for when this app cannot install them silently. */
-    fun showUpdatesAvailable(appNames: List<String>) {
-        if (appNames.isEmpty()) return
-        val summary = appNames.joinToString(", ")
+    /**
+     * "Updates are waiting" alert, for the updates a background sweep left to the user — ones that
+     * need confirming, or that it could not install. Tapping it opens the app and installs exactly
+     * these, where the user can answer whatever the system asks.
+     *
+     * Every sweep posts it again while the updates wait; only the first one makes a sound.
+     */
+    fun showUpdatesAvailable(apps: List<SweepReport.WaitingApp>) {
+        if (apps.isEmpty()) return
+        val text = context.getString(R.string.notif_update_available_text, apps.joinToString(", ") { it.name })
         val notification = NotificationCompat.Builder(context, CHANNEL_UPDATES_AVAILABLE)
             .setSmallIcon(R.drawable.update_24px)
             .setContentTitle(context.getString(R.string.notif_update_available_title))
-            .setContentText(context.getString(R.string.notif_update_available_text, summary))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
-            .setContentIntent(openAppIntent(REQUEST_UPDATE, requestUpdate = true))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(openAppIntent(REQUEST_UPDATE, installAppIds = apps.map { it.id }.toLongArray()))
+            .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .build()
         notify(ID_UPDATES_AVAILABLE, notification)
@@ -138,9 +146,9 @@ class NotificationCenter @Inject constructor(
         this.description = context.getString(description)
     }
 
-    private fun openAppIntent(requestCode: Int, requestUpdate: Boolean = false): PendingIntent {
+    private fun openAppIntent(requestCode: Int, installAppIds: LongArray? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
-            if (requestUpdate) putExtra(MainActivity.EXTRA_RUN_UPDATE_CHECK, true)
+            installAppIds?.let { putExtra(MainActivity.EXTRA_INSTALL_APP_IDS, it) }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         return PendingIntent.getActivity(

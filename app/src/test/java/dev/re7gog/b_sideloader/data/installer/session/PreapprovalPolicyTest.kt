@@ -11,9 +11,23 @@ class PreapprovalPolicyTest {
     private fun spares(
         sdkInt: Int = ANDROID_14,
         mode: InstallerMode = InstallerMode.Session,
+        packageName: String = "com.example",
+        installed: Boolean = true,
         installerOfRecord: String? = "com.android.vending",
         updateOwner: String? = null,
-    ) = PreapprovalPolicy.sparesADialog(sdkInt, mode, installerOfRecord, updateOwner, SELF)
+    ) = PreapprovalPolicy.sparesADialog(
+        mode,
+        UpdateFacts(
+            sdkInt = sdkInt,
+            self = SELF,
+            packageName = packageName,
+            installed = installed,
+            installerOfRecord = installerOfRecord,
+            updateOwner = updateOwner,
+            mayUpdateWithoutUserAction = true,
+            mayRequestInstalls = true,
+        ),
+    )
 
     @Test
     fun `an app another store installed is worth asking about`() {
@@ -41,6 +55,18 @@ class PreapprovalPolicyTest {
     @Test
     fun `an app whose updates this app owns is not`() {
         assertFalse(spares(installerOfRecord = SELF, updateOwner = SELF))
+    }
+
+    /** This app updates itself without asking, whoever installed it. */
+    @Test
+    fun `this app itself is not`() {
+        assertFalse(spares(packageName = SELF, installerOfRecord = "com.android.chrome"))
+    }
+
+    /** The request must carry the installed app's label; a first install has none yet. */
+    @Test
+    fun `an app that is not installed is not`() {
+        assertFalse(spares(installed = false, installerOfRecord = null))
     }
 
     @Test

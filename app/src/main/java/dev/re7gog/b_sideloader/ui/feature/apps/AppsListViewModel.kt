@@ -190,6 +190,8 @@ class AppsListViewModel @Inject constructor(
                 when (result) {
                     is InstallResult.Installed -> updates.update { it.installed(id) }
                     is InstallResult.Failed -> _messages.tryEmit(result.error.toUiText())
+                    // The update is still offered; there is nothing to say.
+                    is InstallResult.NeedsConfirmation -> Unit
                 }
             }
         }

@@ -16,8 +16,17 @@ import dev.re7gog.b_sideloader.domain.model.UninstallOutcome
  */
 interface ApkInstallerBackend {
 
-    /** @param onProgress fraction of [payload] written into the session, 0f..1f. */
-    suspend fun install(payload: ApkPayload, onProgress: suspend (Float) -> Unit): InstallOutcome
+    /**
+     * @param interactive whether the user can be asked to confirm the install. When not, an
+     *   install the system will not take without asking ends as
+     *   [InstallOutcome.NeedsConfirmation]. A backend that never asks ignores it.
+     * @param onProgress fraction of [payload] written into the session, 0f..1f.
+     */
+    suspend fun install(
+        payload: ApkPayload,
+        interactive: Boolean,
+        onProgress: suspend (Float) -> Unit,
+    ): InstallOutcome
 
     suspend fun uninstall(packageName: String): UninstallOutcome
 }

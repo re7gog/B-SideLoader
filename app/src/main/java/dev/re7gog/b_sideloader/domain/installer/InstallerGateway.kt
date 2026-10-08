@@ -37,11 +37,27 @@ interface InstallerGateway {
      *
      * With [preapproved], installs into that session — which the user approved, so no dialog —
      * and takes it over: the caller must not abandon it afterwards.
+     *
+     * @param interactive whether the user may be asked to confirm the install. When not — the
+     *   background sweep — an install the system will not take silently is dropped and ends as
+     *   [dev.re7gog.b_sideloader.domain.model.InstallOutcome.NeedsConfirmation]. When so, the
+     *   question still waits only so long for an answer, and ends the same way if none comes.
      */
     fun installDownloaded(
         apk: DownloadedApk,
+        interactive: Boolean,
         preapproved: PreapprovalSession? = null,
     ): Flow<InstallProgress>
+
+    /**
+     * Whether updating the installed [packageName] now would ask the user to confirm it — known
+     * before anything is downloaded, so the background sweep can leave such an update to the user
+     * instead of fetching it for nothing. False with a privileged installer.
+     *
+     * A prediction: "no" can still turn out to need a confirmation once the APK is known (the
+     * system also checks its target SDK), which [installDownloaded] then reports.
+     */
+    suspend fun requiresConfirmation(packageName: String): Boolean
 
     /**
      * Opens a session for installing [packageName], ahead of its download, so the user can be

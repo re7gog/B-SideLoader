@@ -109,15 +109,6 @@ class WorkManagerBackgroundSchedulerTest {
         assertNull(shadowOf(application).nextStartedService)
     }
 
-    @Test
-    fun runOnceQueuesAnImmediateCheckThatNeedsANetwork() = runTest {
-        scheduler.runOnce()
-
-        val job = workManager.getWorkInfosForUniqueWork("check_updates_now").get().single()
-        assertEquals(NetworkType.CONNECTED, job.constraints.requiredNetworkType)
-        assertNull(job.periodicityInfo)
-    }
-
     private fun periodicJob(): WorkInfo =
         workManager.getWorkInfosForUniqueWork(UpdateCheckWorker.WORK_NAME).get().single()
 

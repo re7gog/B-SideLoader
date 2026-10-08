@@ -171,6 +171,16 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   `SessionApkInstaller` (standard `PackageInstaller`, user-confirmed) or `PrivilegedApkInstaller`
   (Shizuku/Sui/Dhizuku via `hidden-api-bypass` + `refine`). Results are matched by request id
   through `InstallEventBus`; sessions are abandoned on failure *and* on cancellation.
+  **Who may be asked.** The standard installer updates silently only where `UserActionPolicy`
+  says so: Android 12+, `UPDATE_PACKAGES_WITHOUT_USER_ACTION` (manifest), installs from this app
+  allowed, and the app is this one or one it installed / owns the updates of (the APK's target SDK
+  matters too, but is unknown before the download). An install is `interactive` when the user
+  started it in the app; only then is the system's confirmation shown. `SessionApkInstaller`
+  shows it once the app can be seen (`AppVisibility`; Android drops activity starts from an app
+  out of sight), again when the user comes back without answering, and drops the session after
+  `UNANSWERED_TIMEOUT` with no verdict. A non-interactive install never shows it: it first asks
+  `InstallerGateway.requiresConfirmation` and stops before the download, and a commit that asks
+  anyway is abandoned — both end as `InstallOutcome.NeedsConfirmation`, which is not a failure.
   **Pre-approval** (Android 14): for installs the user started in the app (`interactive`), the
   use case asks `InstallerGateway.openPreapprovalSession` for a session *before* the download and
   asks the user to approve it alongside the download, one dialog at a time
@@ -209,7 +219,11 @@ ui/         BSideLoaderApp.kt      navigation-suite shell + Nav3 entryProvider
   (a `specialUse` foreground service — `dataSync` is capped at ~6 h/day on Android 14+).
   `RunUpdateSweepUseCase` hands every update to the coordinator at once (the scheduler bounds
   them) and B-SideLoader's own only after the rest; it isolates per-app failures but always
-  propagates cancellation.
+  propagates cancellation. What it leaves to the user — updates that need confirming, failed
+  installs, everything in check-only mode — is `SweepReport.waiting`, posted as the "updates
+  available" notification. Tapping it opens `MainActivity` with those row ids, and
+  `InstallWaitingUpdatesUseCase` checks them again and installs them through the coordinator as
+  the user's own (interactive) installs.
 - **Self-update.** The app tracks itself like any other app: `SelfAppSeed` writes a row pointing at
   `SelfApp.source` (`re7gog/B-SideLoader`) — from `onCreate` for a new database, from the 1 -> 2
   migration for an existing one — except in a `dev` build (`BuildConfig.TRACKS_ITSELF` false),
@@ -292,7 +306,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 449, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 486, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

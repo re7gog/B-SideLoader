@@ -46,14 +46,14 @@ class UpdateCheckWorker @AssistedInject constructor(
                 }
             }
 
-            // Anything the sweep found but could not install itself becomes a user-facing alert.
-            val notInstalled = report.withUpdates - report.installed.toSet()
-            notifications.showUpdatesAvailable(notInstalled)
+            // Anything the sweep found but did not install becomes an alert that installs it.
+            notifications.showUpdatesAvailable(report.waiting)
             notifications.cancelProgress()
 
             logger.i(TAG) {
                 "checked=${report.checked} updates=${report.withUpdates.size} " +
-                    "installed=${report.installed.size} failed=${report.failed.size}"
+                    "installed=${report.installed.size} failed=${report.failed.size} " +
+                    "waiting=${report.waiting.size}"
             }
             if (report.failed.isEmpty()) Result.success() else retryOrFail()
         } catch (e: CancellationException) {

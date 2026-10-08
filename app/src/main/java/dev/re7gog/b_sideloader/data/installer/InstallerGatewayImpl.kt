@@ -6,6 +6,8 @@ import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.installer.privileged.PrivilegedApkInstallerFactory
 import dev.re7gog.b_sideloader.data.installer.session.SessionApkInstaller
 import dev.re7gog.b_sideloader.data.installer.session.SessionPreapprover
+import dev.re7gog.b_sideloader.data.installer.session.UpdateFactsReader
+import dev.re7gog.b_sideloader.data.installer.session.UserActionPolicy
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.installer.InstallerGateway
 import dev.re7gog.b_sideloader.domain.model.DownloadProgress
@@ -55,6 +57,7 @@ class InstallerGatewayImpl @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val sessionInstaller: SessionApkInstaller,
     private val preapprover: SessionPreapprover,
+    private val updateFacts: UpdateFactsReader,
     private val privilegedFactory: PrivilegedApkInstallerFactory,
     private val httpApkSource: HttpApkSource,
     private val telegramRepository: TelegramRepository,
@@ -77,13 +80,21 @@ class InstallerGatewayImpl @Inject constructor(
 
     override fun installDownloaded(
         apk: DownloadedApk,
+        interactive: Boolean,
         preapproved: PreapprovalSession?,
     ): Flow<InstallProgress> = installFile(
         File(apk.path),
         fallbackSize = apk.sizeBytes,
         missing = "Downloaded file is missing",
+        interactive = interactive,
         preapproved = preapproved,
     )
+
+    override suspend fun requiresConfirmation(packageName: String): Boolean =
+        withContext(dispatchers.io) {
+            !settingsRepository.current().installerMode.isPrivileged &&
+                UserActionPolicy.isRequired(updateFacts.read(packageName))
+        }
 
     override suspend fun openPreapprovalSession(packageName: String): PreapprovalSession? =
         withContext(dispatchers.io) {
@@ -98,7 +109,15 @@ class InstallerGatewayImpl @Inject constructor(
 
     override fun installLocal(apk: LocalApk): Flow<InstallProgress> = flow {
         emit(InstallProgress.Preparing)
-        emitAll(installFile(File(apk.path), fallbackSize = apk.sizeBytes, missing = "The staged APK is gone"))
+        // The user picked the file and is looking at the screen.
+        emitAll(
+            installFile(
+                File(apk.path),
+                fallbackSize = apk.sizeBytes,
+                missing = "The staged APK is gone",
+                interactive = true,
+            )
+        )
     }
 
     override suspend fun discard(apk: DownloadedApk) {
@@ -183,6 +202,7 @@ class InstallerGatewayImpl @Inject constructor(
         file: File,
         fallbackSize: Long,
         missing: String,
+        interactive: Boolean,
         preapproved: PreapprovalSession? = null,
     ): Flow<InstallProgress> =
         flow {
@@ -197,7 +217,7 @@ class InstallerGatewayImpl @Inject constructor(
                     lengthBytes = file.length().takeIf { it > 0 } ?: fallbackSize,
                     stream = file.inputStream(),
                 ).use { payload ->
-                    backend.install(payload) { emit(InstallProgress.Staging(it)) }
+                    backend.install(payload, interactive) { emit(InstallProgress.Staging(it)) }
                 }
             }
             emit(InstallProgress.Finished(outcome))

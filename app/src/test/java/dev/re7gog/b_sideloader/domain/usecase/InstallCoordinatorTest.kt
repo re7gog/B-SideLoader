@@ -263,6 +263,37 @@ class InstallCoordinatorTest {
         assertTrue(coordinator.installs.value.isEmpty())
     }
 
+    /**
+     * The sweep never asks: an update that would need confirming comes back as such, publishes
+     * that to the screens, and leaves the app free for the user to install.
+     */
+    @Test
+    fun `installAndAwait reports an update that needs confirming`() = runTest {
+        installer.requiringConfirmation += "com.example"
+        val coordinator = coordinator()
+        val published = async { coordinator.results.first() }
+        runCurrent()
+
+        val result = coordinator.installAndAwait(apps.getApp(1L)!!, candidate)
+
+        assertEquals(InstallResult.NeedsConfirmation(InstallKey.App(1L), apps.getApp(1L)!!), result)
+        assertEquals(result, published.await())
+        assertTrue(installer.installed.isEmpty())
+        assertTrue(coordinator.installs.value.isEmpty())
+    }
+
+    /** A screen's install is the user's own: it is allowed to ask. */
+    @Test
+    fun `install lets the system ask, installAndAwait does not`() = runTest {
+        val coordinator = coordinator()
+
+        coordinator.install(apps.getApp(1L)!!, candidate)
+        runCurrent()
+        coordinator.installAndAwait(apps.getApp(2L)!!, candidate)
+
+        assertEquals(listOf(true, false), installer.committedInteractive)
+    }
+
     /** Joining an install already in flight reports that install, without starting another. */
     @Test
     fun `installAndAwait waits for an install already in flight`() = runTest {

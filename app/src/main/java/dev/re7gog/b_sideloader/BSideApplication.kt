@@ -8,6 +8,7 @@ import dev.re7gog.b_sideloader.core.coroutines.ApplicationScope
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.core.log.Logger
 import dev.re7gog.b_sideloader.data.background.NotificationCenter
+import dev.re7gog.b_sideloader.data.device.AppVisibility
 import dev.re7gog.b_sideloader.data.telegram.TdlibClient
 import dev.re7gog.b_sideloader.domain.usecase.ReconcileSelfUpdateUseCase
 import dev.re7gog.b_sideloader.domain.usecase.SyncBackgroundWorkUseCase
@@ -39,6 +40,13 @@ class BSideApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var logger: Logger
+
+    /**
+     * Injected only to exist: it starts watching activities when it is created, and it must be
+     * watching before the first one starts. See [AppVisibility].
+     */
+    @Inject
+    lateinit var appVisibility: AppVisibility
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

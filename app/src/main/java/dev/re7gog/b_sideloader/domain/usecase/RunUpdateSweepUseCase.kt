@@ -27,9 +27,10 @@ enum class SweepMode {
     companion object {
         /**
          * Installing without a visible prompt needs either a privileged installer, or Android 12+
-         * where a self-installed app can be updated silently. Anywhere else the sweep can only
-         * notify, because a session commit would throw an install dialog at a user who is not
-         * looking at the phone.
+         * where an app this app installed can be updated silently. Anywhere else the sweep can
+         * only leave every update to the user, because a session commit would need a dialog
+         * nobody is there to answer. Even where it can install, each update that would ask is
+         * left to the user too; see [InstallAppUseCase].
          */
         fun forEnvironment(privilegedInstaller: Boolean, silentSelfUpdates: Boolean): SweepMode =
             if (privilegedInstaller || silentSelfUpdates) CheckAndInstall else CheckOnly
@@ -59,10 +60,18 @@ data class SweepReport(
     val withUpdates: List<String> = emptyList(),
     val installed: List<String> = emptyList(),
     val failed: List<FailedApp> = emptyList(),
+    /**
+     * Updates found but not installed, left for the user to install: every one under
+     * [SweepMode.CheckOnly], and otherwise those that need confirming, failed, or were cancelled.
+     */
+    val waiting: List<WaitingApp> = emptyList(),
 ) {
     val hasUpdates: Boolean get() = withUpdates.isNotEmpty()
 
     data class FailedApp(val appName: String, val error: AppError)
+
+    /** An app with an update for the user to install; [id] is its row. */
+    data class WaitingApp(val id: Long, val name: String)
 }
 
 /**
@@ -83,6 +92,10 @@ data class SweepReport(
  * Failure of one app never aborts the sweep — a rate-limited repository or a channel the user left
  * must not stop the other twenty apps from updating — but cancellation always propagates, so
  * WorkManager stopping the worker actually stops the work.
+ *
+ * Nothing in a sweep asks the user anything. An update that would need them to confirm it — an app
+ * another installer put on the device, say — is not downloaded, not failed and not retried: it is
+ * [SweepReport.waiting], for the worker to offer in a notification that installs it in the app.
  *
  * B-SideLoader's own update, if there is one, is started only after every other install has
  * finished: replacing the package kills the worker or service running this sweep, and anything
@@ -126,7 +139,9 @@ class RunUpdateSweepUseCase @Inject constructor(
                 outcome.error?.let { SweepReport.FailedApp(outcome.app.name, it) }
             },
         )
-        if (effectiveMode == SweepMode.CheckOnly) return report
+        if (effectiveMode == SweepMode.CheckOnly) {
+            return report.copy(waiting = updatable.map { it.app.waiting() })
+        }
 
         // hasUpdate implies a candidate, but read it defensively rather than asserting.
         val (self, others) = updatable
@@ -162,9 +177,16 @@ class RunUpdateSweepUseCase @Inject constructor(
     private fun SweepReport.with(app: TrackedApp, result: InstallResult?): SweepReport =
         when (result) {
             is InstallResult.Installed -> copy(installed = installed + app.name)
-            is InstallResult.Failed -> copy(failed = failed + SweepReport.FailedApp(app.name, result.error))
+            is InstallResult.Failed -> copy(
+                failed = failed + SweepReport.FailedApp(app.name, result.error),
+                waiting = waiting + app.waiting(),
+            )
+            // Not a failure: nothing to retry until the user is there to confirm it.
+            is InstallResult.NeedsConfirmation -> copy(waiting = waiting + app.waiting())
             // The user's own install of this app was cancelled under it: neither installed nor
             // failed, and still in `withUpdates` for the next sweep to pick up.
-            null -> this
+            null -> copy(waiting = waiting + app.waiting())
         }
+
+    private fun TrackedApp.waiting() = SweepReport.WaitingApp(id, name)
 }

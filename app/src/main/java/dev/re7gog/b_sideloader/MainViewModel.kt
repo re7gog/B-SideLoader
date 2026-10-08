@@ -6,9 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.core.coroutines.suspendRunCatching
 import dev.re7gog.b_sideloader.core.log.Logger
-import dev.re7gog.b_sideloader.domain.background.BackgroundWorkScheduler
 import dev.re7gog.b_sideloader.domain.model.ThemeMode
 import dev.re7gog.b_sideloader.domain.repository.SettingsRepository
+import dev.re7gog.b_sideloader.domain.usecase.InstallWaitingUpdatesUseCase
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -24,11 +24,11 @@ data class ThemeState(
     val dynamicColor: Boolean = false,
 )
 
-/** Activity-scoped state: the theme, and the "check now" entry point from the notification. */
+/** Activity-scoped state: the theme, and the "install these" entry point from the notification. */
 @HiltViewModel
 class MainViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
-    private val backgroundWorkScheduler: BackgroundWorkScheduler,
+    private val installWaitingUpdates: InstallWaitingUpdatesUseCase,
     private val logger: Logger,
 ) : ViewModel() {
 
@@ -47,13 +47,15 @@ class MainViewModel @Inject constructor(
         )
 
     /**
-     * Runs a check immediately, outside the normal schedule. Goes through WorkManager rather than
-     * running inline so it survives the user leaving the app right after tapping the notification.
+     * Installs the updates the "updates waiting" notification offered, now that the user is here
+     * to confirm them. The installs themselves outlive this ViewModel; only the quick re-check
+     * before them is tied to it.
      */
-    fun runUpdateCheckNow() {
+    fun installWaitingUpdates(appIds: LongArray) {
         viewModelScope.launch {
-            suspendRunCatching { backgroundWorkScheduler.runOnce() }
-                .onFailure { logger.w(TAG) { "Could not enqueue an immediate update check" } }
+            suspendRunCatching { installWaitingUpdates(appIds.asList()) }
+                .onSuccess { logger.i(TAG) { "Started $it of ${appIds.size} waiting updates" } }
+                .onFailure { logger.w(TAG, it) { "Could not install the waiting updates" } }
         }
     }
 

@@ -52,6 +52,13 @@ sealed interface AppInstallEvent {
      * install just stops — they told us they do not want it.
      */
     data object Declined : AppInstallEvent
+
+    /**
+     * Not installed, because the system wants the user to confirm it and nobody could be asked:
+     * a background install, or an interactive one the user never came back to answer. Not a
+     * failure either — the update is still there, for an install the user can see.
+     */
+    data object NeedsConfirmation : AppInstallEvent
 }
 
 /**
@@ -78,6 +85,10 @@ sealed interface AppInstallEvent {
  * question runs alongside the download: approved, the install needs no dialog at the end;
  * declined, the download is cancelled and the install quietly stops.
  *
+ * When nobody is looking, nothing may ask: an update the gateway predicts would need confirming
+ * ends as [AppInstallEvent.NeedsConfirmation] before anything is downloaded, and so does one that
+ * turns out to need it at the commit. The background sweep leaves those to the user.
+ *
  * The returned flow is cold and cancellable. Abandoning it cancels the download and drops both the
  * downloaded APK and any temporary Telegram copy.
  */
@@ -92,14 +103,21 @@ class InstallAppUseCase @Inject constructor(
     private val logger: Logger,
 ) {
     /**
-     * @param interactive whether the user started this and is looking, so a dialog asking them to
-     *   approve it up front can be shown. False for the background sweep, which has no screen.
+     * @param interactive whether the user started this and is looking, so the system may ask them
+     *   to approve or confirm it. False for the background sweep, which has no screen.
      */
     operator fun invoke(
         app: TrackedApp,
         candidate: UpdateCandidate,
         interactive: Boolean = false,
     ): Flow<AppInstallEvent> = flow {
+        if (!interactive && app.packageName.isNotBlank() &&
+            installerGateway.requiresConfirmation(app.packageName)
+        ) {
+            logger.i(TAG) { "${app.name} would need confirming; leaving it to the user" }
+            emit(AppInstallEvent.NeedsConfirmation)
+            return@flow
+        }
         val isSelfUpdate = selfApp.isSelf(app) && app.isSaved
         if (isSelfUpdate) recordSelfUpdate(app, candidate)
         scheduler.track {
@@ -131,7 +149,7 @@ class InstallAppUseCase @Inject constructor(
                         session = null
                         // B-SideLoader's own update replaces this process, so it waits for the others.
                         scheduler.install(last = isSelfUpdate) {
-                            install(app, candidate, apk, approved, isSelfUpdate)
+                            install(app, candidate, apk, approved, interactive, isSelfUpdate)
                         }
                     } finally {
                         // Also when cancelled while waiting for the installer.
@@ -191,9 +209,10 @@ class InstallAppUseCase @Inject constructor(
         candidate: UpdateCandidate,
         apk: DownloadedApk,
         preapproved: PreapprovalSession?,
+        interactive: Boolean,
         isSelfUpdate: Boolean,
     ) {
-        installerGateway.installDownloaded(apk, preapproved).collect { progress ->
+        installerGateway.installDownloaded(apk, interactive, preapproved).collect { progress ->
             if (progress !is InstallProgress.Finished) {
                 emit(AppInstallEvent.Progress(progress))
                 return@collect
@@ -212,6 +231,12 @@ class InstallAppUseCase @Inject constructor(
                 }
 
                 is InstallOutcome.Failure -> fail(outcome.error, isSelfUpdate)
+
+                InstallOutcome.NeedsConfirmation -> {
+                    // Nothing was installed over this process, so there is nothing to judge later.
+                    if (isSelfUpdate) selfUpdates.clearPending()
+                    emit(AppInstallEvent.NeedsConfirmation)
+                }
             }
         }
     }

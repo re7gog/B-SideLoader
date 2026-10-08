@@ -96,6 +96,13 @@ enum class PreapprovalDecision {
 sealed interface InstallOutcome {
     data class Success(val packageName: String?) : InstallOutcome
     data class Failure(val error: AppError) : InstallOutcome
+
+    /**
+     * Not installed: the system wants the user to confirm it, and nobody could be asked — the
+     * install ran in the background, or the user was away until it gave up waiting. Not a
+     * failure: the same install, started where the user can answer, may well go through.
+     */
+    data object NeedsConfirmation : InstallOutcome
 }
 
 /** How an uninstall ended. */

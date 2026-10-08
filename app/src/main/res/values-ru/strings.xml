@@ -187,6 +187,7 @@
     <string name="apk_replace_warning">Это заменит установленное приложение. Данные сохранятся, только если оба APK подписаны одним ключом.</string>
     <string name="apk_not_tracked_warning">Это приложение не будет добавлено в список и не будет получать обновления.</string>
     <string name="installed_app">Установлено: %1$s</string>
+    <string name="install_not_confirmed">%1$s не установлено: установка так и не была подтверждена.</string>
 
     <!-- Telegram login -->
     <string name="login_to_telegram">Вход в Telegram</string>
@@ -223,7 +224,7 @@
     <string name="notif_progress_title">Идёт обновление</string>
     <string name="notif_progress_text">Обновление %1$s</string>
     <string name="notif_update_available_title">Доступны обновления</string>
-    <string name="notif_update_available_text">Доступна новая версия:%1$s</string>
+    <string name="notif_update_available_text">Нажмите, чтобы установить: %1$s</string>
 
     <!-- Список приложений / детали -->
     <string name="by_owner">от %1$s</string>
