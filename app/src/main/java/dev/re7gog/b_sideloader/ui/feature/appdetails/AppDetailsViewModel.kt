@@ -373,6 +373,8 @@ class AppDetailsViewModel @AssistedInject constructor(
                 when (result) {
                     is InstallResult.Installed -> onInstalled(result.app)
                     is InstallResult.Failed -> _messages.tryEmit(result.error.toUiText())
+                    // The update is still offered; there is nothing to say.
+                    is InstallResult.NeedsConfirmation -> Unit
                 }
             }
         }

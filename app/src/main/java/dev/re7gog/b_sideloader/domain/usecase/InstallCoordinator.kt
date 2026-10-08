@@ -48,6 +48,13 @@ sealed interface InstallResult {
 
     data class Failed(override val key: InstallKey, val app: TrackedApp, val error: AppError) :
         InstallResult
+
+    /**
+     * Not installed: it needs the user to confirm it, and nobody could be asked; see
+     * [AppInstallEvent.NeedsConfirmation]. Nothing to report on a screen — the app simply still
+     * offers its update.
+     */
+    data class NeedsConfirmation(override val key: InstallKey, val app: TrackedApp) : InstallResult
 }
 
 /**
@@ -140,7 +147,8 @@ class InstallCoordinator @Inject constructor(
      * is null only when such an install was cancelled before it ended, or declined by the user.
      * Cancelling the caller cancels an install it started, but never one it was merely waiting for.
      *
-     * Never asks the user anything: this is for the background sweep, which has no screen.
+     * Never asks the user anything: this is for the background sweep, which has no screen. An
+     * update that would need confirming ends as [InstallResult.NeedsConfirmation].
      */
     suspend fun installAndAwait(
         app: TrackedApp,
@@ -194,6 +202,9 @@ class InstallCoordinator @Inject constructor(
 
                     // Quietly: no result, so no screen reports anything.
                     AppInstallEvent.Declined -> Unit
+
+                    AppInstallEvent.NeedsConfirmation ->
+                        result = InstallResult.NeedsConfirmation(key, app).also { _results.emit(it) }
                 }
             }
         } catch (e: Throwable) {

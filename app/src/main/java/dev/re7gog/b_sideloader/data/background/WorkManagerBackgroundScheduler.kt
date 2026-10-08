@@ -3,10 +3,7 @@ package dev.re7gog.b_sideloader.data.background
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,14 +53,6 @@ class WorkManagerBackgroundScheduler @Inject constructor(
         }
     }
 
-    override suspend fun runOnce() {
-        val request = OneTimeWorkRequestBuilder<UpdateCheckWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .build()
-        workManager.enqueueUniqueWork(ONE_SHOT_NAME, ExistingWorkPolicy.REPLACE, request)
-    }
-
     private fun enqueuePeriodic(settings: AppSettings) {
         val interval = maxOf(settings.checkInterval, AppSettings.MIN_CHECK_INTERVAL)
         val constraints = Constraints.Builder()
@@ -93,6 +82,5 @@ class WorkManagerBackgroundScheduler @Inject constructor(
 
     private companion object {
         const val TAG = "BgScheduler"
-        const val ONE_SHOT_NAME = "check_updates_now"
     }
 }

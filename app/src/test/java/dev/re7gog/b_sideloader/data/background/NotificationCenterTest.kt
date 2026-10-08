@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.MainActivity
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.core.log.NoopLogger
+import dev.re7gog.b_sideloader.domain.usecase.SweepReport.WaitingApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -47,10 +48,10 @@ class NotificationCenterTest {
     }
 
     @Test
-    fun theUpdatesAlertNamesTheAppsAndOpensTheAppToUpdateThem() {
+    fun theUpdatesAlertNamesTheAppsAndOpensTheAppToInstallThem() {
         grantNotifications()
 
-        center.showUpdatesAvailable(listOf("Alpha", "Beta"))
+        center.showUpdatesAvailable(listOf(WaitingApp(1, "Alpha"), WaitingApp(7, "Beta")))
 
         val alert = checkNotNull(posted(NotificationCenter.ID_UPDATES_AVAILABLE))
         assertEquals(NotificationCenter.CHANNEL_UPDATES_AVAILABLE, alert.channelId)
@@ -59,10 +60,12 @@ class NotificationCenterTest {
             alert.extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString(),
         )
         assertTrue(alert.flags and Notification.FLAG_AUTO_CANCEL != 0)
+        // Posted again by every sweep while the updates wait; only the first should make a sound.
+        assertTrue(alert.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
 
         val opens = shadowOf(alert.contentIntent).savedIntent
         assertEquals(ComponentName(application, MainActivity::class.java), opens.component)
-        assertTrue(opens.getBooleanExtra(MainActivity.EXTRA_RUN_UPDATE_CHECK, false))
+        assertEquals(listOf(1L, 7L), opens.getLongArrayExtra(MainActivity.EXTRA_INSTALL_APP_IDS)?.toList())
     }
 
     @Test
@@ -77,7 +80,7 @@ class NotificationCenterTest {
     /** Android 13+ drops the notification without the runtime permission; so must we, quietly. */
     @Test
     fun withoutThePermissionTheAlertIsDroppedInsteadOfThrowing() {
-        center.showUpdatesAvailable(listOf("Alpha"))
+        center.showUpdatesAvailable(listOf(WaitingApp(1, "Alpha")))
 
         assertNull(posted(NotificationCenter.ID_UPDATES_AVAILABLE))
     }
@@ -86,7 +89,7 @@ class NotificationCenterTest {
     @Test
     @Config(sdk = [Build.VERSION_CODES.R])
     fun beforeAndroid13NoRuntimePermissionIsNeeded() {
-        center.showUpdatesAvailable(listOf("Alpha"))
+        center.showUpdatesAvailable(listOf(WaitingApp(1, "Alpha")))
 
         assertNotNull(posted(NotificationCenter.ID_UPDATES_AVAILABLE))
     }
@@ -118,7 +121,7 @@ class NotificationCenterTest {
     fun cancelProgressRemovesOnlyTheProgressNotification() {
         grantNotifications()
         center.notify(NotificationCenter.ID_UPDATE_PROGRESS, center.progressNotification("Alpha", 10))
-        center.showUpdatesAvailable(listOf("Alpha"))
+        center.showUpdatesAvailable(listOf(WaitingApp(1, "Alpha")))
 
         center.cancelProgress()
 

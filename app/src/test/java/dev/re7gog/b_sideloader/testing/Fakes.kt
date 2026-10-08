@@ -387,9 +387,23 @@ class FakeInstallerGateway(
         }
     }
 
-    override fun installDownloaded(apk: DownloadedApk, preapproved: PreapprovalSession?): Flow<InstallProgress> =
+    /** Whether each install in [committed] was allowed to ask the user, in the same order. */
+    val committedInteractive = mutableListOf<Boolean>()
+
+    /** Installed packages whose update would need the user to confirm it. */
+    val requiringConfirmation = mutableSetOf<String>()
+
+    /** Every package asked about through [requiresConfirmation]. */
+    val confirmationChecks = mutableListOf<String>()
+
+    override fun installDownloaded(
+        apk: DownloadedApk,
+        interactive: Boolean,
+        preapproved: PreapprovalSession?,
+    ): Flow<InstallProgress> =
         flow {
             committed += apk
+            committedInteractive += interactive
             committedSessions += preapproved
             emit(InstallProgress.Staging(0.5f))
             beforeVerdict()
@@ -413,6 +427,11 @@ class FakeInstallerGateway(
 
     /** The session each install went into, in the order of [committed]; null for a new session. */
     val committedSessions = mutableListOf<PreapprovalSession?>()
+
+    override suspend fun requiresConfirmation(packageName: String): Boolean {
+        confirmationChecks += packageName
+        return packageName in requiringConfirmation
+    }
 
     override suspend fun openPreapprovalSession(packageName: String): PreapprovalSession? {
         if (preapproval == null) return null
@@ -542,15 +561,9 @@ class FakeLanguageModelGateway(
 /** Remembers every settings snapshot it was asked to reconcile with. */
 class FakeBackgroundWorkScheduler : BackgroundWorkScheduler {
     val synced = mutableListOf<AppSettings>()
-    var ranOnce = 0
-        private set
 
     override suspend fun sync(settings: AppSettings) {
         synced += settings
-    }
-
-    override suspend fun runOnce() {
-        ranOnce++
     }
 }
 

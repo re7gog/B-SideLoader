@@ -2,6 +2,8 @@ package dev.re7gog.b_sideloader.domain.usecase
 
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
+import dev.re7gog.b_sideloader.domain.error.InstallFailure
+import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
@@ -101,7 +103,59 @@ class RunUpdateSweepUseCaseTest {
         assertEquals(1, report.checked)
         assertEquals(listOf("A"), report.withUpdates)
         assertEquals(listOf("A"), report.installed)
+        assertTrue(report.waiting.isEmpty())
         assertEquals("v2.0", apps.getApps().single().version.raw)
+    }
+
+    /**
+     * An app another installer put on the device would need the user to confirm its update. The
+     * sweep must not download it for a dialog nobody sees, nor call it a failure (which retries):
+     * it is left waiting, and the rest still installs.
+     */
+    @Test
+    fun `an update that would ask is left waiting, not downloaded`() = runTest {
+        val apps = FakeAppsRepository(
+            listOf(
+                githubApp(id = 1, name = "FromTelegram", version = AppVersion("v1.0")),
+                githubApp(id = 2, name = "Ours", packageName = "com.ours", version = AppVersion("v1.0")),
+            ),
+        )
+        installer.requiringConfirmation += "com.example"
+        val packages = FakePackageInspector(installedPackages = setOf("com.example", "com.ours"))
+
+        val report = sweep(apps, packages = packages)()
+
+        assertEquals(listOf("Ours"), report.installed)
+        assertEquals(listOf(SweepReport.WaitingApp(1, "FromTelegram")), report.waiting)
+        assertTrue(report.failed.isEmpty())
+        assertEquals(1, installer.installed.size)
+        assertEquals("v1.0", apps.getApp(1)!!.version.raw)
+    }
+
+    /** Predicted silent, but the system asked at the commit (an old target SDK, say). */
+    @Test
+    fun `an update that asks at the commit is left waiting too`() = runTest {
+        installer.outcome = InstallOutcome.NeedsConfirmation
+        val apps = FakeAppsRepository(listOf(githubApp(id = 1, name = "A", version = AppVersion("v1.0"))))
+
+        val report = sweep(apps)()
+
+        assertEquals(listOf(false), installer.committedInteractive)
+        assertTrue(report.installed.isEmpty())
+        assertTrue(report.failed.isEmpty())
+        assertEquals(listOf(SweepReport.WaitingApp(1, "A")), report.waiting)
+    }
+
+    /** A failed install is reported, and offered to the user like any update left behind. */
+    @Test
+    fun `a failed install is waiting as well as failed`() = runTest {
+        installer.outcome = InstallOutcome.Failure(AppError.Install(InstallFailure.Storage))
+        val apps = FakeAppsRepository(listOf(githubApp(id = 1, name = "A", version = AppVersion("v1.0"))))
+
+        val report = sweep(apps)()
+
+        assertEquals(listOf("A"), report.failed.map { it.appName })
+        assertEquals(listOf(SweepReport.WaitingApp(1, "A")), report.waiting)
     }
 
     /**
@@ -227,6 +281,7 @@ class RunUpdateSweepUseCaseTest {
         assertEquals(listOf("A"), report.withUpdates)
         assertTrue(report.installed.isEmpty())
         assertTrue(installer.installed.isEmpty())
+        assertEquals(listOf(SweepReport.WaitingApp(1, "A")), report.waiting)
     }
 
     /** One rate-limited repository must not stop the other twenty apps from updating. */

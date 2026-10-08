@@ -16,9 +16,6 @@ interface BackgroundWorkScheduler {
      * persistent service. Idempotent — safe to call on every settings change and on boot.
      */
     suspend fun sync(settings: AppSettings)
-
-    /** Runs one check right now, outside the normal schedule. */
-    suspend fun runOnce()
 }
 
 /**

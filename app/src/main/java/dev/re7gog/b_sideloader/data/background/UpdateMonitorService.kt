@@ -90,7 +90,7 @@ class UpdateMonitorService : Service() {
             }
             updateNotification(text)
         }
-        notifications.showUpdatesAvailable(report.withUpdates - report.installed.toSet())
+        notifications.showUpdatesAvailable(report.waiting)
     }
 
     private fun promoteToForeground(text: String) {

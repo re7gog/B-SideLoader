@@ -115,6 +115,8 @@ class ManualInstallViewModel @Inject constructor(
                         when (val outcome = progress.outcome) {
                             is InstallOutcome.Success -> UiText.of(R.string.installed_app, apk.label)
                             is InstallOutcome.Failure -> outcome.error.toUiText()
+                            // The confirmation went unanswered until the installer gave up on it.
+                            InstallOutcome.NeedsConfirmation -> UiText.of(R.string.install_not_confirmed, apk.label)
                         }
                     )
                     reset()

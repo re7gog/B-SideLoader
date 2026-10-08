@@ -1,5 +1,6 @@
 package dev.re7gog.b_sideloader
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -32,8 +33,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        if (intent?.getBooleanExtra(EXTRA_RUN_UPDATE_CHECK, false) == true) {
-            viewModel.runUpdateCheckNow()
+        // Once per tap: not again when the activity is recreated, nor when it is reopened from
+        // recents with the intent it was first started with.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) {
+            intent.getLongArrayExtra(EXTRA_INSTALL_APP_IDS)?.let(viewModel::installWaitingUpdates)
         }
 
         setContent {
@@ -68,8 +72,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        /** Set by the "updates available" notification so opening it starts a check. */
-        const val EXTRA_RUN_UPDATE_CHECK = "dev.re7gog.b_sideloader.extra.RUN_UPDATE_CHECK"
+        /**
+         * Set by the "updates available" notification: the row ids of the apps whose updates the
+         * background sweep left to the user, to install now that they are here.
+         */
+        const val EXTRA_INSTALL_APP_IDS = "dev.re7gog.b_sideloader.extra.INSTALL_APP_IDS"
 
         /** The scrims `enableEdgeToEdge` uses by default for a three-button navigation bar. */
         private const val NAV_BAR_SCRIM_LIGHT = 0xE6FFFFFF.toInt()

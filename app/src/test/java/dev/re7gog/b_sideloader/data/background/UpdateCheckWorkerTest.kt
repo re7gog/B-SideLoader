@@ -11,6 +11,8 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
+import dev.re7gog.b_sideloader.MainActivity
+import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
@@ -95,7 +97,26 @@ class UpdateCheckWorkerTest {
         assertEquals(ListenableWorker.Result.success(), result)
         assertTrue(installer.installed.isEmpty())
         val alert = checkNotNull(updatesAlert())
-        assertEquals("Example", alert.extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT)?.toString())
+        assertEquals(
+            application.getString(R.string.notif_update_available_text, "Example"),
+            alert.extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT)?.toString(),
+        )
+    }
+
+    /**
+     * The stuck Telegram update: the app came from another installer, so updating it would ask.
+     * Nothing is downloaded, nothing is retried — the alert offers to install it in the app.
+     */
+    @Test
+    fun anUpdateThatWouldAskIsLeftToTheUserInsteadOfInstalled() = runTest {
+        installer.requiringConfirmation += "com.example"
+
+        val result = worker(deviceInfo = FakeDeviceInfo(supportsSilentSelfUpdates = true)).doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertTrue(installer.installed.isEmpty())
+        val opens = shadowOf(checkNotNull(updatesAlert()).contentIntent).savedIntent
+        assertEquals(listOf(1L), opens.getLongArrayExtra(MainActivity.EXTRA_INSTALL_APP_IDS)?.toList())
     }
 
     @Test

@@ -184,6 +184,7 @@
     <string name="apk_replace_warning">This will replace the installed app. Its data is kept only if both APKs are signed with the same key.</string>
     <string name="apk_not_tracked_warning">This app won’t be added to your list and won’t receive updates.</string>
     <string name="installed_app">Installed %1$s</string>
+    <string name="install_not_confirmed">%1$s wasn’t installed: the install was never confirmed.</string>
 
     <!-- Telegram login -->
     <string name="login_to_telegram">Log in to Telegram</string>
@@ -220,7 +221,7 @@
     <string name="notif_progress_title">Updates in progress</string>
     <string name="notif_progress_text">Updating %1$s</string>
     <string name="notif_update_available_title">Updates available</string>
-    <string name="notif_update_available_text">New version of%1$s available</string>
+    <string name="notif_update_available_text">Tap to install: %1$s</string>
 
     <!-- Apps list / details (added) -->
     <string name="by_owner">by %1$s</string>

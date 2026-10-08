@@ -31,12 +31,14 @@ JUnit and never touch it.
 | Persistence mapping | `data/mapper/AppMappersTest` | entity ↔ domain round trips, dropping rows whose details table is missing, stability of the stored source discriminator |
 | Error translation | `data/error/ThrowableToAppErrorTest` | IO → `Network`, GitHub's 403-means-rate-limit header quirk, and that cancellation is rethrown rather than mapped |
 | Update resolution | `domain/usecase/ResolveUpdateUseCaseTest` | every `UpdateStatus`, and that source failures propagate instead of silently reading as "no update" |
-| Install | `domain/usecase/InstallAppUseCaseTest` | insert-vs-update on success, nothing written on failure, the Telegram cache copy being dropped |
+| Install | `domain/usecase/InstallAppUseCaseTest` | insert-vs-update on success, nothing written on failure, the Telegram cache copy being dropped, a background update that would ask ending before its download |
 | Install scheduling | `domain/installer/InstallSchedulerTest` | one download per source by default and three with the setting, read live; one install at a time; B-SideLoader's own update waiting for the rest |
 | Pre-approval | `domain/usecase/InstallPreapprovalTest`, `data/installer/session/PreapprovalPolicyTest` | in-app installs only, approved -> the approved session, declined -> download cancelled quietly, unavailable -> usual path, one dialog at a time, install waits for the answer; where asking spares a dialog at all |
-| Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, sources downloading side by side while installs queue, the downloaded APK always discarded, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation) |
+| Silent updates | `data/installer/session/UserActionPolicyTest` | which updates the standard installer takes without asking: Android 12+, the permission, installs allowed, this app or an app it installed / owns the updates of |
+| Shared installs | `domain/usecase/InstallCoordinatorTest` | progress keyed by app, no double install, sources downloading side by side while installs queue, the downloaded APK always discarded, the result seen before the entry disappears, the awaiting path the sweep uses (joining an install in flight, cancellation, never asking) |
+| Waiting updates | `domain/usecase/InstallWaitingUpdatesUseCaseTest` | the notification's apps checked again and installed as the user's own, interactive installs |
 | Self-update | `domain/usecase/ReconcileSelfUpdateUseCaseTest` | judging a pending self-update by the version code in the next process |
-| Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, cancellation propagating, installs going through the shared coordinator |
+| Background sweep | `domain/usecase/RunUpdateSweepUseCaseTest` | one failing app not aborting the sweep, the check-only fallback when silent installs are impossible, updates that would ask left waiting (not downloaded, not failed), cancellation propagating, installs going through the shared coordinator |
 | Filter suggestions | `domain/suggestion/*Test`, `domain/usecase/SuggestFiltersUseCaseTest` | the example-only filter (flavor words, ABI siblings, versions never in a filter), checking a proposal by running it, reading a sloppy model reply, words -> regex equivalence, the retry loop feeding failures back |
 | AI backends | `data/ai/CloudProtocolTest`, `data/ai/LanguageModelGatewayImplTest` | each provider's request and reply shape, errors keeping the provider's message, the backend chosen per call from the settings |
 | ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest`, `ui/feature/filtersuggestion/FilterSuggestionViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine, installs started on one screen showing on the other |
@@ -54,13 +56,15 @@ JUnit and never touch it.
 | Self-update state | `data/settings/DataStoreSelfUpdateStateRepositoryTest` | the pending record surviving a new instance, partial records ignored, legacy keys cleaned |
 | Secrets | `data/encrypt/SecureSecretsRepositoryTest` | the token never stored in plaintext, a lost Keystore key discarding its ciphertext, the TDLib key reused and migrated |
 | Device | `data/device/AndroidDeviceInfoTest` | vendor detection, the TDLib display name, silent self-updates only from Android 12 |
+| App visibility | `data/device/AppVisibilityTest` | hidden / visible / in front from the activity lifecycle, a rotation never reading as hidden |
 | Scheduling | `data/background/WorkManagerBackgroundSchedulerTest` | the end state for every settings combination: periodic job constraints, UPDATE-not-KEEP, the interval clamp, the monitor service |
-| Worker | `data/background/UpdateCheckWorkerTest` | success/retry/failure as WorkManager sees it, alerts only for updates it could not install |
-| Notifications | `data/background/NotificationCenterTest` | channels, the updates alert and where it leads, the Android 13 permission gate |
+| Worker | `data/background/UpdateCheckWorkerTest` | success/retry/failure as WorkManager sees it, alerts only for updates it could not install, an update that would ask becoming an alert without a retry |
+| Notifications | `data/background/NotificationCenterTest` | channels, the updates alert and the apps it installs, alerting once, the Android 13 permission gate |
 | OEM restrictions | `data/background/AndroidBackgroundRestrictionsTest` | only the detected vendor's autostart screens are tried, missing ones are skipped, "could not open" instead of a crash |
 | Packages | `data/installer/AndroidPackageInspectorTest` | installed versions, launching, package broadcasts, the receiver going away with the last collector |
 | Manual install staging | `data/installer/CacheApkStagingAreaTest` | reading a real APK's manifest from a content URI, rejecting a non-APK, keeping one staged copy |
-| Session installs | `data/installer/SessionApkInstallerTest` | session → commit → receiver → bus → outcome; request-id matching, the confirmation dialog, conflict splitting, sessions abandoned on failure and cancellation |
+| Session installs | `data/installer/SessionApkInstallerTest` | session → commit → receiver → bus → outcome; request-id matching, the confirmation dialog, conflict splitting, sessions abandoned on failure and cancellation; the dialog never shown without the user, held until the app can be seen, shown again when they come back without answering, dropped when nobody answers |
+| Update facts | `data/installer/session/UpdateFactsReaderTest` | installer of record, the permission and "install unknown apps" read off the package manager |
 | Error text | `ui/common/error/AppErrorTextTest` | every `AppError` rendered in English and Russian, with its details intact |
 | Screens | `ui/feature/*/…ScreenTest`, `ManualInstallPaneTest`, `FilterSuggestionContentTest` | apps list, app details, search, settings, AI settings, Telegram sign-in, background checklist, manual install, the suggestion sheet |
 

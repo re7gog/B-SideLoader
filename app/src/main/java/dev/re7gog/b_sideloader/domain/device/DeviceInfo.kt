@@ -25,7 +25,9 @@ interface DeviceInfo {
 
     /**
      * `true` from Android 12 (S) on, where a `PackageInstaller` session may declare
-     * `USER_ACTION_NOT_REQUIRED` and update an app it installed itself without a prompt.
+     * `USER_ACTION_NOT_REQUIRED` and update an app it installed itself without a prompt. Whether a
+     * given update is silent is decided per app, by
+     * [dev.re7gog.b_sideloader.domain.installer.InstallerGateway.requiresConfirmation].
      */
     val supportsSilentSelfUpdates: Boolean
 }
