@@ -107,6 +107,10 @@ libraries run on their own threads anyway.
   `--add-exports=java.base/jdk.internal.access=ALL-UNNAMED`: Robolectric's `FileDescriptor`
   interceptor, reached while the API 37 image starts, uses a JDK-internal class that JDK 17+ does
   not export. Without the flag every test fails with an `IllegalAccessException`.
+- **Espresso.** Compose's `ui-test-junit4` brings espresso-core 3.5.0, which reflects on
+  `InputManager.getInstance()` the first time it idles. That method is gone from API 34 on, so
+  every screen test fails in `Espresso.onIdle` with a `NoSuchMethodException`. `testImplementation`
+  declares the catalog's espresso-core (3.6.0+ resolves it lazily) to override the old one.
 - **Resources.** `unitTests.isIncludeAndroidResources` is on, so the merged manifest, resources and
   assets are available; the exported Room schemas are on the test classpath as plain resources.
 
