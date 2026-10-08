@@ -9,11 +9,7 @@
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#install)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
-<!-- Screenshots go here, e.g.
-<img src="./readme-files/Apps.png" width="30%" alt="Apps list" />
-<img src="./readme-files/Details.png" width="30%" alt="App details" />
-<img src="./readme-files/Search.png" width="30%" alt="Search" />
--->
+<img src="./readme-files/Screenshot.png" width="30%" alt="Main page" />
 
 </div>
 
