@@ -251,6 +251,10 @@ dependencies {
     testImplementation(libs.work.testing)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    // ui-test-junit4 drags in espresso-core 3.5.0, whose idling path reflects on
+    // InputManager.getInstance() — gone from API 34+, so every screen test on the API 37 image dies
+    // in Espresso.onIdle. 3.6.0+ resolves it lazily; declaring it pins the catalog version.
+    testImplementation(libs.androidx.espresso.core)
     // Only for the `@AndroidEntryPoint` receivers, which cannot run outside a Hilt application.
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.dagger.hilt.compiler)
