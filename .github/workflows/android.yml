@@ -12,7 +12,9 @@ on:
         description: Release tag
 
 permissions:
-  contents: write
+  contents: write      # create the release and upload the APKs
+  id-token: write      # OIDC token Sigstore signs the attestation with
+  attestations: write  # store the attestation on the repository
 
 jobs:
   build:
@@ -71,6 +73,15 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease --no-configuration-cache
+
+      - name: Attest build provenance
+        # One signed SLSA provenance statement covering every APK (each per-ABI split and the
+        # universal one is a subject, by its SHA-256): it says which workflow run, commit and tag
+        # built it. Done before the upload, so no published APK is ever without one. Verify with
+        # `gh attestation verify <file>.apk -R re7gog/B-SideLoader`.
+        uses: actions/attest@v4
+        with:
+          subject-path: app/build/outputs/apk/release/*.apk
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
