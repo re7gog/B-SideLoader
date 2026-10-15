@@ -83,13 +83,17 @@ data class AppDetailsUiState(
      * The single primary button. Order matters: an app opened from search always installs on the
      * first tap (its edits are persisted as part of that install). When the source is already
      * tracked, that same first install is labelled [PrimaryAction.AddAgain] instead.
+     *
+     * A package missing from the device is an install whatever the row remembers: an app
+     * uninstalled outside B-SideLoader keeps its last installed version, which [updateStatus]
+     * compares against and would otherwise call an update.
      */
     val primaryAction: PrimaryAction
         get() = when {
             !isSaved -> if (alreadyAdded) PrimaryAction.AddAgain else PrimaryAction.SaveAndInstall
             hasUnsavedChanges -> PrimaryAction.SaveChanges
-            updateStatus == UpdateStatus.UpdateAvailable -> PrimaryAction.Update
             !isInstalled -> PrimaryAction.Install
+            updateStatus == UpdateStatus.UpdateAvailable -> PrimaryAction.Update
             else -> PrimaryAction.Open
         }
 

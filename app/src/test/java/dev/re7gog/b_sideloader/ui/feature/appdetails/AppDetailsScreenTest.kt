@@ -100,6 +100,22 @@ class AppDetailsScreenTest {
         composeRule.onNodeWithText(string(R.string.update)).assertIsEnabled()
     }
 
+    /** Uninstalled outside the app: the row still holds the old version, but nothing is there. */
+    @Test
+    fun aSavedAppMissingFromTheDeviceOffersInstallNotUpdate() {
+        setContent(
+            state(
+                saved,
+                isInstalled = false,
+                updateStatus = UpdateStatus.UpdateAvailable,
+                target = candidate,
+            )
+        )
+
+        composeRule.onNodeWithText(string(R.string.install)).assertIsEnabled()
+        assertFalse(exists(hasText(string(R.string.update))))
+    }
+
     @Test
     fun anUpToDateInstalledAppOffersOpen() {
         setContent(state(saved, isInstalled = true, updateStatus = UpdateStatus.UpToDate))
