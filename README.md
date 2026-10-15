@@ -7,7 +7,7 @@
 [![Latest release](https://img.shields.io/github/v/release/re7gog/B-SideLoader?include_prereleases&sort=semver)](https://github.com/re7gog/B-SideLoader/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/re7gog/B-SideLoader/android.yml?label=build)](https://github.com/re7gog/B-SideLoader/actions/workflows/android.yml)
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#install)
-[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-blue)](LICENSE)
 
 <img src="./readme-files/Screenshot.png" width="30%" alt="Main page" />
 
@@ -127,4 +127,5 @@ Tip: `TdApi.java` is about 4.8 MB, so set `idea.max.intellisense.filesize=5000` 
 
 ## License
 
-[GNU GPL v3](LICENSE)
+[PolyForm Shield 1.0.0](LICENSE) — source-available: you may use, change and share the code,
+but not to build a product that competes with B-SideLoader.
