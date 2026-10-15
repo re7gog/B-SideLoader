@@ -31,7 +31,7 @@ android {
     namespace = "dev.re7gog.b_sideloader"
     compileSdk {
         version = release(37) {
-            //minorApiLevel = 1
+            minorApiLevel = 2
         }
     }
 
@@ -129,8 +129,6 @@ android {
         // Hilt/Room/KSP output: a finding there cannot be fixed where it is reported.
         checkGeneratedSources = false
         explainIssues = true
-        textReport = true
-        sarifReport = true
     }
     dependenciesInfo {
         includeInApk = false

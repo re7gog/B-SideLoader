@@ -48,8 +48,6 @@ android {
         warningsAsErrors = true
         abortOnError = true
         explainIssues = true
-        textReport = true
-        sarifReport = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
