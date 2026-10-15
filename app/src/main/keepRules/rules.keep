@@ -40,6 +40,16 @@
 -keep class com.rosan.dhizuku.aidl.** { *; }
 -keep class com.rosan.dhizuku.shared.** { *; }
 
+# ---- ML Kit (Gemini Nano) ---------------------------------------------------------------------
+# ML Kit builds its context from registrars named in the manifest (`MlKitComponentDiscoveryService`
+# meta-data) and creates each one reflectively through its no-arg constructor. firebase-components
+# only ships `-keep class * implements ComponentRegistrar`, which under strict full mode no longer
+# keeps that constructor: R8 removed `CommonComponentRegistrar.<init>()`, ML Kit came up without
+# its components, and Gemini Nano reported itself unavailable in every minified build.
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+}
+
 # ---- Kotlin -----------------------------------------------------------------------------------
 # Null-check messages are dead weight in release; the checks themselves stay.
 -processkotlinnullchecks remove_message
