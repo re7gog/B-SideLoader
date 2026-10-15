@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.domain.repository
 import dev.re7gog.b_sideloader.domain.model.AiMode
 import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AppSettings
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.ThemeMode
@@ -25,6 +26,8 @@ interface SettingsRepository {
 
     /** Records that the apps list has shown its long-press hint. Never reset by the UI. */
     suspend fun setLongPressHintSeen(seen: Boolean)
+
+    suspend fun setAppsListLayout(layout: AppsListLayout)
 
     suspend fun setAiMode(mode: AiMode)
     suspend fun setAiProvider(provider: AiProvider)

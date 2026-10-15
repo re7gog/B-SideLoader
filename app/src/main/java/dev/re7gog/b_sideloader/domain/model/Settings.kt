@@ -39,6 +39,8 @@ data class AppSettings(
      * exactly one preference store, and a second one for a single boolean would be worse.
      */
     val longPressHintSeen: Boolean = false,
+    /** Rows or a grid of cards on the apps list. A display choice kept here for the same reason. */
+    val appsListLayout: AppsListLayout = AppsListLayout.Default,
     /** Which model the AI-assisted features use. */
     val ai: AiSettings = AiSettings(),
 ) {
@@ -72,6 +74,28 @@ enum class ThemeMode {
         val Default = System
 
         fun fromStoredName(name: String?): ThemeMode =
+            entries.firstOrNull { it.name == name } ?: Default
+    }
+}
+
+/**
+ * How the apps list lays out its apps when it has the room to choose.
+ *
+ * Only a preference: a list too narrow for rows shows the grid whatever this says, and the user's
+ * choice comes back as soon as the width does.
+ */
+enum class AppsListLayout {
+    /** One full-width row per app. */
+    List,
+
+    /** Cards, as many columns as fit. */
+    Grid,
+    ;
+
+    companion object {
+        val Default = List
+
+        fun fromStoredName(name: String?): AppsListLayout =
             entries.firstOrNull { it.name == name } ?: Default
     }
 }

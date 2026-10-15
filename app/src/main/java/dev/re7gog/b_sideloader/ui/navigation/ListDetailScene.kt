@@ -10,6 +10,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.scene.Scene
@@ -42,6 +43,7 @@ internal class ListDetailScene<T : Any>(
             Box(Modifier.width(listPaneWidth)) { listEntry.Content() }
             VerticalDivider(
                 modifier = Modifier.fillMaxHeight(),
+                thickness = ListDetailWidths.DIVIDER,
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
             Box(Modifier.weight(1f)) {
@@ -96,15 +98,45 @@ internal object ListDetailPane {
 }
 
 /**
+ * How a list-detail layout shares out the width it is given.
+ *
+ * The details pane is the one with something to read, so it is the one protected: it never gets
+ * less than [DETAIL_MIN]. The list gives way first, down to [LIST_MIN] — narrow enough that the
+ * apps list falls back to one column of cards — and when there is width to spare the list stops
+ * at [LIST_MAX] and everything else goes to the details. When even the two minimums do not fit,
+ * there are no two panes at all: one pane at a time, as on a phone.
+ *
+ * The width meant is the content area beside the navigation rail, not the window. On a fold the
+ * rail alone costs a quarter of what the details pane needs.
+ */
+internal object ListDetailWidths {
+    /** Material's list pane width for a list-detail layout. */
+    val LIST_MAX: Dp = 360.dp
+
+    /** One column of the apps list's cards, with its padding. */
+    val LIST_MIN: Dp = 200.dp
+
+    /** A phone's worth: the details page was laid out for a phone, and reads badly any narrower. */
+    val DETAIL_MIN: Dp = 400.dp
+
+    val DIVIDER: Dp = 1.dp
+
+    fun fitsTwoPanes(width: Dp): Boolean = width >= LIST_MIN + DIVIDER + DETAIL_MIN
+
+    fun listPane(width: Dp): Dp = (width - DIVIDER - DETAIL_MIN).coerceIn(LIST_MIN, LIST_MAX)
+}
+
+/**
  * Puts the apps list and one app's details on screen together when there is room.
  *
  * Only claims a back stack whose *last* entry is one it recognises, so switching to the search or
  * settings tab (which concatenates onto the apps stack) falls through to the single-pane default.
- * Returning `null` when [enabled] is false is what makes this a no-op on a phone.
+ * Returning `null` when [enabled] is false is what makes this a no-op on a phone. Both arguments
+ * come from [ListDetailWidths].
  */
 internal class ListDetailSceneStrategy<T : Any>(
     private val enabled: Boolean,
-    private val listPaneWidth: Dp = DEFAULT_LIST_PANE_WIDTH,
+    private val listPaneWidth: Dp,
     private val placeholder: @Composable () -> Unit,
 ) : SceneStrategy<T> {
 
@@ -135,18 +167,5 @@ internal class ListDetailSceneStrategy<T : Any>(
             )
         }
         return null
-    }
-
-    companion object {
-        /** Material's list pane width for a list-detail layout. Used from the expanded breakpoint. */
-        val DEFAULT_LIST_PANE_WIDTH: Dp = 360.dp
-
-        /**
-         * List pane width for a medium window — an unfolded foldable, or a split-screen half.
-         * Chosen so the details pane keeps at least a phone's worth of width at the 600 dp bottom
-         * of the class, rather than being squeezed to something narrower than the layout it
-         * replaced.
-         */
-        val NARROW_LIST_PANE_WIDTH: Dp = 320.dp
     }
 }

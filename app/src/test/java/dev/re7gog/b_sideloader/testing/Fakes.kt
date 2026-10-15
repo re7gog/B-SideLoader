@@ -19,6 +19,7 @@ import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.DownloadProgress
 import dev.re7gog.b_sideloader.domain.model.DownloadRef
@@ -319,6 +320,9 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
 
     override suspend fun setLongPressHintSeen(seen: Boolean) =
         state.update { it.copy(longPressHintSeen = seen) }
+
+    override suspend fun setAppsListLayout(layout: AppsListLayout) =
+        state.update { it.copy(appsListLayout = layout) }
 
     override suspend fun setAiMode(mode: AiMode) =
         state.update { it.copy(ai = it.ai.copy(mode = mode)) }

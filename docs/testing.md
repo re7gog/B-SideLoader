@@ -42,7 +42,7 @@ JUnit and never touch it.
 | Filter suggestions | `domain/suggestion/*Test`, `domain/usecase/SuggestFiltersUseCaseTest` | the example-only filter (flavor words, ABI siblings, versions never in a filter), checking a proposal by running it, reading a sloppy model reply, words -> regex equivalence, the retry loop feeding failures back |
 | AI backends | `data/ai/CloudProtocolTest`, `data/ai/LanguageModelGatewayImplTest` | each provider's request and reply shape, errors keeping the provider's message, the backend chosen per call from the settings |
 | ViewModels | `ui/feature/apps/AppsListViewModelTest`, `ui/feature/appdetails/AppDetailsViewModelTest`, `ui/feature/filtersuggestion/FilterSuggestionViewModelTest` | installed state reacting to package changes, selection, bulk actions, the details state machine, installs started on one screen showing on the other |
-| Navigation | `ui/navigation/NavigatorTest` | per-tab back stacks, "exit through home" |
+| Navigation | `ui/navigation/NavigatorTest`, `ui/navigation/ListDetailWidthsTest` | per-tab back stacks, "exit through home"; when two panes fit and how they share the width |
 
 ### Framework-bound — Robolectric
 

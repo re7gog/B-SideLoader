@@ -12,6 +12,7 @@ import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.model.AiMode
 import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AppSettings
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.ThemeMode
@@ -55,6 +56,7 @@ class DataStoreSettingsRepositoryTest {
         repository.setParallelUpdates(true)
         repository.setBackgroundMode(BackgroundMode.Persistent)
         repository.setLongPressHintSeen(true)
+        repository.setAppsListLayout(AppsListLayout.Grid)
 
         // A second instance reads the same file, which is what the next process start does.
         val reread = DataStoreSettingsRepository(context, NoopLogger).current()
@@ -69,6 +71,7 @@ class DataStoreSettingsRepositoryTest {
                 parallelUpdates = true,
                 backgroundMode = BackgroundMode.Persistent,
                 longPressHintSeen = true,
+                appsListLayout = AppsListLayout.Grid,
             ),
             reread,
         )

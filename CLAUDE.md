@@ -267,6 +267,12 @@ There is no `NavController`. The back stack is app state:
   off to the right (linear, so it tracks the finger) instead of Nav3's default shrink. Which one
   applies comes from `Navigator.isTabSwitch`, not from scene metadata — a tab whose top is an app
   page would otherwise be mistaken for opening that page.
+- `ui/navigation/ListDetailScene.kt` — the apps list and one app's details side by side, when
+  `ListDetailWidths` says both fit in the width beside the rail (measured, not the window class).
+  The details pane is protected — never under 400 dp; the list gives way first, down to 200 dp,
+  and stops at 360 dp when there is room, the details taking the rest. Below the two minimums it
+  is one pane at a time. The apps list measures its own width too: under 320 dp rows do not fit,
+  so it shows its card grid and hides the list/grid switch (`AppsListScreen`).
 
 Screens receive lambdas, never the navigator. A ViewModel that needs a nav argument takes it via
 assisted injection: `@HiltViewModel(assistedFactory = ...)` plus
@@ -306,7 +312,7 @@ the obfuscated API secrets.
 
 ## Testing
 
-`./gradlew :app:testDebugUnitTest` runs every automated test — 487, all on the JVM, no device:
+`./gradlew :app:testDebugUnitTest` runs every automated test — 496, all on the JVM, no device:
 
 - **Plain JUnit** for pure logic: selection, mappers, error translation, use cases, ViewModels,
   the navigation state machine.

@@ -6,6 +6,7 @@ import dev.re7gog.b_sideloader.core.log.NoopLogger
 import dev.re7gog.b_sideloader.domain.installer.InstallScheduler
 import dev.re7gog.b_sideloader.domain.model.AppSettings
 import dev.re7gog.b_sideloader.domain.model.AppVersion
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.InstallOutcome
 import dev.re7gog.b_sideloader.domain.model.PendingSelfUpdate
 import dev.re7gog.b_sideloader.domain.usecase.CheckUpdatesUseCase
@@ -387,6 +388,22 @@ class AppsListViewModelTest {
         viewModel.uiState.test {
             val state = awaitState { it.apps.size == 2 }
             assertFalse(state.showLongPressHint)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** The layout is a preference: it goes to the store, and the list follows the store. */
+    @Test
+    fun `choosing a layout persists it`() = runTest {
+        val viewModel = viewModel()
+        viewModel.uiState.test {
+            awaitState { !it.isLoading && it.layout == AppsListLayout.List }
+
+            viewModel.setLayout(AppsListLayout.Grid)
+            runCurrent()
+
+            assertEquals(AppsListLayout.Grid, settings.current().appsListLayout)
+            awaitState { it.layout == AppsListLayout.Grid }
             cancelAndIgnoreRemainingEvents()
         }
     }

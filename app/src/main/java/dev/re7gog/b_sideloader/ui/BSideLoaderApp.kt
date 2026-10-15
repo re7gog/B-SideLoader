@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -45,6 +47,7 @@ import dev.re7gog.b_sideloader.ui.navigation.AiSettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.BackgroundSettingsRoute
 import dev.re7gog.b_sideloader.ui.navigation.ListDetailPane
 import dev.re7gog.b_sideloader.ui.navigation.ListDetailSceneStrategy
+import dev.re7gog.b_sideloader.ui.navigation.ListDetailWidths
 import dev.re7gog.b_sideloader.ui.navigation.NavDirection
 import dev.re7gog.b_sideloader.ui.navigation.NavigationState
 import dev.re7gog.b_sideloader.ui.navigation.Navigator
@@ -79,34 +82,14 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val sizeClass = adaptiveInfo.windowSizeClass
 
-    // Two panes as soon as two panes fit: an unfolded foldable, a tablet, a desktop window.
-    val twoPane = sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-    val expandedWidth =
-        sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
-
-    // The rail that spells its labels out costs 220–360 dp, and it competes with those two panes
-    // for the same width. A foldable's inner display reports as *expanded* — around 850 dp on
+    // The rail that spells its labels out costs 220–360 dp, and it competes with the list and
+    // details panes for the same width. A foldable's inner display reports as *expanded* — around 850 dp on
     // current hardware — which is nowhere near enough to pay for a wide rail, a list and a
     // readable details pane at once. So it waits for the large breakpoint, which in practice means
     // a tablet in landscape or a desktop window, and stands down on anything with a hinge even if
     // that device does get big enough.
     val wideRail = sizeClass.isWidthAtLeastBreakpoint(WIDTH_DP_LARGE_LOWER_BOUND) &&
         adaptiveInfo.windowPosture.hingeList.isEmpty()
-
-    val listDetailStrategy = remember(twoPane, expandedWidth) {
-        ListDetailSceneStrategy<NavKey>(
-            enabled = twoPane,
-            // A fold is barely wider than two phones side by side. Material's 360 dp list pane
-            // would leave the details narrower than the single-pane layout it replaces, so the
-            // list gives some width back below the expanded breakpoint.
-            listPaneWidth = if (expandedWidth) {
-                ListDetailSceneStrategy.DEFAULT_LIST_PANE_WIDTH
-            } else {
-                ListDetailSceneStrategy.NARROW_LIST_PANE_WIDTH
-            },
-            placeholder = { NoAppSelectedPane() },
-        )
-    }
 
     val suiteType = navigationSuiteType(
         sizeClass = sizeClass,
@@ -146,36 +129,51 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
         navigationSuiteType = suiteType,
         modifier = modifier,
     ) {
-        NavDisplay(
-            entries = navigationState.toDecoratedEntries(
-                rememberEntryProvider(navigator, navigationState, twoPane = twoPane)
-            ),
-            onBack = { navigator.goBack() },
-            sceneStrategies = listOf(listDetailStrategy),
-            // Slides must not draw over the navigation rail beside the content.
-            modifier = Modifier.clipToBounds(),
-            // The specs ask the navigator rather than trusting which one NavDisplay picked: its
-            // pop/push guess is derived from back-stack shape, and a sibling-tab switch looks
-            // identical in both directions to it. See Navigator.direction and isTabSwitch.
-            transitionSpec = {
-                if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageEnter()
-            },
-            popTransitionSpec = {
-                if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageExit()
-            },
-            // Replaces Navigation 3's default, which shrinks the page as if minimizing the app.
-            // The gesture seeks this transition by its progress, so a linear curve is what keeps
-            // the page under the finger. At a tab root, back switches to the home tab instead of
-            // closing a page, so it previews that — and the gesture's release then finishes with
-            // the matching pop spec above rather than jumping to a different motion.
-            predictivePopTransitionSpec = {
-                if (navigator.state.isAtTabRoot) {
-                    sharedAxisX(NavDirection.Backward, easing = LinearEasing)
-                } else {
-                    pageExit(easing = LinearEasing)
-                }
-            },
-        )
+        // Two panes as soon as two panes fit: an unfolded foldable, a tablet, a desktop window.
+        // Measured beside the rail rather than read off the window size class, because the rail's
+        // width comes out of the same budget — and the wide rail sizes itself to its labels.
+        BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
+            val twoPane = ListDetailWidths.fitsTwoPanes(maxWidth)
+            val listPaneWidth = ListDetailWidths.listPane(maxWidth)
+            val listDetailStrategy = remember(twoPane, listPaneWidth) {
+                ListDetailSceneStrategy<NavKey>(
+                    enabled = twoPane,
+                    listPaneWidth = listPaneWidth,
+                    placeholder = { NoAppSelectedPane() },
+                )
+            }
+
+            NavDisplay(
+                entries = navigationState.toDecoratedEntries(
+                    rememberEntryProvider(navigator, navigationState, twoPane = twoPane)
+                ),
+                onBack = { navigator.goBack() },
+                sceneStrategies = listOf(listDetailStrategy),
+                // Slides must not draw over the navigation rail beside the content.
+                modifier = Modifier.clipToBounds(),
+                // The specs ask the navigator rather than trusting which one NavDisplay picked: its
+                // pop/push guess is derived from back-stack shape, and a sibling-tab switch looks
+                // identical in both directions to it. See Navigator.direction and isTabSwitch.
+                transitionSpec = {
+                    if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageEnter()
+                },
+                popTransitionSpec = {
+                    if (navigator.isTabSwitch) sharedAxisX(navigator.direction) else pageExit()
+                },
+                // Replaces Navigation 3's default, which shrinks the page as if minimizing the app.
+                // The gesture seeks this transition by its progress, so a linear curve is what keeps
+                // the page under the finger. At a tab root, back switches to the home tab instead of
+                // closing a page, so it previews that — and the gesture's release then finishes with
+                // the matching pop spec above rather than jumping to a different motion.
+                predictivePopTransitionSpec = {
+                    if (navigator.state.isAtTabRoot) {
+                        sharedAxisX(NavDirection.Backward, easing = LinearEasing)
+                    } else {
+                        pageExit(easing = LinearEasing)
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -189,8 +187,8 @@ fun BSideLoaderApp(modifier: Modifier = Modifier) {
  * plus the rail's own horizontal padding instead of being truncated.
  *
  * Whether that upgrade is affordable is [allowWideRail]'s call, not this function's — it depends
- * on what else is competing for the width, which is why it is decided next to the two-pane
- * threshold rather than here.
+ * on what else is competing for the width, the two panes above all, which is why
+ * [BSideLoaderApp] decides it rather than this function.
  */
 private fun navigationSuiteType(
     sizeClass: WindowSizeClass,

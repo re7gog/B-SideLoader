@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.AppSource
 import dev.re7gog.b_sideloader.domain.model.AppSourceKind
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.usecase.TrackedAppStatus
 import dev.re7gog.b_sideloader.ui.common.text.UiText
 import kotlinx.collections.immutable.ImmutableList
@@ -26,6 +27,8 @@ data class AppsListUiState(
     val isRefreshing: Boolean = false,
     /** Shown once, on the first list the user ever sees, and dismissed for good after that. */
     val showLongPressHint: Boolean = false,
+    /** The user's choice. The screen overrides it with the grid when it is too narrow for rows. */
+    val layout: AppsListLayout = AppsListLayout.Default,
 ) {
     val inSelectionMode: Boolean get() = selectedCount > 0
     val isEmpty: Boolean get() = !isLoading && apps.isEmpty()

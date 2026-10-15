@@ -45,6 +45,8 @@
     <string name="cd_update_app">Обновить %1$s</string>
     <string name="hint_long_press">Совет: нажмите и удерживайте приложение, чтобы выделить его, а затем удалить сразу несколько.</string>
     <string name="hint_dismiss">Скрыть подсказку</string>
+    <string name="show_as_grid">Показать сеткой</string>
+    <string name="show_as_list">Показать списком</string>
     <string name="no_app_selected_title">Приложение не выбрано</string>
     <string name="no_app_selected_subtitle">Выберите приложение слева, чтобы увидеть его описание и фильтры.</string>
 

@@ -1,8 +1,10 @@
 package dev.re7gog.b_sideloader.ui.feature.apps
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
@@ -14,9 +16,12 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.AppSourceKind
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.ui.common.text.UiText
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -26,14 +31,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /**
  * Behaviour of the apps list.
  *
  * The screen takes a plain [AppsListUiState] and callbacks, so every case here is a literal — no
  * ViewModel, no database, no `PackageManager`. That is what makes a UI test about the UI.
+ *
+ * On a phone-sized screen: Robolectric's default is 320 dp wide, right at the width where the list
+ * stops offering rows, and only the test that is about that edge should sit near it.
  */
 @RunWith(AndroidJUnit4::class)
+@Config(qualifiers = "w411dp-h891dp")
 class AppsListScreenTest {
 
     @get:Rule
@@ -224,6 +234,110 @@ class AppsListScreenTest {
         assertTrue(dismissed)
     }
 
+    @Test
+    fun theSwitchOffersTheGridFromTheList() {
+        var chosen: AppsListLayout? = null
+        setContent(
+            uiState = AppsListUiState(apps = persistentListOf(alpha), isLoading = false),
+            onLayoutChange = { chosen = it },
+        )
+
+        composeRule
+            .onNodeWithContentDescription(composeRule.activity.getString(R.string.show_as_grid))
+            .performClick()
+
+        assertEquals(AppsListLayout.Grid, chosen)
+    }
+
+    @Test
+    fun theSwitchOffersTheListFromTheGrid() {
+        var chosen: AppsListLayout? = null
+        setContent(
+            uiState = AppsListUiState(
+                apps = persistentListOf(alpha),
+                isLoading = false,
+                layout = AppsListLayout.Grid,
+            ),
+            onLayoutChange = { chosen = it },
+        )
+
+        composeRule
+            .onNodeWithContentDescription(composeRule.activity.getString(R.string.show_as_list))
+            .performClick()
+
+        assertEquals(AppsListLayout.List, chosen)
+    }
+
+    /** A card keeps everything a row has, the update included; only the label goes. */
+    @Test
+    fun theGridShowsEveryAppAndUpdatesFromTheCard() {
+        var opened: Long? = null
+        var updated: Long? = null
+        setContent(
+            uiState = AppsListUiState(
+                apps = persistentListOf(alpha.copy(updateState = AppUpdateState.Available), beta),
+                isLoading = false,
+                layout = AppsListLayout.Grid,
+            ),
+            onAppClick = { opened = it },
+            onUpdateApp = { updated = it },
+        )
+
+        composeRule.onNodeWithText("Beta").assertIsDisplayed()
+        composeRule.onAllNodesWithText("octocat", substring = true).assertCountEquals(2)
+        composeRule
+            .onAllNodesWithText(composeRule.activity.getString(R.string.update))
+            .assertCountEquals(0)
+
+        composeRule
+            .onNodeWithContentDescription(
+                composeRule.activity.getString(R.string.cd_update_app, "Alpha")
+            )
+            .performClick()
+        composeRule.onNodeWithText("Beta").performClick()
+
+        assertEquals(1L, updated)
+        assertEquals(2L, opened)
+    }
+
+    /**
+     * The left pane of a tight two-pane layout: rows would not fit, so it is cards whatever the
+     * setting says, and the switch that could not change anything is gone.
+     */
+    @Test
+    fun aListTooNarrowForRowsShowsCardsWithoutTheSwitch() {
+        var updatedAll = false
+        setContent(
+            uiState = AppsListUiState(
+                apps = persistentListOf(alpha.copy(updateState = AppUpdateState.Available)),
+                isLoading = false,
+                layout = AppsListLayout.List,
+            ),
+            onUpdateAll = { updatedAll = true },
+            width = 250.dp,
+        )
+
+        // The card's icon-only update, not the row's labelled one.
+        composeRule
+            .onAllNodesWithText(composeRule.activity.getString(R.string.update))
+            .assertCountEquals(0)
+        composeRule
+            .onAllNodesWithContentDescription(
+                composeRule.activity.getString(R.string.cd_update_app, "Alpha")
+            )
+            .assertCountEquals(1)
+        composeRule
+            .onAllNodesWithContentDescription(composeRule.activity.getString(R.string.show_as_grid))
+            .assertCountEquals(0)
+
+        // "Update all" shrinks to its count, but still says what it is.
+        composeRule
+            .onNodeWithContentDescription(composeRule.activity.getString(R.string.update_all, 1))
+            .performClick()
+
+        assertTrue(updatedAll)
+    }
+
     private fun setContent(
         uiState: AppsListUiState,
         onAppClick: (Long) -> Unit = {},
@@ -232,6 +346,8 @@ class AppsListScreenTest {
         onUpdateApp: (Long) -> Unit = {},
         onUpdateAll: () -> Unit = {},
         onDismissLongPressHint: () -> Unit = {},
+        onLayoutChange: (AppsListLayout) -> Unit = {},
+        width: Dp? = null,
     ) {
         composeRule.setContent {
             BSideLoaderTheme {
@@ -249,6 +365,8 @@ class AppsListScreenTest {
                     onUpdateApp = onUpdateApp,
                     onUpdateAll = onUpdateAll,
                     onDismissLongPressHint = onDismissLongPressHint,
+                    onLayoutChange = onLayoutChange,
+                    modifier = if (width != null) Modifier.width(width) else Modifier,
                 )
             }
         }

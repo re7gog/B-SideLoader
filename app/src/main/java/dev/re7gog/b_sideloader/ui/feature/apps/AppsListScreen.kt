@@ -1,20 +1,26 @@
 package dev.re7gog.b_sideloader.ui.feature.apps
 
+import android.graphics.drawable.Drawable
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,8 +31,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -35,8 +43,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -60,6 +70,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +79,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.ui.common.component.AppIconPlaceholder
 import dev.re7gog.b_sideloader.ui.common.component.ConfirmDialog
 import dev.re7gog.b_sideloader.ui.common.component.EmptyState
@@ -107,6 +120,7 @@ fun AppsListScreen(
         onUpdateApp = viewModel::updateApp,
         onUpdateAll = viewModel::updateAll,
         onDismissLongPressHint = viewModel::dismissLongPressHint,
+        onLayoutChange = viewModel::setLayout,
         highlightedAppId = highlightedAppId,
         modifier = modifier,
     )
@@ -128,6 +142,7 @@ fun AppsListScreen(
     onUpdateApp: (Long) -> Unit,
     onUpdateAll: () -> Unit,
     onDismissLongPressHint: () -> Unit,
+    onLayoutChange: (AppsListLayout) -> Unit,
     modifier: Modifier = Modifier,
     highlightedAppId: Long? = null,
 ) {
@@ -136,63 +151,98 @@ fun AppsListScreen(
     // In selection mode, back clears the selection instead of leaving the screen.
     BackHandler(enabled = uiState.inSelectionMode, onBack = onClearSelection)
 
-    Scaffold(
-        topBar = {
-            AppsListTopBar(
-                inSelectionMode = uiState.inSelectionMode,
-                selectedCount = uiState.selectedCount,
-                updatableCount = uiState.updatableCount,
-                showUpdateAll = uiState.showUpdateAll,
-                onClearSelection = onClearSelection,
-                onSelectAll = onSelectAll,
-                onRemoveClick = { pendingBulkAction = BulkAction.Remove },
-                onUninstallClick = { pendingBulkAction = BulkAction.Uninstall },
-                onUpdateAll = onUpdateAll,
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = modifier,
-    ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            if (uiState.isEmpty) {
-                EmptyState(
-                    iconRes = R.drawable.apps_24px,
-                    title = stringResource(R.string.no_apps_title),
-                    subtitle = stringResource(R.string.no_apps_subtitle),
-                    tinted = true,
+    // The list's own width, not the window's: in two panes this is the left one, and the details
+    // pane beside it takes the width first — so a large screen can still leave the list too
+    // narrow for rows. Then only cards fit, and there is no choice to offer.
+    BoxWithConstraints(modifier) {
+        val narrow = maxWidth < ROWS_MIN_WIDTH
+        val layout = if (narrow) AppsListLayout.Grid else uiState.layout
+
+        Scaffold(
+            topBar = {
+                AppsListTopBar(
+                    inSelectionMode = uiState.inSelectionMode,
+                    selectedCount = uiState.selectedCount,
+                    updatableCount = uiState.updatableCount,
+                    showUpdateAll = uiState.showUpdateAll,
+                    layout = layout,
+                    narrow = narrow,
+                    onClearSelection = onClearSelection,
+                    onSelectAll = onSelectAll,
+                    onRemoveClick = { pendingBulkAction = BulkAction.Remove },
+                    onUninstallClick = { pendingBulkAction = BulkAction.Uninstall },
+                    onUpdateAll = onUpdateAll,
+                    onLayoutChange = onLayoutChange,
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item(key = HINT_KEY) {
-                        LongPressHintCard(
-                            visible = uiState.showLongPressHint,
-                            onDismiss = onDismissLongPressHint,
-                        )
-                    }
-                    items(uiState.apps, key = { it.id }) { app ->
-                        AppListItemCard(
-                            app = app,
-                            inSelectionMode = uiState.inSelectionMode,
-                            isHighlighted = app.id == highlightedAppId,
-                            onClick = {
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { padding ->
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                if (uiState.isEmpty) {
+                    EmptyState(
+                        iconRes = R.drawable.apps_24px,
+                        title = stringResource(R.string.no_apps_title),
+                        subtitle = stringResource(R.string.no_apps_subtitle),
+                        tinted = true,
+                    )
+                } else {
+                    // One grid for both layouts — rows are a grid of one column. Switching keeps
+                    // the scroll position, and every card glides to its new place instead of the
+                    // whole list being swapped out.
+                    LazyVerticalGrid(
+                        columns = when (layout) {
+                            AppsListLayout.List -> GridCells.Fixed(1)
+                            AppsListLayout.Grid -> GridCells.Adaptive(GRID_CELL_MIN_WIDTH)
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(CARD_SPACING),
+                        horizontalArrangement = Arrangement.spacedBy(CARD_SPACING),
+                    ) {
+                        item(key = HINT_KEY, span = { GridItemSpan(maxLineSpan) }) {
+                            LongPressHintCard(
+                                visible = uiState.showLongPressHint,
+                                onDismiss = onDismissLongPressHint,
+                            )
+                        }
+                        items(uiState.apps, key = { it.id }) { app ->
+                            // Above the layout switch, so changing layouts does not reload it.
+                            val icon = rememberInstalledAppIcon(app.packageName, enabled = app.isInstalled)
+                            val onClick = {
                                 if (uiState.inSelectionMode) onToggleSelection(app.id) else onAppClick(app.id)
-                            },
-                            onLongClick = { onLongPress(app.id) },
-                            onUpdate = { onUpdateApp(app.id) },
+                            }
                             // Finding an update re-sorts the list under the user's finger. Without
-                            // this the affected rows teleport; with it they visibly move up.
-                            modifier = Modifier.animateItem(),
-                        )
+                            // this the affected cards teleport; with it they visibly move up.
+                            val itemModifier = Modifier.animateItem()
+                            when (layout) {
+                                AppsListLayout.List -> AppListItemCard(
+                                    app = app,
+                                    icon = icon,
+                                    inSelectionMode = uiState.inSelectionMode,
+                                    isHighlighted = app.id == highlightedAppId,
+                                    onClick = onClick,
+                                    onLongClick = { onLongPress(app.id) },
+                                    onUpdate = { onUpdateApp(app.id) },
+                                    modifier = itemModifier,
+                                )
+                                AppsListLayout.Grid -> AppGridTile(
+                                    app = app,
+                                    icon = icon,
+                                    inSelectionMode = uiState.inSelectionMode,
+                                    isHighlighted = app.id == highlightedAppId,
+                                    onClick = onClick,
+                                    onLongClick = { onLongPress(app.id) },
+                                    onUpdate = { onUpdateApp(app.id) },
+                                    modifier = itemModifier,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -280,34 +330,35 @@ private fun LongPressHintCard(
     }
 }
 
+/**
+ * What every app sits on, in either layout: tapping, long-pressing, the selected look and the
+ * two-pane highlight are the same whether the card holds a row or a tile.
+ */
 @Composable
-private fun AppListItemCard(
-    app: AppListItemUi,
-    inSelectionMode: Boolean,
+private fun AppCard(
+    isSelected: Boolean,
     isHighlighted: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onUpdate: () -> Unit,
     modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
-    val icon = rememberInstalledAppIcon(app.packageName, enabled = app.isInstalled)
     val haptics = LocalHapticFeedback.current
 
     // Expressive motion: a selected card morphs rounder and shifts to a tonal container.
     val cornerRadius by animateDpAsState(
-        targetValue = if (app.isSelected) 28.dp else 20.dp,
+        targetValue = if (isSelected) 28.dp else 20.dp,
         label = "cardCorner",
     )
     val containerColor by animateColorAsState(
         targetValue = when {
-            app.isSelected -> MaterialTheme.colorScheme.secondaryContainer
+            isSelected -> MaterialTheme.colorScheme.secondaryContainer
             isHighlighted -> MaterialTheme.colorScheme.surfaceContainerHighest
             else -> MaterialTheme.colorScheme.surfaceContainer
         },
         label = "cardContainer",
     )
     val shape = RoundedCornerShape(cornerRadius)
-    val contentAlpha = if (app.isInstalled) 1f else 0.5f
 
     Surface(
         modifier = modifier
@@ -321,7 +372,7 @@ private fun AppListItemCard(
                 },
             )
             .then(
-                if (isHighlighted && !app.isSelected) {
+                if (isHighlighted && !isSelected) {
                     Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
                 } else {
                     Modifier
@@ -329,56 +380,38 @@ private fun AppListItemCard(
             ),
         shape = shape,
         color = containerColor,
-        tonalElevation = if (app.isSelected) 0.dp else 1.dp,
+        tonalElevation = if (isSelected) 0.dp else 1.dp,
+        content = content,
+    )
+}
+
+@Composable
+private fun AppListItemCard(
+    app: AppListItemUi,
+    icon: Drawable?,
+    inSelectionMode: Boolean,
+    isHighlighted: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onUpdate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+
+    AppCard(
+        isSelected = app.isSelected,
+        isHighlighted = isHighlighted,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (icon != null) {
-                AsyncImage(
-                    model = icon,
-                    contentDescription = stringResource(R.string.cd_app_icon, app.name),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .alpha(contentAlpha),
-                    placeholder = painterResource(R.drawable.circle_24px),
-                    error = painterResource(R.drawable.x_circle_24px),
-                )
-            } else {
-                AppIconPlaceholder(
-                    name = app.name,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .alpha(contentAlpha),
-                )
-            }
+            AppIcon(app = app, icon = icon, modifier = Modifier.size(APP_ICON_SIZE))
             Spacer(Modifier.width(16.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .alpha(contentAlpha),
-            ) {
-                // Ellipsised rather than wrapped: in the two-pane layout this row lives in a
-                // 320 dp list pane alongside a 48 dp icon and an Update button, and a wrapping
-                // name would make rows different heights for no benefit.
-                Text(
-                    text = app.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                app.subtitle?.let {
-                    Text(
-                        text = it.asString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            AppLabels(app = app, modifier = Modifier.weight(1f))
             // The update affordance and the checkbox share the trailing slot: in selection mode
             // the row is about picking apps, not about acting on one of them.
             AnimatedVisibility(
@@ -413,6 +446,154 @@ private fun AppListItemCard(
     }
 }
 
+/**
+ * The grid's card: the row's parts stacked, with the trailing slot moved to the top corner.
+ *
+ * Every tile is the same height whatever it holds — the corner is no taller than the icon, and the
+ * subtitle line is kept even when empty — so the rows of the grid line up.
+ */
+@Composable
+private fun AppGridTile(
+    app: AppListItemUi,
+    icon: Drawable?,
+    inSelectionMode: Boolean,
+    isHighlighted: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onUpdate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AppCard(
+        isSelected = app.isSelected,
+        isHighlighted = isHighlighted,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(APP_ICON_SIZE),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppIcon(app = app, icon = icon, modifier = Modifier.size(APP_ICON_SIZE))
+                Spacer(Modifier.weight(1f))
+                TileCornerAction(
+                    app = app,
+                    inSelectionMode = inSelectionMode,
+                    onToggleSelection = onClick,
+                    onUpdate = onUpdate,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            AppLabels(app = app)
+        }
+    }
+}
+
+/** What a tile's corner holds, in the order the row's trailing slot gives way. */
+private enum class CornerAction { None, Update, Updating, Select }
+
+@Composable
+private fun TileCornerAction(
+    app: AppListItemUi,
+    inSelectionMode: Boolean,
+    onToggleSelection: () -> Unit,
+    onUpdate: () -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    val action = when {
+        inSelectionMode -> CornerAction.Select
+        app.isUpdating -> CornerAction.Updating
+        app.canUpdate -> CornerAction.Update
+        else -> CornerAction.None
+    }
+
+    AnimatedContent(
+        targetState = action,
+        transitionSpec = { (fadeIn() + scaleIn()) togetherWith (fadeOut() + scaleOut()) },
+        label = "tileCornerAction",
+    ) { target ->
+        when (target) {
+            CornerAction.None -> Unit
+            CornerAction.Update -> FilledTonalIconButton(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onUpdate()
+                },
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.update_24px),
+                    contentDescription = stringResource(R.string.cd_update_app, app.name),
+                )
+            }
+            CornerAction.Updating -> UpdateProgress(
+                progress = app.updateProgress,
+                modifier = Modifier.size(APP_ICON_SIZE),
+            )
+            CornerAction.Select -> Checkbox(
+                checked = app.isSelected,
+                onCheckedChange = { onToggleSelection() },
+            )
+        }
+    }
+}
+
+/** The installed icon, or a letter for an app that is not on the device (dimmed with its text). */
+@Composable
+private fun AppIcon(
+    app: AppListItemUi,
+    icon: Drawable?,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.alpha(app.contentAlpha)) {
+        if (icon != null) {
+            AsyncImage(
+                model = icon,
+                contentDescription = stringResource(R.string.cd_app_icon, app.name),
+                modifier = Modifier.fillMaxSize(),
+                placeholder = painterResource(R.drawable.circle_24px),
+                error = painterResource(R.drawable.x_circle_24px),
+            )
+        } else {
+            AppIconPlaceholder(name = app.name, modifier = Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+private fun AppLabels(
+    app: AppListItemUi,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.alpha(app.contentAlpha)) {
+        // Ellipsised rather than wrapped: in the two-pane layout this lives in a narrow list
+        // pane, and a wrapping name would make cards different heights for no benefit.
+        Text(
+            text = app.name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = app.subtitle?.asString().orEmpty(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** An app that is not on the device is drawn faded: it can be opened, but not updated. */
+private val AppListItemUi.contentAlpha: Float get() = if (isInstalled) 1f else 0.5f
+
 /** Compact per-row "Update", which becomes a progress ring for the app being installed. */
 @Composable
 private fun RowUpdateButton(
@@ -422,19 +603,7 @@ private fun RowUpdateButton(
     onClick: () -> Unit,
 ) {
     if (isUpdating) {
-        Box(
-            modifier = Modifier.size(UPDATE_BUTTON_HEIGHT),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (progress != null) {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.size(24.dp),
-                )
-            } else {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            }
-        }
+        UpdateProgress(progress = progress, modifier = Modifier.size(UPDATE_BUTTON_HEIGHT))
         return
     }
 
@@ -457,6 +626,24 @@ private fun RowUpdateButton(
     }
 }
 
+/** The ring an app's update button turns into while it installs; indeterminate without a figure. */
+@Composable
+private fun UpdateProgress(
+    progress: Float?,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        if (progress != null) {
+            CircularProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppsListTopBar(
@@ -464,13 +651,15 @@ private fun AppsListTopBar(
     selectedCount: Int,
     updatableCount: Int,
     showUpdateAll: Boolean,
+    layout: AppsListLayout,
+    narrow: Boolean,
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
     onRemoveClick: () -> Unit,
     onUninstallClick: () -> Unit,
     onUpdateAll: () -> Unit,
+    onLayoutChange: (AppsListLayout) -> Unit,
 ) {
-    val haptics = LocalHapticFeedback.current
     val containerColor by animateColorAsState(
         targetValue = if (inSelectionMode) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -483,8 +672,8 @@ private fun AppsListTopBar(
     TopAppBar(
         title = {
             AnimatedContent(targetState = inSelectionMode, label = "topBarTitle") { selecting ->
-                // Ellipsised because this bar also lives in the 360 dp list pane of the two-pane
-                // layout, where the title and an "Update all (12)" button compete for the width.
+                // Ellipsised because this bar also lives in the list pane of the two-pane layout,
+                // where the title and an "Update all (12)" button compete for the width.
                 Text(
                     text = if (selecting) {
                         stringResource(R.string.selection_count, selectedCount)
@@ -519,32 +708,86 @@ private fun AppsListTopBar(
                     onUninstallClick = onUninstallClick,
                 )
             } else {
+                // A narrow list shows cards whatever the setting says, so a switch there would
+                // do nothing.
+                if (!narrow) {
+                    LayoutToggleButton(layout = layout, onLayoutChange = onLayoutChange)
+                }
                 AnimatedVisibility(
                     visible = showUpdateAll,
                     enter = fadeIn() + expandHorizontally(),
                     exit = fadeOut() + shrinkHorizontally(),
                 ) {
-                    FilledTonalButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            onUpdateAll()
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.download_24px),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.update_all, updatableCount))
-                    }
+                    UpdateAllButton(count = updatableCount, compact = narrow, onClick = onUpdateAll)
                 }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = containerColor),
     )
+}
+
+/** Shows the layout a tap switches *to*, the usual convention for a two-way view switch. */
+@Composable
+private fun LayoutToggleButton(
+    layout: AppsListLayout,
+    onLayoutChange: (AppsListLayout) -> Unit,
+) {
+    val next = when (layout) {
+        AppsListLayout.List -> AppsListLayout.Grid
+        AppsListLayout.Grid -> AppsListLayout.List
+    }
+    IconButton(onClick = { onLayoutChange(next) }) {
+        Crossfade(targetState = next, label = "layoutToggleIcon") { target ->
+            when (target) {
+                AppsListLayout.Grid -> Icon(
+                    painter = painterResource(R.drawable.grid_view_24px),
+                    contentDescription = stringResource(R.string.show_as_grid),
+                )
+                AppsListLayout.List -> Icon(
+                    painter = painterResource(R.drawable.view_agenda_24px),
+                    contentDescription = stringResource(R.string.show_as_list),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * "Update all (N)". In a [compact] bar — a list pane too narrow for rows — only the icon and the
+ * count are drawn, so the title keeps some room; a screen reader still hears the whole label.
+ */
+@Composable
+private fun UpdateAllButton(
+    count: Int,
+    compact: Boolean,
+    onClick: () -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    val label = stringResource(R.string.update_all, count)
+
+    FilledTonalButton(
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            onClick()
+        },
+        modifier = Modifier.padding(end = 8.dp),
+        contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.download_24px),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        if (compact) {
+            Text(
+                text = count.toString(),
+                modifier = Modifier.semantics { contentDescription = label },
+            )
+        } else {
+            Text(label)
+        }
+    }
 }
 
 @Composable
@@ -588,4 +831,18 @@ private fun SelectionOverflowMenu(
 /** Stable key for the hint row so adding it never re-keys the app rows below it. */
 private const val HINT_KEY = "long-press-hint"
 
+/**
+ * Narrowest list that still gets rows. Below it the name is squeezed to a handful of letters
+ * between the icon and a labelled Update button — the Russian label, the longer one, included.
+ */
+private val ROWS_MIN_WIDTH = 320.dp
+
+/**
+ * Narrowest a card may get; the grid fits as many columns as this allows and shares out the rest.
+ * Two fit on any phone and in the widest list pane of the two-pane layout.
+ */
+private val GRID_CELL_MIN_WIDTH = 150.dp
+
+private val CARD_SPACING = 10.dp
+private val APP_ICON_SIZE = 48.dp
 private val UPDATE_BUTTON_HEIGHT = 36.dp

@@ -12,6 +12,7 @@ import dev.re7gog.b_sideloader.domain.model.AiMode
 import dev.re7gog.b_sideloader.domain.model.AiProvider
 import dev.re7gog.b_sideloader.domain.model.AiSettings
 import dev.re7gog.b_sideloader.domain.model.AppSettings
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.BackgroundMode
 import dev.re7gog.b_sideloader.domain.model.InstallerMode
 import dev.re7gog.b_sideloader.domain.model.ThemeMode
@@ -82,6 +83,10 @@ class DataStoreSettingsRepository @Inject constructor(
         it[Keys.LONG_PRESS_HINT_SEEN] = seen
     }
 
+    override suspend fun setAppsListLayout(layout: AppsListLayout) = edit {
+        it[Keys.APPS_LIST_LAYOUT] = layout.name
+    }
+
     override suspend fun setAiMode(mode: AiMode) = edit {
         it[Keys.AI_MODE] = mode.name
     }
@@ -112,6 +117,7 @@ class DataStoreSettingsRepository @Inject constructor(
         parallelUpdates = this[Keys.PARALLEL_UPDATES] ?: AppSettings().parallelUpdates,
         backgroundMode = resolveBackgroundMode(this),
         longPressHintSeen = this[Keys.LONG_PRESS_HINT_SEEN] ?: AppSettings().longPressHintSeen,
+        appsListLayout = AppsListLayout.fromStoredName(this[Keys.APPS_LIST_LAYOUT]),
         ai = AiSettings(
             mode = AiMode.fromStoredName(this[Keys.AI_MODE]),
             provider = AiProvider.fromStoredName(this[Keys.AI_PROVIDER]),
@@ -145,6 +151,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val PARALLEL_UPDATES = booleanPreferencesKey("parallel_update_checks")
         val BACKGROUND_MODE = stringPreferencesKey("background_mode")
         val LONG_PRESS_HINT_SEEN = booleanPreferencesKey("long_press_hint_seen")
+        val APPS_LIST_LAYOUT = stringPreferencesKey("apps_list_layout")
         val AI_MODE = stringPreferencesKey("ai_mode")
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val AI_OPENAI_BASE_URL = stringPreferencesKey("ai_openai_base_url")

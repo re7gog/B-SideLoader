@@ -43,6 +43,8 @@
     <string name="cd_update_app">Update %1$s</string>
     <string name="hint_long_press">Tip: press and hold an app to select it, then remove or uninstall several at once.</string>
     <string name="hint_dismiss">Dismiss tip</string>
+    <string name="show_as_grid">Show as grid</string>
+    <string name="show_as_list">Show as list</string>
     <string name="no_app_selected_title">No app selected</string>
     <string name="no_app_selected_subtitle">Pick an app on the left to see its details and filters.</string>
 

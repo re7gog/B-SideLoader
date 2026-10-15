@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.core.log.Logger
+import dev.re7gog.b_sideloader.domain.model.AppsListLayout
 import dev.re7gog.b_sideloader.domain.model.InstallProgress
 import dev.re7gog.b_sideloader.domain.model.TrackedApp
 import dev.re7gog.b_sideloader.domain.repository.AppsRepository
@@ -79,11 +80,13 @@ class AppsListViewModel @Inject constructor(
 
     private var checkJob: Job? = null
 
-    private val longPressHintSeen: StateFlow<Boolean> = settingsRepository.settings
-        .map { it.longPressHintSeen }
+    /**
+     * Not given an initial value on purpose: [uiState] then waits for the store, so neither the
+     * hint nor the wrong layout can flash on a cold start.
+     */
+    private val preferences = settingsRepository.settings
+        .map { ListPreferences(hintSeen = it.longPressHintSeen, layout = it.appsListLayout) }
         .distinctUntilChanged()
-        // Assume seen until the store answers, so the hint cannot flash on every cold start.
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     val uiState: StateFlow<AppsListUiState> = combine(
         observeTrackedApps().catch { throwable ->
@@ -92,9 +95,9 @@ class AppsListViewModel @Inject constructor(
         },
         selectedIds,
         updates,
-        longPressHintSeen,
+        preferences,
         installCoordinator.installs.map { it.byAppId() }.distinctUntilChanged(),
-    ) { apps, selected, board, hintSeen, installing ->
+    ) { apps, selected, board, prefs, installing ->
         lastKnownApps = apps
         // Drop ids of apps that disappeared, otherwise the selection count outlives the rows.
         val liveSelection = selected intersect apps.mapTo(mutableSetOf()) { it.app.id }
@@ -104,7 +107,8 @@ class AppsListViewModel @Inject constructor(
             isLoading = false,
             selectedCount = liveSelection.size,
             isRefreshing = board.isChecking,
-            showLongPressHint = !hintSeen && items.size > 1 && liveSelection.isEmpty(),
+            showLongPressHint = !prefs.hintSeen && items.size > 1 && liveSelection.isEmpty(),
+            layout = prefs.layout,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -227,6 +231,12 @@ class AppsListViewModel @Inject constructor(
         viewModelScope.launch { uninstallApps(targets) }
     }
 
+    // ---- display ----------------------------------------------------------------------------
+
+    fun setLayout(layout: AppsListLayout) {
+        viewModelScope.launch { settingsRepository.setAppsListLayout(layout) }
+    }
+
     // ---- hints ------------------------------------------------------------------------------
 
     fun dismissLongPressHint() {
@@ -243,6 +253,9 @@ class AppsListViewModel @Inject constructor(
         entries.mapNotNull { (key, progress) ->
             (key as? InstallKey.App)?.let { it.appId to progress.fraction }
         }.toMap()
+
+    /** The two settings the list reads, so they arrive as one input of [uiState]. */
+    private data class ListPreferences(val hintSeen: Boolean, val layout: AppsListLayout)
 
     private companion object {
         const val TAG = "AppsList"
