@@ -43,7 +43,7 @@ deny_once() {
 }
 
 COMMANDS="ast-index usages X (who uses it), refs X (definition + imports + usages), class X / symbol X (definition), search X (anything), callers X, implementations X, hierarchy X, outline <path/to/File.kt> (members of a file; takes a path, not a bare file name)"
-ESCAPE="If ast-index came back empty, or this really is a text search (string literal, comment, regex), repeat this exact call and it will run. See .claude/rules/ast-index.md."
+ESCAPE="If ast-index came back empty, or this really is a text search (string literal, comment, regex), repeat this exact call and it will run. See AGENTS.md (Code search)."
 
 tool="$(json_str tool_name)"
 
