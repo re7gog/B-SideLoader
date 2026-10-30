@@ -35,7 +35,7 @@ const RECURSIVE_GREPS = [
 
 // Aimed at resources, docs, logs, build output or config: not a symbol search.
 const NON_CODE =
-  /\.[^\s]*\.(xml|md|toml|properties|json|ya?ml|gradle|txt|log|keep|pro)\b|(^|[/\\\s])(res|docs|build|\.github|\.claude|\.opencode)[/\\]/
+  /\.(xml|md|toml|properties|json|ya?ml|gradle|txt|log|keep|pro)\b|(^|[/\\\s])(res|docs|build|\.github|\.claude|\.opencode)[/\\]/
 
 function hash(s: string): string {
   let h = 5381

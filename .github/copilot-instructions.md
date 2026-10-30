@@ -1,7 +1,7 @@
 # Copilot instructions
 
 This project's full guidance for **all** AI coding agents lives in one file:
-[AGENTS.md](../../AGENTS.md) at the repository root. Read it in full before working and follow
+[AGENTS.md](../AGENTS.md) at the repository root. Read it in full before working and follow
 it. The rules that matter most, so you cannot miss them even if you never open the file:
 
 1. **Code search goes through `ast-index` first** — symbol lookups (classes, functions, usages,
