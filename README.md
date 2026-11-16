@@ -103,7 +103,7 @@ You need JDK 25 and the Android SDK (`compileSdk` 37).
 Tip: `TdApi.java` is about 4.8 MB, so set `idea.max.intellisense.filesize=5000` in
 `idea.properties` for the IDE to index it.
 
-[CLAUDE.md](CLAUDE.md) describes the architecture and the main flows, and
+[AGENTS.md](AGENTS.md) describes the architecture and the main flows, and
 [docs/testing.md](docs/testing.md) describes the test suite.
 
 ## Tech stack
