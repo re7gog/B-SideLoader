@@ -5,6 +5,7 @@
 **Find, install and auto-update Android apps straight from GitHub releases and Telegram channels.**
 
 [![Latest release](https://img.shields.io/github/v/release/re7gog/B-SideLoader?include_prereleases&sort=semver)](https://github.com/re7gog/B-SideLoader/releases/latest)
+[![Total downloads](https://img.shields.io/github/downloads/re7gog/B-SideLoader/total)](https://github.com/re7gog/B-SideLoader/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/re7gog/B-SideLoader/android.yml?label=build)](https://github.com/re7gog/B-SideLoader/actions/workflows/android.yml)
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#install)
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-blue)](LICENSE)
