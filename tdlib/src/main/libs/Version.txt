@@ -1,1 +1,2 @@
-https://github.com/TGX-Android/tdlib/tree/ed3e4bac11f60ebacf205cf5dabe6488b9cda0e6
+https://github.com/TGX-Android/tdlib/tree/6c7857c4a5b35e137b36a7428d08313cb85bcb5b
+NDK - 30.0.16248370
