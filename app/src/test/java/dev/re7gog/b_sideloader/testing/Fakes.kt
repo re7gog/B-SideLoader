@@ -234,6 +234,10 @@ class FakeTelegramRepository(
     /** Everything sent to TDLib during sign-in, in order, so a test can assert on the wire format. */
     val sentPhoneNumbers = mutableListOf<String>()
     val sentCodes = mutableListOf<String>()
+    val sentEmailAddresses = mutableListOf<String>()
+    val sentEmailCodes = mutableListOf<String>()
+    override suspend fun sendEmailAddress(email: String) { sentEmailAddresses += email }
+    override suspend fun sendEmailCode(code: String) { sentEmailCodes += code }
     var resendRequests = 0
 
     override suspend fun resendCode() {

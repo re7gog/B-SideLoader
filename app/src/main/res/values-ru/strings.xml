@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">B-SideLoader</string>
+    <string name="auth_email_title">Электронная почта</string>
+    <string name="auth_email_placeholder">name@example.com</string>
+    <string name="auth_email_description">Для продолжения входа Telegram запрашивает адрес электронной почты.</string>
+    <string name="auth_email_code_description">Введите код, отправленный Telegram на %1$s. Проверьте также папку «Спам».</string>
 
     <!-- Navigation / common -->
     <string name="apps">Приложения</string>

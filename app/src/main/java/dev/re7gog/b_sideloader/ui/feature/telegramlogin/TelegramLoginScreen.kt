@@ -112,6 +112,29 @@ fun TelegramLoginScreen(
             Spacer(Modifier.height(32.dp))
 
             when (val step = uiState.step) {
+                AuthStep.EmailAddress -> AuthInputStep(
+                    title = stringResource(R.string.auth_email_title),
+                    description = stringResource(R.string.auth_email_description),
+                    placeholder = stringResource(R.string.auth_email_placeholder),
+                    keyboardType = KeyboardType.Email,
+                    isSubmitting = uiState.isSubmitting,
+                    errorMessage = uiState.errorMessage,
+                    onConfirm = viewModel::submitEmailAddress,
+                )
+                is AuthStep.EmailCode -> AuthInputStep(
+                    title = stringResource(R.string.auth_code_title),
+                    description = stringResource(R.string.auth_email_code_description, step.addressPattern),
+                    placeholder = stringResource(R.string.auth_code_placeholder),
+                    keyboardType = KeyboardType.Number,
+                    isSubmitting = uiState.isSubmitting,
+                    errorMessage = uiState.errorMessage,
+                    onConfirm = viewModel::submitEmailCode,
+                )
+                is AuthStep.Failed -> Text(
+                    text = step.reason,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                )
                 AuthStep.Loading -> {
                     Text(
                         text = stringResource(R.string.initializing_telegram),

@@ -41,6 +41,33 @@ class TelegramLoginScreenTest {
     private var exited = 0
 
     @Test
+    fun emailSignInUsesTheSeparateEmailRequests() {
+        telegram.setAuthState(TelegramAuthState.WaitingForEmailAddress)
+        setContent()
+        composeRule.onNodeWithText(string(R.string.auth_email_placeholder)).performTextInput(" user@example.com ")
+        composeRule.onNodeWithText(string(R.string.auth_continue)).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf("user@example.com"), telegram.sentEmailAddresses)
+        telegram.setAuthState(TelegramAuthState.WaitingForEmailCode("u***@example.com"))
+        composeRule.onNodeWithText(string(R.string.auth_code_placeholder)).performTextInput(" 123456 ")
+        composeRule.onNodeWithText(string(R.string.auth_continue)).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf("123456"), telegram.sentEmailCodes)
+        assertEquals(emptyList<String>(), telegram.sentCodes)
+        telegram.emitAuthError("EMAIL_CODE_INVALID")
+        composeRule.onNodeWithText("EMAIL_CODE_INVALID").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.auth_continue)).assertIsEnabled()
+    }
+
+    @Test
+    fun aStartupFailureIsVisibleEvenWhenItPredatesOpeningLogin() {
+        telegram.setAuthState(TelegramAuthState.Failed("TDLib initialization failed"))
+        setContent()
+        composeRule.onNodeWithText("TDLib initialization failed").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.initializing_telegram)).assertDoesNotExist()
+    }
+
+    @Test
     fun telegramDeliveryExplainsWhereToFindTheCode() {
         telegram.setAuthState(TelegramAuthState.WaitingForCode(TelegramCodeDelivery.Telegram))
         setContent()

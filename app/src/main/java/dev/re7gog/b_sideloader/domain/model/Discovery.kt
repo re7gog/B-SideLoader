@@ -94,7 +94,10 @@ data class TelegramApkDocument(
 /** The Telegram sign-in state, reduced to the steps the login screen actually renders. */
 sealed interface TelegramAuthState {
     data object Initialising : TelegramAuthState
+    data class Failed(val reason: String) : TelegramAuthState
     data object WaitingForPhoneNumber : TelegramAuthState
+    data object WaitingForEmailAddress : TelegramAuthState
+    data class WaitingForEmailCode(val addressPattern: String) : TelegramAuthState
     data class WaitingForCode(
         val delivery: TelegramCodeDelivery = TelegramCodeDelivery.Unknown,
         val canResend: Boolean = false,

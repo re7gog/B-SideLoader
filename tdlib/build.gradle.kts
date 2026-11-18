@@ -5,6 +5,8 @@ plugins {
 }
 
 android {
+    // Match the toolchain recorded for the bundled TDLib binaries in libs/Version.txt.
+    ndkVersion = libs.versions.ndk.get()
     namespace = "org.drinkless.tdlib"
     compileSdk {
         version = release(37) {
@@ -22,6 +24,8 @@ android {
         @Suppress("UnstableApiUsage")
         externalNativeBuild {
             cmake {
+                // The bundled TDLib now links libc++_shared; package the matching NDK runtime.
+                arguments("-DANDROID_STL=c++_shared")
                 val maskSecret = getSecret("MASK_SECRET", "0")
                 val idSecret = getSecret("ID_SECRET", "0")
                 cppFlags("-DMASK_SECRET=$maskSecret", "-DID_SECRET=$idSecret")

@@ -28,6 +28,7 @@ val releaseTag: String = providers.environmentVariable("RELEASE_TAG")
 val releaseVersion: ReleaseVersion? = releaseTag.takeIf { it.isNotEmpty() }?.let(::parseReleaseTag)
 
 android {
+    ndkVersion = libs.versions.ndk.get()
     namespace = "dev.re7gog.b_sideloader"
     compileSdk {
         version = release(37) {

@@ -15,6 +15,7 @@ import dev.re7gog.b_sideloader.domain.model.TelegramTopicSummary
 import dev.re7gog.b_sideloader.domain.repository.TelegramDownload
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
@@ -41,7 +42,9 @@ class TelegramRepositoryImpl @Inject constructor(
 ) : TelegramRepository {
 
     override val authState: Flow<TelegramAuthState> =
-        client.authorizationState.map { it.toAuthState() }
+        combine(client.authorizationState, client.startupError) { state, error ->
+            if (error != null) TelegramAuthState.Failed(error) else state.toAuthState()
+        }
 
     override val authErrors: SharedFlow<String> = client.authErrors
 
@@ -50,6 +53,12 @@ class TelegramRepositoryImpl @Inject constructor(
 
     override suspend fun sendCode(code: String) =
         client.sendAuthRequest(TdApi.CheckAuthenticationCode(code))
+
+    override suspend fun sendEmailAddress(email: String) =
+        client.sendAuthRequest(TdApi.SetAuthenticationEmailAddress(email))
+
+    override suspend fun sendEmailCode(code: String) =
+        client.sendAuthRequest(TdApi.CheckAuthenticationEmailCode(TdApi.EmailAddressAuthenticationCode(code)))
 
     override suspend fun resendCode() {
         client.request(TdApi.ResendAuthenticationCode(null))
@@ -85,7 +94,7 @@ class TelegramRepositoryImpl @Inject constructor(
         // main chat list's). A later page is therefore the tail of a longer request, and the list
         // ends once TDLib returns fewer chats than were asked for.
         val wanted = offset + limit
-        val found = client.requestOrNull<TdApi.Chats>(TdApi.SearchChatsOnServer(query, wanted))
+        val found = client.requestOrNull<TdApi.Chats>(TdApi.SearchChatsOnServer(query, null, wanted))
             ?: return@withContext nothing
         // TDLib delivers the chats themselves via UpdateNewChat *before* it answers the
         // search, so the cache already holds them and no extra round trip is needed.

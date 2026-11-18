@@ -15,6 +15,8 @@ fun TdApi.AuthorizationState?.toAuthState(): TelegramAuthState = when (this) {
     -> TelegramAuthState.Initialising
 
     is TdApi.AuthorizationStateWaitPhoneNumber -> TelegramAuthState.WaitingForPhoneNumber
+    is TdApi.AuthorizationStateWaitEmailAddress -> TelegramAuthState.WaitingForEmailAddress
+    is TdApi.AuthorizationStateWaitEmailCode -> TelegramAuthState.WaitingForEmailCode(codeInfo.emailAddressPattern)
     is TdApi.AuthorizationStateWaitCode -> TelegramAuthState.WaitingForCode(
         delivery = when (codeInfo.type) {
             is TdApi.AuthenticationCodeTypeTelegramMessage -> TelegramCodeDelivery.Telegram
@@ -43,9 +45,8 @@ fun TdApi.AuthorizationState?.toAuthState(): TelegramAuthState = when (this) {
     is TdApi.AuthorizationStateClosed,
     -> TelegramAuthState.LoggedOut
 
-    // Covers the states the login flow has nothing to show for (e.g. e-mail confirmation),
-    // which then render as the neutral loading step rather than crashing an exhaustive `when`.
-    else -> TelegramAuthState.Initialising
+    // An unsupported step is not initialization: preserve its name so it can be diagnosed.
+    else -> TelegramAuthState.Failed("Unsupported Telegram sign-in step: ${javaClass.simpleName}")
 }
 
 fun TdApi.Chat.toDomain(isForum: Boolean, username: String? = null): TelegramChatSummary =

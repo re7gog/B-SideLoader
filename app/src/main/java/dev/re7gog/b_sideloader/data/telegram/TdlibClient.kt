@@ -39,6 +39,8 @@ class TdlibClient @Inject constructor(
 ) {
     private val _authorizationState = MutableStateFlow<TdApi.AuthorizationState?>(null)
     val authorizationState: StateFlow<TdApi.AuthorizationState?> = _authorizationState.asStateFlow()
+    private val _startupError = MutableStateFlow<String?>(null)
+    val startupError: StateFlow<String?> = _startupError.asStateFlow()
 
     /** Chats seen via `UpdateNewChat`, used to resolve ids returned by server-side search. */
     private val _chats = MutableStateFlow<Map<Long, TdApi.Chat>>(emptyMap())
@@ -53,7 +55,9 @@ class TdlibClient @Inject constructor(
 
     /** Forces creation of the native client. Called once at startup. */
     fun start() {
-        client
+        runCatchingCancellable { client }
+            .onFailure { _startupError.value = "TDLib startup failed: ${it.javaClass.simpleName}: ${it.message}" }
+            .getOrThrow()
     }
 
     private fun createClient(): Client {
@@ -61,8 +65,14 @@ class TdlibClient @Inject constructor(
         if (!BuildConfig.DEBUG) silenceNativeLog()
         return Client.create(
             { update -> onUpdate(update) },
-            { error -> logger.e(TAG, error) { "TDLib update handler failed" } },
-            { error -> logger.e(TAG, error) { "TDLib default handler failed" } },
+            { error ->
+                _startupError.value = "TDLib update failed: ${error.javaClass.simpleName}: ${error.message}"
+                logger.e(TAG, error) { "TDLib update handler failed" }
+            },
+            { error ->
+                _startupError.value = "TDLib handler failed: ${error.javaClass.simpleName}: ${error.message}"
+                logger.e(TAG, error) { "TDLib default handler failed" }
+            },
         )
     }
 
@@ -90,7 +100,11 @@ class TdlibClient @Inject constructor(
                 if (update.authorizationState is TdApi.AuthorizationStateWaitTdlibParameters) {
                     // The only request TDLib accepts in this state; everything else is queued
                     // by TDLib until it has been answered.
-                    fireAndForget(parameters)
+                    client.send(parameters) { result ->
+                        if (result is TdApi.Error) {
+                            _startupError.value = "TDLib initialization failed (${result.code}): ${result.message}"
+                        }
+                    }
                 }
             }
 

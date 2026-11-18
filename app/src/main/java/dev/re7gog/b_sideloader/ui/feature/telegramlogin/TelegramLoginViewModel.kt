@@ -22,7 +22,10 @@ import javax.inject.Inject
 @Immutable
 sealed interface AuthStep {
     data object Loading : AuthStep
+    data class Failed(val reason: String) : AuthStep
     data object PhoneNumber : AuthStep
+    data object EmailAddress : AuthStep
+    data class EmailCode(val addressPattern: String) : AuthStep
     data class Code(
         val delivery: TelegramCodeDelivery,
         val canResend: Boolean,
@@ -93,6 +96,8 @@ class TelegramLoginViewModel @Inject constructor(
     fun submitPhoneNumber(raw: String) = submit { telegramRepository.sendPhoneNumber(normalizePhone(raw)) }
 
     fun submitCode(code: String) = submit { telegramRepository.sendCode(code.trim()) }
+    fun submitEmailAddress(email: String) = submit { telegramRepository.sendEmailAddress(email.trim()) }
+    fun submitEmailCode(code: String) = submit { telegramRepository.sendEmailCode(code.trim()) }
 
     fun submitPassword(password: String) = submit { telegramRepository.sendPassword(password) }
 
@@ -139,7 +144,10 @@ class TelegramLoginViewModel @Inject constructor(
 
     private fun TelegramAuthState.toStep(): AuthStep = when (this) {
         TelegramAuthState.Initialising -> AuthStep.Loading
+        is TelegramAuthState.Failed -> AuthStep.Failed(reason)
         TelegramAuthState.WaitingForPhoneNumber -> AuthStep.PhoneNumber
+        TelegramAuthState.WaitingForEmailAddress -> AuthStep.EmailAddress
+        is TelegramAuthState.WaitingForEmailCode -> AuthStep.EmailCode(addressPattern)
         is TelegramAuthState.WaitingForCode -> AuthStep.Code(delivery, canResend, resendTimeoutSeconds)
         TelegramAuthState.WaitingForPassword -> AuthStep.Password
         TelegramAuthState.Ready -> AuthStep.Ready
