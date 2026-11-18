@@ -95,11 +95,17 @@ data class TelegramApkDocument(
 sealed interface TelegramAuthState {
     data object Initialising : TelegramAuthState
     data object WaitingForPhoneNumber : TelegramAuthState
-    data object WaitingForCode : TelegramAuthState
+    data class WaitingForCode(
+        val delivery: TelegramCodeDelivery = TelegramCodeDelivery.Unknown,
+        val canResend: Boolean = false,
+        val resendTimeoutSeconds: Int = 0,
+    ) : TelegramAuthState
     data object WaitingForPassword : TelegramAuthState
     data object Ready : TelegramAuthState
     data object LoggedOut : TelegramAuthState
 }
+
+enum class TelegramCodeDelivery { Telegram, Sms, Call, Fragment, Firebase, Unknown }
 
 /** The signed-in Telegram account, as shown on the settings page. */
 data class TelegramAccount(

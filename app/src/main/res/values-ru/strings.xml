@@ -198,7 +198,15 @@
     <string name="auth_phone_description">Введите номер с кодом страны в любом формате. Мы отправим вам код.</string>
     <string name="auth_phone_placeholder" tools:ignore="TypographyDashes">напр. +7 (900) 000-0000</string>
     <string name="auth_code_title">Введите код</string>
-    <string name="auth_code_description">Мы отправили код в ваше приложение Telegram или по SMS.</string>
+    <string name="auth_code_description">Telegram запрашивает код входа. Проверьте приложения, в которых вы уже вошли в Telegram.</string>
+    <string name="auth_code_telegram">Проверьте служебный чат Telegram в приложении, где вы уже вошли в аккаунт. Этот код не отправляется по SMS.</string>
+    <string name="auth_code_sms">Telegram выбрал доставку по SMS. Введите код, слово или фразу из сообщения.</string>
+    <string name="auth_code_call">Telegram выбрал доставку звонком. Следуйте инструкциям звонка; для пропущенного или короткого звонка используйте запрошенные цифры номера звонящего.</string>
+    <string name="auth_code_fragment">Telegram выбрал доставку через Fragment. Проверьте код входа для своего номера на Fragment.</string>
+    <string name="auth_code_firebase">Этот способ доставки SMS требует официального приложения Telegram. Сначала войдите там, затем повторите попытку здесь или запросите другой способ ниже, если он доступен.</string>
+    <string name="auth_resend">Запросить другой код</string>
+    <string name="auth_resend_countdown">Запросить другой код через %1$d с</string>
+    <string name="auth_no_resend">Telegram не предложил другой способ доставки. Проверьте активный сеанс Telegram или сначала войдите в официальное приложение Telegram и повторите попытку здесь.</string>
     <string name="auth_code_placeholder">12345</string>
     <string name="auth_password_title">Двухэтапная проверка</string>
     <string name="auth_password_description">Введите облачный пароль (2FA), чтобы завершить вход.</string>

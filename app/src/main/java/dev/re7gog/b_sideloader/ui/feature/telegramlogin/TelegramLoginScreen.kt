@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.re7gog.b_sideloader.R
+import dev.re7gog.b_sideloader.domain.model.TelegramCodeDelivery
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +89,8 @@ fun TelegramLoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -105,7 +111,7 @@ fun TelegramLoginScreen(
             }
             Spacer(Modifier.height(32.dp))
 
-            when (uiState.step) {
+            when (val step = uiState.step) {
                 AuthStep.Loading -> {
                     Text(
                         text = stringResource(R.string.initializing_telegram),
@@ -125,16 +131,34 @@ fun TelegramLoginScreen(
                     onConfirm = viewModel::submitPhoneNumber,
                 )
 
-                AuthStep.Code -> AuthInputStep(
-                    title = stringResource(R.string.auth_code_title),
-                    description = stringResource(R.string.auth_code_description),
-                    placeholder = stringResource(R.string.auth_code_placeholder),
-                    keyboardType = KeyboardType.Number,
-                    isSubmitting = uiState.isSubmitting,
-                    errorMessage = uiState.errorMessage,
-                    onConfirm = viewModel::submitCode,
-                    onBackToPhone = viewModel::goBackToPhone,
-                )
+                is AuthStep.Code -> {
+                    AuthInputStep(
+                        title = stringResource(R.string.auth_code_title),
+                        description = stringResource(step.delivery.descriptionResource()),
+                        placeholder = stringResource(R.string.auth_code_placeholder),
+                        keyboardType = KeyboardType.Text,
+                        isSubmitting = uiState.isSubmitting,
+                        errorMessage = uiState.errorMessage,
+                        onConfirm = viewModel::submitCode,
+                        onBackToPhone = viewModel::goBackToPhone,
+                    )
+                    if (step.canResend) {
+                        TextButton(
+                            onClick = viewModel::resendCode,
+                            enabled = !uiState.isSubmitting && step.resendSeconds == 0,
+                        ) {
+                            Text(
+                                if (step.resendSeconds > 0) {
+                                    stringResource(R.string.auth_resend_countdown, step.resendSeconds)
+                                } else {
+                                    stringResource(R.string.auth_resend)
+                                },
+                            )
+                        }
+                    } else {
+                        Text(stringResource(R.string.auth_no_resend), textAlign = TextAlign.Center)
+                    }
+                }
 
                 AuthStep.Password -> AuthInputStep(
                     title = stringResource(R.string.auth_password_title),
@@ -152,6 +176,16 @@ fun TelegramLoginScreen(
             }
         }
     }
+}
+
+@androidx.annotation.StringRes
+private fun TelegramCodeDelivery.descriptionResource(): Int = when (this) {
+    TelegramCodeDelivery.Telegram -> R.string.auth_code_telegram
+    TelegramCodeDelivery.Sms -> R.string.auth_code_sms
+    TelegramCodeDelivery.Call -> R.string.auth_code_call
+    TelegramCodeDelivery.Fragment -> R.string.auth_code_fragment
+    TelegramCodeDelivery.Firebase -> R.string.auth_code_firebase
+    TelegramCodeDelivery.Unknown -> R.string.auth_code_description
 }
 
 /**

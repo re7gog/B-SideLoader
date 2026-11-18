@@ -51,6 +51,10 @@ class TelegramRepositoryImpl @Inject constructor(
     override suspend fun sendCode(code: String) =
         client.sendAuthRequest(TdApi.CheckAuthenticationCode(code))
 
+    override suspend fun resendCode() {
+        client.request(TdApi.ResendAuthenticationCode(null))
+    }
+
     override suspend fun sendPassword(password: String) =
         client.sendAuthRequest(TdApi.CheckAuthenticationPassword(password))
 

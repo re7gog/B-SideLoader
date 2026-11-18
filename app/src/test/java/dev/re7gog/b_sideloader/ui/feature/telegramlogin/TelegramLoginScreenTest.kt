@@ -9,10 +9,13 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.re7gog.b_sideloader.R
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
+import dev.re7gog.b_sideloader.domain.model.TelegramCodeDelivery
+import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.testing.FakeTelegramRepository
 import dev.re7gog.b_sideloader.ui.theme.BSideLoaderTheme
 import org.junit.Assert.assertEquals
@@ -37,6 +40,44 @@ class TelegramLoginScreenTest {
     private var signedIn = 0
     private var exited = 0
 
+    @Test
+    fun telegramDeliveryExplainsWhereToFindTheCode() {
+        telegram.setAuthState(TelegramAuthState.WaitingForCode(TelegramCodeDelivery.Telegram))
+        setContent()
+        composeRule.onNodeWithText(string(R.string.auth_code_telegram)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.auth_no_resend)).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.auth_resend)).assertDoesNotExist()
+    }
+
+    @Test
+    fun resendRequestsAnotherCodeAndUnlocksEvenWithoutAStateChange() {
+        telegram.setAuthState(TelegramAuthState.WaitingForCode(canResend = true))
+        setContent()
+        composeRule.onNodeWithText(string(R.string.auth_resend)).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, telegram.resendRequests)
+        composeRule.onNodeWithText(string(R.string.auth_resend)).assertIsEnabled()
+    }
+
+    @Test
+    fun resendFailureIsVisibleAndCanBeRetried() {
+        telegram.failure = AppError.Telegram(429, "FLOOD_WAIT_60")
+        telegram.setAuthState(TelegramAuthState.WaitingForCode(canResend = true))
+        setContent()
+        composeRule.onNodeWithText(string(R.string.auth_resend)).performScrollTo().performClick()
+        composeRule.onNodeWithText("FLOOD_WAIT_60").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.auth_resend)).assertIsEnabled()
+    }
+
+    @Test
+    fun resendIsDisabledDuringTheServerTimeout() {
+        telegram.setAuthState(TelegramAuthState.WaitingForCode(canResend = true, resendTimeoutSeconds = 60))
+        setContent()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.auth_resend_countdown, 60))
+            .assertIsNotEnabled()
+        assertEquals(0, telegram.resendRequests)
+    }
+
     /** TDLib wants `+<digits>`; people type spaces, dashes, brackets and `00`. */
     @Test
     fun aPhoneNumberIsSentInTheFormTdlibRequires() {
@@ -60,7 +101,7 @@ class TelegramLoginScreenTest {
     fun theScreenFollowsTheStepTdlibAsksFor() {
         setContent()
 
-        telegram.setAuthState(TelegramAuthState.WaitingForCode)
+        telegram.setAuthState(TelegramAuthState.WaitingForCode())
         composeRule.onNodeWithText(string(R.string.auth_code_title)).assertIsDisplayed()
 
         telegram.setAuthState(TelegramAuthState.WaitingForPassword)
@@ -69,7 +110,7 @@ class TelegramLoginScreenTest {
 
     @Test
     fun theCodeIsSentTrimmed() {
-        telegram.setAuthState(TelegramAuthState.WaitingForCode)
+        telegram.setAuthState(TelegramAuthState.WaitingForCode())
         setContent()
 
         composeRule.onNodeWithText(string(R.string.auth_code_placeholder)).performTextInput(" 12345 ")
@@ -82,7 +123,7 @@ class TelegramLoginScreenTest {
     /** A rejected code must be visible, and the form usable again for a second try. */
     @Test
     fun anErrorFromTdlibIsShownAndTheFormUnlocks() {
-        telegram.setAuthState(TelegramAuthState.WaitingForCode)
+        telegram.setAuthState(TelegramAuthState.WaitingForCode())
         setContent()
         composeRule.onNodeWithText(string(R.string.auth_code_placeholder)).performTextInput("00000")
         composeRule.onNodeWithText(string(R.string.auth_continue)).performClick()
@@ -95,7 +136,7 @@ class TelegramLoginScreenTest {
 
     @Test
     fun aWrongNumberCanBeCorrectedFromTheCodeStep() {
-        telegram.setAuthState(TelegramAuthState.WaitingForCode)
+        telegram.setAuthState(TelegramAuthState.WaitingForCode())
         setContent()
 
         composeRule.onNodeWithText(string(R.string.auth_change_phone)).performClick()
@@ -106,7 +147,7 @@ class TelegramLoginScreenTest {
     /** Back from the code step returns to the phone number instead of abandoning the sign-in. */
     @Test
     fun backFromTheCodeStepGoesToThePhoneStep() {
-        telegram.setAuthState(TelegramAuthState.WaitingForCode)
+        telegram.setAuthState(TelegramAuthState.WaitingForCode())
         setContent()
 
         composeRule.onNodeWithContentDescription(string(R.string.cd_back)).performClick()

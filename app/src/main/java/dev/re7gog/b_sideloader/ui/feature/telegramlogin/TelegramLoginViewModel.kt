@@ -5,7 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
+import dev.re7gog.b_sideloader.domain.model.TelegramCodeDelivery
+import dev.re7gog.b_sideloader.domain.error.AppError
 import dev.re7gog.b_sideloader.domain.repository.TelegramRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +23,11 @@ import javax.inject.Inject
 sealed interface AuthStep {
     data object Loading : AuthStep
     data object PhoneNumber : AuthStep
-    data object Code : AuthStep
+    data class Code(
+        val delivery: TelegramCodeDelivery,
+        val canResend: Boolean,
+        val resendSeconds: Int,
+    ) : AuthStep
     data object Password : AuthStep
     data object Ready : AuthStep
 }
@@ -60,12 +68,18 @@ class TelegramLoginViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            telegramRepository.authState.collect { state ->
+            telegramRepository.authState.collectLatest { state ->
                 // A real state change from TDLib supersedes any manual back navigation.
                 manualStep.value = null
                 isSubmitting.value = false
                 errorMessage.value = null
                 serverStep.value = state.toStep()
+                if (state is TelegramAuthState.WaitingForCode && state.canResend) {
+                    for (remaining in state.resendTimeoutSeconds downTo 1) {
+                        delay(SECOND_MS)
+                        serverStep.value = AuthStep.Code(state.delivery, true, remaining - 1)
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -81,6 +95,22 @@ class TelegramLoginViewModel @Inject constructor(
     fun submitCode(code: String) = submit { telegramRepository.sendCode(code.trim()) }
 
     fun submitPassword(password: String) = submit { telegramRepository.sendPassword(password) }
+
+    fun resendCode() {
+        val step = serverStep.value as? AuthStep.Code ?: return
+        if (manualStep.value != null || isSubmitting.value || !step.canResend || step.resendSeconds > 0) return
+        errorMessage.value = null
+        isSubmitting.value = true
+        viewModelScope.launch {
+            try {
+                telegramRepository.resendCode()
+            } catch (error: AppError.Telegram) {
+                errorMessage.value = error.reason
+            } finally {
+                isSubmitting.value = false
+            }
+        }
+    }
 
     fun goBackToPhone() {
         errorMessage.value = null
@@ -110,7 +140,7 @@ class TelegramLoginViewModel @Inject constructor(
     private fun TelegramAuthState.toStep(): AuthStep = when (this) {
         TelegramAuthState.Initialising -> AuthStep.Loading
         TelegramAuthState.WaitingForPhoneNumber -> AuthStep.PhoneNumber
-        TelegramAuthState.WaitingForCode -> AuthStep.Code
+        is TelegramAuthState.WaitingForCode -> AuthStep.Code(delivery, canResend, resendTimeoutSeconds)
         TelegramAuthState.WaitingForPassword -> AuthStep.Password
         TelegramAuthState.Ready -> AuthStep.Ready
         TelegramAuthState.LoggedOut -> AuthStep.PhoneNumber
@@ -118,5 +148,6 @@ class TelegramLoginViewModel @Inject constructor(
 
     private companion object {
         const val INTERNATIONAL_PREFIX = "00"
+        const val SECOND_MS = 1_000L
     }
 }

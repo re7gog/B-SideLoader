@@ -195,7 +195,15 @@
     <string name="auth_phone_description">Type your number with the country code in any format. We’ll send you a code.</string>
     <string name="auth_phone_placeholder" tools:ignore="TypographyDashes">e.g. +1 (555) 000-0000</string>
     <string name="auth_code_title">Enter the code</string>
-    <string name="auth_code_description">We sent a code to your Telegram app or via SMS.</string>
+    <string name="auth_code_description">Telegram is asking for a login code. Check your signed-in Telegram sessions.</string>
+    <string name="auth_code_telegram">Check the Telegram service chat in an app where you are already signed in. This code is not sent by SMS.</string>
+    <string name="auth_code_sms">Telegram selected SMS delivery. Enter the code, word, or phrase from the message.</string>
+    <string name="auth_code_call">Telegram selected phone call delivery. Follow the call instructions; for a missed or flash call, use the requested digits of the caller number.</string>
+    <string name="auth_code_fragment">Telegram selected Fragment delivery. Check your number on Fragment for the login code.</string>
+    <string name="auth_code_firebase">This SMS method requires an official Telegram app. Sign in there first, then try again here, or request another method below if available.</string>
+    <string name="auth_resend">Request another code</string>
+    <string name="auth_resend_countdown">Request another code in %1$d s</string>
+    <string name="auth_no_resend">Telegram has not offered another delivery method. Check an existing Telegram session, or sign in to the official Telegram app first and try again here.</string>
     <string name="auth_code_placeholder">12345</string>
     <string name="auth_password_title">Two-step verification</string>
     <string name="auth_password_description">Enter your cloud password (2FA) to finish signing in.</string>

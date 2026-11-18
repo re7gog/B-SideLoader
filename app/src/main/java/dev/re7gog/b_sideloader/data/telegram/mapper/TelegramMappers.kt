@@ -3,6 +3,7 @@ package dev.re7gog.b_sideloader.data.telegram.mapper
 import dev.re7gog.b_sideloader.domain.model.TelegramApkDocument
 import dev.re7gog.b_sideloader.domain.model.TelegramAuthState
 import dev.re7gog.b_sideloader.domain.model.TelegramChatSummary
+import dev.re7gog.b_sideloader.domain.model.TelegramCodeDelivery
 import dev.re7gog.b_sideloader.domain.model.TelegramTopicSummary
 import org.drinkless.tdlib.TdApi
 
@@ -14,7 +15,26 @@ fun TdApi.AuthorizationState?.toAuthState(): TelegramAuthState = when (this) {
     -> TelegramAuthState.Initialising
 
     is TdApi.AuthorizationStateWaitPhoneNumber -> TelegramAuthState.WaitingForPhoneNumber
-    is TdApi.AuthorizationStateWaitCode -> TelegramAuthState.WaitingForCode
+    is TdApi.AuthorizationStateWaitCode -> TelegramAuthState.WaitingForCode(
+        delivery = when (codeInfo.type) {
+            is TdApi.AuthenticationCodeTypeTelegramMessage -> TelegramCodeDelivery.Telegram
+            is TdApi.AuthenticationCodeTypeSms,
+            is TdApi.AuthenticationCodeTypeSmsWord,
+            is TdApi.AuthenticationCodeTypeSmsPhrase,
+            -> TelegramCodeDelivery.Sms
+            is TdApi.AuthenticationCodeTypeCall,
+            is TdApi.AuthenticationCodeTypeFlashCall,
+            is TdApi.AuthenticationCodeTypeMissedCall,
+            -> TelegramCodeDelivery.Call
+            is TdApi.AuthenticationCodeTypeFragment -> TelegramCodeDelivery.Fragment
+            is TdApi.AuthenticationCodeTypeFirebaseAndroid,
+            is TdApi.AuthenticationCodeTypeFirebaseIos,
+            -> TelegramCodeDelivery.Firebase
+            else -> TelegramCodeDelivery.Unknown
+        },
+        canResend = codeInfo.nextType != null,
+        resendTimeoutSeconds = codeInfo.timeout.coerceAtLeast(0),
+    )
     is TdApi.AuthorizationStateWaitPassword -> TelegramAuthState.WaitingForPassword
     is TdApi.AuthorizationStateReady -> TelegramAuthState.Ready
 

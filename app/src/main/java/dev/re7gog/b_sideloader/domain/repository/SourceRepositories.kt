@@ -44,6 +44,8 @@ interface TelegramRepository {
 
     suspend fun sendPhoneNumber(phoneNumber: String)
     suspend fun sendCode(code: String)
+    /** Requests the next delivery method after Telegram's timeout; throws on failure. */
+    suspend fun resendCode()
     suspend fun sendPassword(password: String)
     suspend fun logOut()
 
